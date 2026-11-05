@@ -501,7 +501,7 @@ details.more[open] summary{color:var(--cyan)}
 
   <section class="view" id="v-rank" hidden>
     <div class="view-head"><div><div class="eyebrow">수익률 = (현재 자산 − 10,000P) ÷ 10,000P</div><h2>랭킹</h2></div><span class="hint" id="rankAt"></span></div>
-    <div class="lbl" style="margin-bottom:6px">반별 순위 · 반 평균 수익률</div>
+    <div class="lbl" style="margin-bottom:6px">반별 순위 · 반 평균 수익률 (아래에서 전체 순위나 반별 순위를 고르세요)</div>
     <div class="class-board" id="classBoard"></div>
     <div class="class-tabs" id="classTabs"></div>
     <div class="tbl-wrap"><table class="t" id="rankTbl"></table></div>
@@ -1301,11 +1301,11 @@ function renderRank(){
   let place=0;
   board.innerHTML=RANK.classes.map(c=>{const has=c.avg!=null;if(has)place++;
     return `<button type="button" class="cboard ${has&&place===1?'first':''}" data-c="${c.cls}" aria-pressed="${c.cls===rankCls}"><span class="rk">${has?place+'위':'–'}</span><b>${c.cls}반</b><span class="rate ${has?(c.avg>=0?'pos':'neg'):''}">${has?pfmt(c.avg):'참가자 없음'}</span><small>${c.n}명${c.top?' · 1등 '+esc(c.top.name):''}</small></button>`;}).join('');
-  $('#classTabs').innerHTML=[1,2,3,4,5,6,7].map(k=>`<button type="button" data-c="${k}" aria-pressed="${k===rankCls}">${k}반</button>`).join('');
-  const list=RANK.byClass[rankCls]||[];
-  tbl.innerHTML=`<thead><tr><th>순위</th><th>번호</th><th>이름</th><th class="n">자산</th><th class="n">수익률</th><th class="n">판수</th></tr></thead><tbody>${
-    list.length?list.map((u,i)=>`<tr class="${S.me&&u.sid===S.me.sid?'me':''}"><td><span class="medal ${i<3?'m'+(i+1):''}">${i+1}</span></td><td>${u.grade}학년 ${u.num}번</td><td>${esc(u.name)}${S.me&&u.sid===S.me.sid?' <span class="tag on">나</span>':''}</td><td class="n">${fmt(u.bal)}${u.debt?' <span class="debt-tag">빚 '+fmt(u.debt)+'</span>':''}</td><td class="n ${u.rate>=0?'pos':'neg'}">${pfmt(u.rate)}</td><td class="n">${u.rounds}</td></tr>`).join('')
-    :`<tr><td colspan="6" class="hint" style="text-align:center;padding:20px">${rankCls}반에는 아직 가입한 학생이 없습니다.</td></tr>`}</tbody>`;
+  $('#classTabs').innerHTML=[0,1,2,3,4,5,6,7].map(k=>`<button type="button" data-c="${k}" aria-pressed="${k===rankCls}">${k?k+'반':'전체'}</button>`).join('');
+  const list=rankCls===0?(RANK.all||[]):(RANK.byClass[rankCls]||[]);
+  tbl.innerHTML=`<thead><tr><th>순위</th><th>${rankCls===0?'반 · 번호':'번호'}</th><th>이름</th><th class="n">자산</th><th class="n">수익률</th><th class="n">판수</th></tr></thead><tbody>${
+    list.length?list.map((u,i)=>`<tr class="${S.me&&u.sid===S.me.sid?'me':''}"><td><span class="medal ${i<3?'m'+(i+1):''}">${i+1}</span></td><td>${rankCls===0?u.grade+'학년 '+u.cls+'반 '+u.num+'번':u.grade+'학년 '+u.num+'번'}</td><td>${esc(u.name)}${S.me&&u.sid===S.me.sid?' <span class="tag on">나</span>':''}</td><td class="n">${fmt(u.bal)}${u.debt?' <span class="debt-tag">빚 '+fmt(u.debt)+'</span>':''}</td><td class="n ${u.rate>=0?'pos':'neg'}">${pfmt(u.rate)}</td><td class="n">${u.rounds}</td></tr>`).join('')
+    :`<tr><td colspan="6" class="hint" style="text-align:center;padding:20px">${rankCls?rankCls+'반에는 ':''}아직 가입한 학생이 없습니다.</td></tr>`}</tbody>`;
 }
 $('#classBoard').addEventListener('click',e=>{const b=e.target.closest('[data-c]');if(b){rankCls=+b.dataset.c;renderRank();}});
 $('#classTabs').addEventListener('click',e=>{const b=e.target.closest('[data-c]');if(b){rankCls=+b.dataset.c;renderRank();}});

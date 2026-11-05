@@ -171,7 +171,7 @@ function pushBal(sid, extra) {
 function rankData() {
   const byClass = {};
   for (let k = 1; k <= 7; k++) byClass[k] = [];
-  for (const u of Object.values(DB.users)) byClass[u.cls] && byClass[u.cls].push({ sid: u.sid, name: u.name, grade: u.grade, num: u.num, bal: worth(u), debt: debtOf(u), rate: Math.round(rate(u) * 10) / 10, rounds: u.stats.rounds });
+  for (const u of Object.values(DB.users)) byClass[u.cls] && byClass[u.cls].push({ sid: u.sid, name: u.name, grade: u.grade, cls: u.cls, num: u.num, bal: worth(u), debt: debtOf(u), rate: Math.round(rate(u) * 10) / 10, rounds: u.stats.rounds });
   const classes = [];
   for (let k = 1; k <= 7; k++) {
     const l = byClass[k].sort((a, b) => b.rate - a.rate || b.bal - a.bal || a.num - b.num);
@@ -179,7 +179,9 @@ function rankData() {
     classes.push({ cls: k, n: l.length, avg, total: l.reduce((s, x) => s + x.bal, 0), top: l[0] ? { name: l[0].name, num: l[0].num, rate: l[0].rate } : null });
   }
   classes.sort((a, b) => (b.avg == null ? -1e9 : b.avg) - (a.avg == null ? -1e9 : a.avg) || a.cls - b.cls);
-  return { t: 'rank', classes, byClass, at: Date.now() };
+  // 전체 순위: 모든 반 학생을 수익률 순으로
+  const all = [].concat(...Object.values(byClass)).sort((a, b) => b.rate - a.rate || b.bal - a.bal || a.cls - b.cls || a.num - b.num);
+  return { t: 'rank', classes, byClass, all, at: Date.now() };
 }
 let rankTimer = null;
 function scheduleRank() {
