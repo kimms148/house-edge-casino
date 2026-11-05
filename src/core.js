@@ -50,12 +50,14 @@ function resolve(g,bet,gen,payOf){
   else if(b>0&&pay<=bet&&rnd()<b){for(let i=0;i<120;i++){const o2=gen(),p2=payOf(o2);if(p2>bet){o=o2;pay=p2;manip=true;break;}}}
   return{o,pay,fairPay,manip,b};
 }
+const isPaused=g=>{const p=CFG.paused||{};return !!(p.all||(p.games&&p.games[g]));};
 function applyCfg(d){
   if(!d||typeof d!=='object')return;
   if((+d.v||0)<(+CFG.v||0))return;
   CFG=Object.assign(JSON.parse(JSON.stringify(DEF_CFG)),JSON.parse(JSON.stringify(d)));
   CFG.lure=Object.assign({},DEF_CFG.lure,CFG.lure||{});
   checkReveal();
+  paintPaused();
   if(S.admin)syncRigPanel();
 }
 
@@ -283,7 +285,8 @@ function choose(i){if(busy||!cur)return;const list=cur.choices();if(i<0||i>=list
 function setPlayBtn(){
   const b=$('#playBtn');
   if(cur&&cur.id==='crash'&&busy&&GAMES.crash.running){b.classList.add('cash');b.disabled=false;b.textContent='캐시아웃 '+GAMES.crash.m.toFixed(2)+'x';return;}
-  b.classList.remove('cash');b.disabled=busy;b.textContent=busy?'진행 중…':(cur&&cur.playLabel)||'베팅';
+  const pz=!busy&&cur&&isPaused(cur.id);
+  b.classList.remove('cash');b.disabled=busy||pz;b.textContent=busy?'진행 중…':pz?'관리자가 이 게임을 멈췄습니다':(cur&&cur.playLabel)||'베팅';
 }
 async function play(){
   if(!cur||!S.me)return;
@@ -295,6 +298,7 @@ async function play(){
   if(cur.listChoices&&!list.length){toast('출전 정보를 불러오는 중입니다');return;}
   if(list.length&&choice==null){toast((cur.choiceLabel||'선택')+'을(를) 먼저 고르세요');return;}
   if(S.chat&&S.chat.open){handleChat();return;}
+  if(isPaused(cur.id)){toast('지금은 관리자가 이 게임을 멈춰 두었습니다');setPlayBtn();return;}
   busy=true;setPlayBtn();
   const ack=await betRequest(cur.id,bet);
   if(ack.t!=='betok'){busy=false;setPlayBtn();toast(ack.msg||'베팅할 수 없습니다');if(ack.bal!=null){S.bal=ack.bal;updateBal();}return;}

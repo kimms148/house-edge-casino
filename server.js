@@ -197,6 +197,7 @@ function usersMsg() {
     sid: u.sid, name: u.name, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: u.loan ? { principal: u.loan.principal, at: u.loan.at, debt: debtOf(u), expired: loanExpired(u) } : null, chatOpen: !!(chatOf(u.sid) && chatOf(u.sid).open), stats: { rounds: u.stats.rounds, wins: u.stats.wins, net: u.stats.net, wag: u.stats.wag, manip: u.stats.manip, md: u.stats.md },
     pending: u.pending ? { g: u.pending.g, bet: u.pending.bet } : null, online: online[u.sid] ? online[u.sid].n : 0, presence: online[u.sid] ? online[u.sid].presence : null,
     last: u.hist.length ? u.hist[u.hist.length - 1] : null, created: u.created,
+    loanStats: (u.loans || []).reduce((a, l) => { a.n++; a.lent += l.principal; if (l.repaidAt) { a.repaid += l.principal; a.interest += (l.paid || l.principal) - l.principal; } if (l.forgivenAt) a.forgiven += l.principal; return a; }, { n: 0, lent: 0, repaid: 0, interest: 0, forgiven: 0 }),
   })).sort((a, b) => b.online - a.online || a.cls - b.cls || a.num - b.num);
   return { t: 'users', users };
 }
@@ -295,6 +296,8 @@ wss.on('connection', ws => {
         if (!GAMES.includes(g) || !(bet >= 1)) return send(c, { t: 'betno', msg: '베팅 금액을 확인하세요.' });
         if (u.pending) return send(c, { t: 'betno', msg: '다른 창에서 진행 중인 판이 있습니다.' });
         if (chatOf(u.sid) && chatOf(u.sid).open) return send(c, { t: 'betno', msg: '관리자와 대화 중에는 게임을 할 수 없습니다.' });
+        const pz = (DB.meta.cfg && DB.meta.cfg.paused) || {};
+        if (pz.all || (pz.games && pz.games[g])) return send(c, { t: 'betno', msg: pz.all ? '지금은 관리자가 모든 게임을 멈춰 두었습니다.' : '지금은 관리자가 이 게임을 멈춰 두었습니다.' });
         if (loanExpired(u)) return send(c, { t: 'betno', msg: '대출 사용 기간(24시간)이 끝났습니다. 대출 탭에서 갚아야 게임을 할 수 있습니다.', loan: true });
         if (bet > u.bal) return send(c, { t: 'betno', msg: '보유 포인트가 부족합니다.', bal: u.bal });
         u.bal -= bet; u.pending = { g, bet, conn: c.id, t: Date.now() };
@@ -396,7 +399,7 @@ wss.on('connection', ws => {
           ch.msgs.push({ from: 'system', body: '관리자가 대화를 끝냈습니다.', t: Date.now() });
           saveChat(tu.sid, ch); pushChat(tu.sid); scheduleUsers(); return ack(true, tu.name + ' 학생과의 대화를 끝냈습니다.');
         }
-        if (m.op === 'forgive') { if (!tu.loan) return ack(false, '대출이 없습니다.'); tu.loan = null; store.saveUser(tu); pushBal(tu.sid, { by: 'admin' }); scheduleUsers(); scheduleRank(); return ack(true, tu.name + ' 학생의 대출을 없앴습니다.'); }
+        if (m.op === 'forgive') { if (!tu.loan) return ack(false, '대출이 없습니다.'); const lastL = (tu.loans || [])[tu.loans.length - 1]; if (lastL && !lastL.repaidAt) lastL.forgivenAt = Date.now(); tu.loan = null; store.saveUser(tu); pushBal(tu.sid, { by: 'admin' }); scheduleUsers(); scheduleRank(); return ack(true, tu.name + ' 학생의 대출을 없앴습니다.'); }
         const amt = Math.floor(+m.amount);
         if (m.op === 'add' || m.op === 'sub' || m.op === 'set') {
           if (!(amt >= 0) || amt > 1e12) return ack(false, '금액을 확인하세요.');

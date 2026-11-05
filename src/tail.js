@@ -13,6 +13,11 @@ const ART={
 $('#games').innerHTML=GIDS.map((id,i)=>`<button type="button" class="gcard" data-g="${id}"><div class="gart">${ART[id]}<span class="gkey">${String(i+1).padStart(2,'0')}</span></div><div class="gbody"><h3>${META[id].name}</h3><p>${META[id].desc}</p><div class="gmeta"><span>${META[id].pay}</span><span>RTP ${META[id].rtp}%</span></div></div></button>`).join('');
 document.querySelectorAll('.mini-dice .die').forEach((d,i)=>setDie(d,i?5:2));
 $('#games').addEventListener('click',e=>{const c=e.target.closest('.gcard');if(c)openGame(c.dataset.g);});
+function paintPaused(){
+  document.querySelectorAll('.gcard').forEach(c=>{const p=isPaused(c.dataset.g);c.classList.toggle('paused',p);let b=c.querySelector('.pz');if(p&&!b){b=document.createElement('span');b.className='pz';b.textContent='일시 정지';c.querySelector('.gart').appendChild(b);}if(!p&&b)b.remove();});
+  if(view==='game')setPlayBtn();
+  const all=$('#pzAll');if(all){const p=CFG.paused||{};all.checked=!!p.all;GIDS.forEach(g=>{const el=$('#pz_'+g);if(el)el.checked=!!(p.games&&p.games[g]);});}
+}
 
 /* ---------------- ranking ---------------- */
 let rankCls=null;
@@ -142,7 +147,7 @@ function buildRigPanel(){
   buildOps();
   $('#allLose').onclick=()=>sendCmd('all','force',{want:'lose'});
   $('#allWin').onclick=()=>sendCmd('all','force',{want:'win'});
-  $('#rigReset').onclick=()=>{const keep=CFG.reveal;CFG=JSON.parse(JSON.stringify(DEF_CFG));CFG.reveal=keep;saveCfg();syncRigPanel();refreshEff();sendCmd('all','clearforce');};
+  $('#rigReset').onclick=()=>{const keep=CFG.reveal,keepP=CFG.paused,keepO=CFG.odds,keepC=CFG.crashCap;CFG=JSON.parse(JSON.stringify(DEF_CFG));CFG.reveal=keep;CFG.paused=keepP;CFG.odds=keepO;CFG.crashCap=keepC;saveCfg();syncRigPanel();refreshEff();sendCmd('all','clearforce');};
   syncRigPanel();
 }
 function syncRigPanel(){
@@ -159,8 +164,10 @@ function refreshEff(){rows.forEach(r=>r.updateEff());}
 function renderAdmin(){
   if(!S.admin)return;
   const users=USERS||[];
+  const lent=users.reduce((a,u)=>a+(u.loan?u.loan.principal:0),0),owed=users.reduce((a,u)=>a+(u.loan?u.loan.debt:0),0),nLoan=users.filter(u=>u.loan).length;
+  const ls=users.reduce((a,u)=>{const s=u.loanStats||{};a.lent+=s.lent||0;a.repaid+=s.repaid||0;a.interest+=s.interest||0;a.forgiven+=s.forgiven||0;return a;},{lent:0,repaid:0,interest:0,forgiven:0});
   const tot=users.reduce((a,u)=>a+u.bal,0),house=users.reduce((a,u)=>a-u.stats.net,0),online=users.filter(u=>u.online).length,live=users.filter(u=>u.pending).length,man=users.reduce((a,u)=>a+u.stats.manip,0),broke=users.filter(u=>u.bal<1).length;
-  $('#akpis').innerHTML=`<div class="akpi"><span>가입 학생</span><b>${users.length}명</b></div><div class="akpi"><span>접속 중</span><b>${online}명</b></div><div class="akpi"><span>진행 중인 판</span><b>${live}</b></div><div class="akpi"><span>학생 자산 합계</span><b>${fmt(tot)}</b></div><div class="akpi"><span>하우스 게임 수익</span><b class="${house>=0?'pos':'neg'}">${sfmt(house)}</b></div><div class="akpi"><span>조작된 판 · 파산</span><b>${man} · ${broke}명</b></div>`;
+  $('#akpis').innerHTML=`<div class="akpi"><span>가입 학생</span><b>${users.length}명</b></div><div class="akpi"><span>접속 중</span><b>${online}명</b></div><div class="akpi"><span>진행 중인 판</span><b>${live}</b></div><div class="akpi"><span>학생 자산 합계</span><b>${fmt(tot)}</b></div><div class="akpi"><span>하우스 수익 (게임만)</span><b class="${house>=0?'pos':'neg'}">${sfmt(house)}</b><small>대출은 포함하지 않음</small></div><div class="akpi"><span>빌려준 돈 (아직 못 받음)</span><b>${fmt(lent)}</b><small>${nLoan}명 · 이자 포함 받을 돈 ${fmt(owed)}</small></div><div class="akpi"><span>대출 누적</span><b>${fmt(ls.lent)}</b><small>상환 ${fmt(ls.repaid)} · 받은 이자 ${fmt(ls.interest)}${ls.forgiven?' · 탕감 '+fmt(ls.forgiven):''}</small></div><div class="akpi"><span>조작된 판 · 파산</span><b>${man} · ${broke}명</b></div>`;
   if(view!=='admin')return;
   const fc=$('#fCls').value,fo=$('#fOnline').value,q=$('#fQ').value.trim();
   const body=$('#admBody');const seen=new Set();
@@ -236,8 +243,15 @@ function renderInbox(){
 /* ---------------- ops settings (admin): start points, give to everyone ---------------- */
 function buildOps(){
   $('#opsList').innerHTML=`
+  <div><div class="toggle" style="border-top:0;padding-top:0"><span><label for="pzAll">모든 게임 정지</label><div class="sub">켜면 새 판을 시작할 수 없습니다. 진행 중인 판은 끝까지 진행됩니다.</div></span><input type="checkbox" id="pzAll"></div>
+  <div class="sub">게임별 정지</div><div class="pause-grid">${GIDS.map(g=>`<label><input type="checkbox" id="pz_${g}" data-g="${g}">${META[g].name}</label>`).join('')}</div></div>
+  <div style="border-top:1px solid var(--sline);padding-top:10px"></div>
   <div><label for="opStart">가입 시 지급 포인트</label><div class="abtns" style="margin-top:4px"><input type="number" id="opStart" min="0" step="1000"><button type="button" class="abtn" id="opStartSave">저장</button></div><div class="sub">이미 가입한 학생에게는 영향이 없습니다. 수익률은 각자 가입할 때 받은 포인트를 기준으로 계산합니다.</div></div>
   <div class="toggle" style="display:block"><label for="opAllAmt">한꺼번에 지급 · 회수</label><div class="abtns" style="margin-top:4px"><select id="opAllCls" style="background:var(--steel);border:1px solid var(--sline);color:var(--sink);border-radius:4px;padding:3px 6px;font-size:12px"><option value="0">전체</option>${[1,2,3,4,5,6,7].map(k=>`<option value="${k}">${k}반</option>`).join('')}</select><input type="number" id="opAllAmt" min="1" step="1000" placeholder="금액"><button type="button" class="abtn w" id="opAllGive">지급</button><button type="button" class="abtn l" id="opAllTake">회수</button></div></div>`;
+  const setP=()=>{CFG.paused={all:$('#pzAll').checked,games:{}};GIDS.forEach(g=>{if($('#pz_'+g).checked)CFG.paused.games[g]=true;});saveCfg();paintPaused();};
+  $('#pzAll').addEventListener('change',()=>{setP();toast($('#pzAll').checked?'모든 게임을 멈췄습니다':'모든 게임을 다시 열었습니다');});
+  GIDS.forEach(g=>$('#pz_'+g).addEventListener('change',e=>{setP();toast(META[g].name+(e.target.checked?' 정지':' 다시 시작'));}));
+  paintPaused();
   $('#opStartSave').onclick=()=>{const v=Math.floor(+$('#opStart').value);if(!(v>=0)||$('#opStart').value===''){toast('포인트를 입력하세요');return;}svSend({t:'adm',op:'settings',startBal:v});};
   const all=take=>{const a=Math.floor(+$('#opAllAmt').value);if(!(a>0)){toast('금액을 입력하세요');return;}svSend({t:'adm',op:'giveall',amount:a,cls:+$('#opAllCls').value,take});$('#opAllAmt').value='';};
   $('#opAllGive').onclick=()=>all(false);$('#opAllTake').onclick=()=>all(true);
