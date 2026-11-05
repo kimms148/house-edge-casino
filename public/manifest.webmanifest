@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "하우스 엣지 · 모의 카지노",
+  "short_name": "하우스 엣지",
+  "description": "온라인 도박의 위험성을 보여 주는 교육용 모의 카지노 (가상 포인트)",
+  "lang": "ko",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#110c0d",
+  "theme_color": "#1a1214",
+  "categories": ["education", "games"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

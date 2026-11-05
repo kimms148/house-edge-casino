@@ -15,22 +15,48 @@ const APP = path.join(__dirname, 'public', 'app.html');
 
 if (!ADMIN_PASSWORD) console.warn('[warn] ADMIN_PASSWORD 가 설정되지 않아 관리자 로그인이 비활성화됩니다.');
 
-const HEAD = '<!doctype html><html lang="ko"><head><meta charset="utf-8">' +
-  '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">' +
-  '<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}img{max-width:100%}[hidden]{display:none!important}</style>' +
-  '</head><body>';
-let cached = null;
-function page() {
-  if (!cached || !PROD) cached = HEAD + fs.readFileSync(APP, 'utf8') + '</body></html>';
-  return cached;
+function head(admin) {
+  return '<!doctype html><html lang="ko"><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">' +
+    `<link rel="manifest" href="/${admin ? 'manifest-admin' : 'manifest'}.webmanifest">` +
+    `<meta name="theme-color" content="${admin ? '#0c141c' : '#1a1214'}">` +
+    '<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">' +
+    '<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">' +
+    '<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">' +
+    `<meta name="apple-mobile-web-app-title" content="${admin ? '하우스 콘솔' : '하우스 엣지'}">` +
+    '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">' +
+    '<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}img{max-width:100%}[hidden]{display:none!important}</style>' +
+    '</head><body>';
 }
+const cached = {};
+function page(admin) {
+  if (!cached[admin] || !PROD) cached[admin] = head(admin) + fs.readFileSync(APP, 'utf8') + '</body></html>';
+  return cached[admin];
+}
+const STATIC = {
+  '/manifest.webmanifest': ['manifest.webmanifest', 'application/manifest+json'],
+  '/manifest-admin.webmanifest': ['manifest-admin.webmanifest', 'application/manifest+json'],
+  '/sw.js': ['sw.js', 'text/javascript; charset=utf-8'],
+};
+for (const f of ['icon-192.png', 'icon-512.png', 'maskable-512.png', 'apple-touch-icon.png', 'favicon-32.png']) STATIC['/icons/' + f] = ['icons/' + f, 'image/png'];
+STATIC['/favicon.ico'] = ['icons/favicon-32.png', 'image/png'];
 
 const server = http.createServer((req, res) => {
   const url = (req.url || '/').split('?')[0];
   if (url === '/healthz') { res.writeHead(200, { 'content-type': 'text/plain' }); res.end('ok'); return; }
   if (url === '/' || url === '/index.html' || url === '/admin' || url === '/admin/') {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' });
-    res.end(page());
+    res.end(page(url.startsWith('/admin')));
+    return;
+  }
+  if (STATIC[url]) {
+    const [file, type] = STATIC[url];
+    fs.readFile(path.join(__dirname, 'public', file), (err, buf) => {
+      if (err) { res.writeHead(404); res.end(); return; }
+      const h = { 'content-type': type, 'x-content-type-options': 'nosniff', 'cache-control': url === '/sw.js' ? 'no-cache' : 'public, max-age=86400' };
+      if (url === '/sw.js') h['service-worker-allowed'] = '/';
+      res.writeHead(200, h); res.end(buf);
+    });
     return;
   }
   res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });

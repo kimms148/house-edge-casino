@@ -45,6 +45,14 @@ nav.tabs button.admin-tab[aria-current="true"]{background:var(--steel2);border-c
 .bal.down{animation:pulseDown .6s}
 @keyframes pulseUp{30%{box-shadow:0 0 0 4px #45c48655}}
 @keyframes pulseDown{30%{box-shadow:0 0 0 4px #e2483d55}}
+.install{display:flex;align-items:center;gap:6px;background:none;border:1px solid var(--brass);color:var(--brass2);border-radius:999px;padding:5px 12px;font-size:14px}
+.install:hover{background:#d8a23f22}
+.steps{display:grid;gap:10px}
+.step{background:#0b0708;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.step.here{border-color:var(--brass2)}
+.step b{display:block;margin-bottom:4px;color:var(--brass2)}
+.step ol{margin:0;padding-left:20px;color:var(--ink);font-size:14px}
+@media (max-width:520px){.install span.t{display:none}}
 .refill{background:var(--win);color:#06130c;border:0;border-radius:999px;padding:6px 12px;font-weight:700;animation:bob 1.4s ease-in-out infinite}
 @keyframes bob{50%{transform:translateY(-2px)}}
 .reveal-bar{background:#3a0f0e;color:#ffd9d4;text-align:center;font-size:14px;padding:6px 16px;border-bottom:1px solid #6a1d1a}
@@ -340,6 +348,7 @@ select{background:#0b0708;color:var(--ink);border:1px solid var(--line);border-r
     <button type="button" data-v="admin" class="admin-tab" hidden>관리자</button>
   </nav>
   <div class="wallet">
+    <button id="installBtn" class="install" type="button" hidden><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>앱 설치</button>
     <button id="refillTop" class="refill" type="button" hidden>무료 리필</button>
     <div class="bal" id="bal"><span class="chip"></span><span class="num" id="balNum">10,000P</span></div>
   </div>
@@ -441,6 +450,16 @@ select{background:#0b0708;color:var(--ink);border:1px solid var(--line);border-r
 
 <div id="toast"></div>
 <div id="revealModal" class="modal" hidden></div>
+<div id="installModal" class="modal" hidden><div class="box" role="dialog" aria-modal="true" aria-labelledby="instT" style="border-color:var(--line)">
+  <div class="eyebrow">홈 화면에 추가</div><h2 id="instT" style="color:var(--brass2)">앱으로 설치하기</h2>
+  <p>설치하면 홈 화면 아이콘으로 바로 열리고, 주소창 없이 앱처럼 전체 화면으로 실행됩니다.</p>
+  <div class="steps">
+    <div class="step" data-os="ios"><b>아이폰 · 아이패드 (Safari)</b><ol><li>화면 아래(또는 위)의 공유 버튼 <span aria-hidden="true">⎋</span>을 누릅니다.</li><li><b style="display:inline;color:var(--ink)">홈 화면에 추가</b>를 고릅니다.</li><li>오른쪽 위 <b style="display:inline;color:var(--ink)">추가</b>를 누릅니다.</li></ol></div>
+    <div class="step" data-os="android"><b>안드로이드 (Chrome · 삼성 인터넷)</b><ol><li>오른쪽 위 메뉴(⋮) 또는 아래 메뉴(≡)를 엽니다.</li><li><b style="display:inline;color:var(--ink)">앱 설치</b> 또는 <b style="display:inline;color:var(--ink)">홈 화면에 추가</b>를 누릅니다.</li></ol></div>
+    <div class="step" data-os="desktop"><b>PC (Chrome · Edge)</b><ol><li>주소창 오른쪽의 설치 아이콘(모니터에 화살표)을 누릅니다.</li><li>또는 메뉴(⋮) → <b style="display:inline;color:var(--ink)">하우스 엣지 설치</b>를 고릅니다.</li></ol></div>
+  </div>
+  <div><button class="btn" type="button" id="installClose">닫기</button></div>
+</div></div>
 <div id="loginModal" class="modal" hidden><form class="box" id="loginForm" style="border-color:var(--sline);background:var(--steel)" aria-labelledby="loginT">
   <div class="eyebrow" style="color:var(--smute)">HOUSE CONSOLE</div><h2 id="loginT" style="color:var(--cyan)">관리자 로그인</h2>
   <label for="loginPw" style="font-size:13px;color:var(--smute)">관리자 비밀번호</label>
@@ -1321,6 +1340,27 @@ function renderFeed(){
   el.innerHTML=feed.map(f=>{const d=new Date(f.t);const net=f.p-f.b;return`<div><span style="color:var(--smute)">${[d.getHours(),d.getMinutes(),d.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':')}</span><b>${esc(f.nick)}</b><span>${esc((META[f.g]||{}).name||f.g)}</span><span>베팅 ${fmt(f.b)}</span><span class="${net>=0?'pos':'neg'}">${sfmt(net)}</span>${f.m?'<span class="tag">조작됨</span>':''}</div>`;}).join('');
 }
 setInterval(()=>{if(NET.admin&&NET.room&&Date.now()-lastRigEmit>15000)emitRig();},5000);
+
+/* ---------------- app install (PWA, server mode only) ---------------- */
+(function(){
+  const inArtifact=!!(window.claude&&window.claude.use);
+  if(inArtifact||!location.protocol.startsWith('http'))return;
+  const standalone=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
+  const ua=navigator.userAgent;
+  const os=/iphone|ipad|ipod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)?'ios':/android/i.test(ua)?'android':'desktop';
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  let deferred=null;const btn=$('#installBtn');
+  if(!standalone)btn.hidden=false;
+  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;if(!standalone)btn.hidden=false;});
+  window.addEventListener('appinstalled',()=>{deferred=null;btn.hidden=true;$('#installModal').hidden=true;toast('앱이 설치되었습니다. 홈 화면에서 열어 보세요');});
+  btn.onclick=async()=>{
+    if(deferred){deferred.prompt();try{const r=await deferred.userChoice;if(r&&r.outcome==='accepted')btn.hidden=true;}catch(e){}deferred=null;return;}
+    document.querySelectorAll('#installModal .step').forEach(s=>s.classList.toggle('here',s.dataset.os===os));
+    const steps=$('#installModal .steps');const here=steps.querySelector('.here');if(here)steps.prepend(here);
+    $('#installModal').hidden=false;
+  };
+  $('#installClose').onclick=()=>{$('#installModal').hidden=true;};
+})();
 
 /* ---------------- boot ---------------- */
 setBet(S.bet);shownBal=S.bal;$('#balNum').textContent=fmt(S.bal);updateBal();renderKeyHint();
