@@ -588,12 +588,14 @@ async function initNet(){
   }
   NET.ready=true;
   $('#tabs [data-v=admin]').hidden=!NET.admin;
-  $('#adminLogin').hidden=!(NET.ws&&!NET.admin);
+  $('#adminLogin').hidden=!(NET.ws&&!NET.admin&&ADMIN_ROUTE);
+  if(NET.ws&&ADMIN_ROUTE&&!NET.admin&&!pendingPw)$('#adminLogin').click();
   if(NET.admin)buildRigPanel();
   setNetState();pushPresence();
 }
 /* admin password login (server mode only; the password lives in the server's ADMIN_PASSWORD) */
 let pendingPw=null;
+const ADMIN_ROUTE=location.pathname.replace(/\/+$/,'')==='/admin';
 function onAuth(m){
   if(m.ok){
     const first=!NET.admin;NET.admin=true;

@@ -28,7 +28,7 @@ function page() {
 const server = http.createServer((req, res) => {
   const url = (req.url || '/').split('?')[0];
   if (url === '/healthz') { res.writeHead(200, { 'content-type': 'text/plain' }); res.end('ok'); return; }
-  if (url === '/' || url === '/index.html') {
+  if (url === '/' || url === '/index.html' || url === '/admin' || url === '/admin/') {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' });
     res.end(page());
     return;

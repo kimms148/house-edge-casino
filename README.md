@@ -13,7 +13,8 @@ npm install
 ADMIN_PASSWORD=원하는비밀번호 npm start
 ```
 
-http://localhost:3000 에 접속한 뒤 로비 아래 **관리자 로그인**에 비밀번호를 넣으면 관리자 탭이 열립니다.
+- 플레이어: http://localhost:3000
+- 관리자: http://localhost:3000/admin (비밀번호 입력 후 관리자 콘솔이 열립니다)
 
 ## Render 배포
 
