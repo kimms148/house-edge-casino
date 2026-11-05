@@ -3,7 +3,7 @@ GAMES.coin={id:'coin',rot:0,choiceLabel:'면 선택',
   choices:()=>[{label:'앞면',sub:'1.95x'},{label:'뒷면',sub:'1.95x'}],
   mount(st){st.innerHTML=`<div class="coin-scene"><div class="coin-shadow"></div><div class="coin" id="coin"><div class="cf cf-h">앞</div><div class="cf cf-t">뒤</div></div></div>`;this.rot=0;},
   async play(bet,pick){
-    const r=resolve('coin',bet,()=>rnd()<.5?0:1,o=>o===pick?Math.floor(bet*1.95):0);
+    const r=resolve('coin',bet,()=>rnd()<oddsP('coin',.5)?pick:1-pick,o=>o===pick?Math.floor(bet*1.95):0);
     const c=$('#coin');const base=this.rot-(this.rot%360);this.rot=base+360*7+(r.o?180:0);
     c.classList.remove('coin-toss');void c.offsetWidth;c.classList.add('coin-toss');
     c.style.transform=`rotateX(${this.rot}deg)`;
@@ -19,7 +19,7 @@ GAMES.rps={id:'rps',choiceLabel:'내 손',
   mount(st){st.innerHTML=`<div class="rps"><div class="side"><div class="hand l" id="hL">✊</div><span>나</span></div><div class="vs" id="rpsVs">VS</div><div class="side"><div class="hand r" id="hR">✊</div><span>하우스</span></div></div>`;},
   async play(bet,pick){
     const payOf=c=>{const d=(pick-c+3)%3;return d===0?bet:d===1?Math.floor(bet*1.95):0;};
-    const r=resolve('rps',bet,()=>Math.floor(rnd()*3),payOf);
+    const r=resolve('rps',bet,()=>{const w=oddsP('rpsWin',1/3),d=oddsP('rpsDraw',1/3),u=rnd();return u<w?(pick+2)%3:u<w+d?pick:(pick+1)%3;},payOf);
     const L=$('#hL'),R=$('#hR'),vs=$('#rpsVs');L.textContent=R.textContent='✊';
     L.className='hand l shake';R.className='hand r shake';
     for(const w of['가위','바위','보!']){vs.textContent=w;await wait(400);}
@@ -82,9 +82,9 @@ function raceGame(cfg){
   return{id:cfg.id,listChoices:true,choiceLabel:cfg.choiceLabel,
     field:null,
     newField(){this.field=cfg.makeField();},
-    choices(){if(!this.field)this.newField();return this.field.map((h,i)=>({label:h.name,html:cfg.choiceHtml(h,i)}));},
+    choices(){if(!this.field||!this.field.length)this.newField();return this.field.map((h,i)=>({label:h.name,html:cfg.choiceHtml(h,i)}));},
     mount(st,extra){
-      if(!this.field)this.newField();
+      if(!this.field||!this.field.length)this.newField();
       st.innerHTML=`<div class="track ${cfg.id==='snail'?'snail':''}"><div class="finish"></div>${this.field.map((h,i)=>`<div class="lane" data-i="${i}"><span class="no" style="background:${h.color}">${i+1}</span><div class="runner"><i>${cfg.glyph}</i></div></div>`).join('')}<div class="photo"></div><div class="commentary" id="comm">출발 대기 중</div></div>`;
       if(cfg.extra)extra.innerHTML=cfg.extra();
     },
@@ -107,28 +107,26 @@ function raceGame(cfg){
       };
       const w=await race.done;this.liveOverride=null;
       banner((w+1)+'번 우승',w===pick?'win':'lose');
-      return{pay:payOf(w),fairPay:r.fairPay,manip:manip&&payOf(w)!==r.fairPay,text:(w+1)+'번 '+F[w].name+' 우승'};
+      return{pay:payOf(w),fairPay:r.fairPay,manip:manip&&payOf(w)!==r.fairPay,text:(w+1)+'번 '+F[w].name+' 우승',winner:w};
     },
-    after(){this.newField();choice=null;renderChoices();setTimeout(()=>{if(!busy&&cur===this)this.mount(stage,$('#gExtra'));},1800);}
+    after(){this.pendingRefresh=true;setTimeout(()=>{if(this.pendingRefresh)this.refresh();},1800);},
+    refresh(){if(busy||cur!==this)return;this.pendingRefresh=false;this.newField();choice=null;renderChoices();this.mount(stage,$('#gExtra'));}
   };
 }
 const HORSE_NAMES=['번개발굽','흑진주','바람돌이','적토마','은하수','꼬마별','철갑기사','새벽안개','황금마차','폭풍질주','달빛소나타','청룡'];
 const COLORS=['#c9a560','#c7776f','#6f9fbf','#7fa877','#a58cc0','#c99561'];
+function stableField(kind){
+  const list=(STABLE&&STABLE[kind])||[];
+  return list.map((h,i)=>({name:h.name,p:h.p,runs:h.runs||0,wins:h.wins||0,odds:Math.floor(0.95/h.p*100)/100,color:COLORS[i%COLORS.length]}));
+}
+const runnerHtml=h=>`<span style="width:12px;height:12px;border-radius:50%;background:${h.color}"></span><span><b>${esc(h.name)}</b><div class="hint">${h.runs}판 중 ${h.wins}승 · 이번 판 승률 ${(h.p*100).toFixed(1)}%</div><div class="bar"><i style="width:${Math.min(100,h.p/0.6*100).toFixed(0)}%"></i></div></span><small style="font-size:15px">${h.odds.toFixed(2)}x</small>`;
 GAMES.horse=raceGame({id:'horse',glyph:'🏇',choiceLabel:'우승마 선택',base:6.2,spread:1.8,
-  makeField(){
-    const names=HORSE_NAMES.slice().sort(()=>rnd()-.5).slice(0,6);
-    const w=names.map(()=>Math.pow(.35+rnd(),2.2));const s=w.reduce((a,b)=>a+b,0);
-    const ps=w.map(v=>v/s);const mx=Math.max(...ps),mn=Math.min(...ps);
-    return names.map((nm,i)=>{const p=ps[i];const ab=Math.round(55+40*(p-mn)/((mx-mn)||1));
-      return{name:nm,p,odds:Math.floor(0.95/p*100)/100,ab,spd:Math.min(99,ab+Math.round(rnd()*8-4)),sta:Math.min(99,ab+Math.round(rnd()*10-5)),color:COLORS[i]};});
-  },
-  choiceHtml:(h)=>`<span style="width:12px;height:12px;border-radius:50%;background:${h.color}"></span><span><b>${esc(h.name)}</b><div class="hint">능력치 ${h.ab} · 스피드 ${h.spd} · 지구력 ${h.sta} · 승률 ${(h.p*100).toFixed(1)}%</div><div class="bar"><i style="width:${h.ab}%"></i></div></span><small style="font-size:15px">${h.odds.toFixed(2)}x</small>`,
-  extra:()=>`<div class="hint">배당은 0.95 ÷ 우승 확률입니다. 매 경기마다 출전마와 능력치가 바뀝니다.</div>`
+  makeField:()=>stableField('horse'),choiceHtml:runnerHtml,
+  extra:()=>`<div class="hint">이긴 말은 다음 판 승률이 내려가고, 진 말은 올라갑니다. 배당 = 0.95 ÷ 이번 판 승률.</div>`
 });
 GAMES.snail=raceGame({id:'snail',glyph:'🐌',choiceLabel:'달팽이 선택',base:9,spread:2.6,
-  makeField(){const nm=['느림보','끈적이','총알','껍데기왕'];return nm.map((n,i)=>({name:n,p:.25,odds:3.8,color:COLORS[i]}));},
-  choiceHtml:(h)=>`<span style="width:12px;height:12px;border-radius:50%;background:${h.color}"></span><span><b>${esc(h.name)}</b><div class="hint">우승 확률 25%</div></span><small style="font-size:15px">3.80x</small>`,
-  extra:()=>`<div class="hint">네 마리의 실력은 같습니다. 가끔 멈추거나 갑자기 빨라집니다.</div>`
+  makeField:()=>stableField('snail'),choiceHtml:runnerHtml,
+  extra:()=>`<div class="hint">이긴 달팽이는 다음 판 승률이 내려가고, 진 달팽이는 올라갑니다. 가끔 멈추거나 갑자기 빨라집니다.</div>`
 });
 
 /* ---------------- 5. odd/even ---------------- */
@@ -139,7 +137,7 @@ GAMES.oddeven={id:'oddeven',choiceLabel:'홀 / 짝',
   choices:()=>[{label:'홀',sub:'1.95x'},{label:'짝',sub:'1.95x'}],
   mount(st){st.innerHTML=`<div class="dice-scene"><div><div class="dice-row">${dieHTML('d1')}${dieHTML('d2')}</div><div class="dice-sum" id="dsum">주사위를 굴리세요</div></div></div>`;setDie($('#d1'),3);setDie($('#d2'),4);},
   async play(bet,pick){
-    const r=resolve('oddeven',bet,()=>[1+Math.floor(rnd()*6),1+Math.floor(rnd()*6)],o=>((o[0]+o[1])%2===1?0:1)===pick?Math.floor(bet*1.95):0);
+    const r=resolve('oddeven',bet,()=>{const want=rnd()<oddsP('oddeven',.5);for(let i=0;i<60;i++){const d=[1+Math.floor(rnd()*6),1+Math.floor(rnd()*6)];if((((d[0]+d[1])%2===1?0:1)===pick)===want)return d;}return[1,2];},o=>((o[0]+o[1])%2===1?0:1)===pick?Math.floor(bet*1.95):0);
     const a=$('#d1'),b=$('#d2'),sum=$('#dsum');sum.textContent='…';
     a.className='die roll';b.className='die roll';
     const iv=setInterval(()=>{setDie(a,1+Math.floor(rnd()*6));setDie(b,1+Math.floor(rnd()*6));},70);
@@ -275,7 +273,7 @@ GAMES.crash={id:'crash',running:false,m:1,playLabel:'베팅하고 시작',
   },
   cashout(){if(this.running&&!this.out){this.out=this.m;}},
   async play(bet){
-    let U=rnd();let crash=0.97/(1-U);crash=crash<1?1:Math.floor(crash*100)/100;const fair=crash;
+    let U=rnd();let crash=0.97/(1-U);crash=crash<1?1:Math.floor(crash*100)/100;const cap=+CFG.crashCap||0;if(cap>=1.01)crash=Math.min(crash,cap);const fair=crash;
     const auto=parseFloat(($('#autoCo')||{}).value)||0;const b=bias('crash');let manip=false;
     if(b<0&&rnd()<-b){const c=auto>1.01?Math.max(1,Math.floor((auto-0.01-rnd()*.4)*100)/100):Math.floor((1+rnd()*.3)*100)/100;if(c<crash){crash=c;manip=true;}}
     else if(b>0&&rnd()<b){const c=auto>1.01?Math.floor((auto+0.05+rnd()*1.5)*100)/100:Math.floor((2+rnd()*4)*100)/100;if(c>crash){crash=c;manip=true;}}

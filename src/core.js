@@ -13,7 +13,10 @@ function parseSid(sid){if(!/^\d{5}$/.test(sid))return null;const grade=+sid[0],c
 
 /* ---------------- state (balance and records live on the server) ---------------- */
 const prefs=Object.assign({bet:500,crashHist:[]},LS.get('he.prefs',{}));
-const S={me:null,admin:false,bal:0,stats:null,hist:[],mymail:[],crashHist:prefs.crashHist,bet:prefs.bet};
+const S={me:null,admin:false,bal:0,stats:null,hist:[],mymail:[],chat:null,crashHist:prefs.crashHist,bet:prefs.bet};
+let STABLE=null,CHATS={},SETTINGS={startBal:START};
+// admin-set game odds (fractions). Missing → the game's normal odds.
+function oddsP(k,def){const v=CFG.odds&&CFG.odds[k];return(typeof v==='number'&&v>=0&&v<=1)?v:def;}
 function save(){prefs.bet=S.bet;prefs.crashHist=S.crashHist;LS.set('he.prefs',prefs);}
 
 const META={
@@ -92,6 +95,7 @@ function onServer(m){
     case 'welcome':
       if(checkVersion(m.ver))break;
       if(m.cfg)applyCfg(m.cfg);
+      if(m.stable)onStable(m.stable);
       if(m.admin)enterAdmin();else if(m.me)enterPlayer(m.me,m.mymail);else{LS.del('he.token');showGate();}
       break;
     case 'authok':
@@ -103,7 +107,9 @@ function onServer(m){
     case 'betok':case 'betno':if(SV.wait){SV.wait.res(m);SV.wait=null;}break;
     case 'bal':
       if(!S.me)break;
-      S.bal=m.bal;if(m.stats)S.stats=m.stats;if(m.h){S.hist.push(m.h);if(S.hist.length>300)S.hist.shift();}
+      S.bal=m.bal;if(m.stats)S.stats=m.stats;if('loan' in m)S.me.loan=m.loan;if(m.h){S.hist.push(m.h);if(S.hist.length>300)S.hist.shift();}
+      if(m.loanMsg)toast(m.loanMsg);
+      if(view==='loan')renderLoan();
       if(!busy)updateBal();else shownBalPending=true;
       if(m.by==='admin')toast('관리자가 포인트를 조정했습니다');
       if(view==='stats')renderStats();
@@ -113,10 +119,15 @@ function onServer(m){
     case 'mailok':S.mymail=m.mymail||[];renderMyMail();$('#mailBody').value='';$('#mailCount').textContent='0 / 1000';toast('건의를 보냈습니다');break;
     case 'mymail':S.mymail=m.mymail||[];renderMyMail();break;
     case 'mailerr':toast(m.msg);break;
-    case 'users':if(S.admin){USERS=m.users;renderAdmin();}break;
+    case 'users':if(S.admin){USERS=m.users;renderAdmin();if(view==='chats')renderChats();}break;
     case 'mail':if(S.admin){INBOX=m.list;renderInbox();}break;
     case 'feed':if(S.admin)addFeed(m.e);break;
     case 'admack':toast(m.msg||(m.ok?'완료':'실패'));break;
+    case 'loanerr':toast(m.msg);break;
+    case 'stable':onStable(m.stable);break;
+    case 'chat':S.chat=m.chat;handleChat();break;
+    case 'chats':if(S.admin){CHATS=m.chats||{};renderChats();}break;
+    case 'settings':if(S.admin){SETTINGS=m.settings||SETTINGS;syncOps();}break;
   }
 }
 function onCmd(d){
@@ -132,6 +143,18 @@ function betRequest(g,bet){
     const done=m=>{clearTimeout(timer);res(m);};
     SV.wait={res:done};
   });
+}
+
+/* loans: 10,000P, 20% simple interest per hour, usable for 24 hours */
+const LOAN_TERM=24*3600*1000;
+const debtNow=l=>Math.floor(l.principal*(1+0.2*Math.max(0,(Date.now()-l.at)/3600000)));
+/* horse/snail shared stable from the server */
+function onStable(st){STABLE=st;for(const id of['horse','snail']){const g=GAMES[id];if(!g)continue;if(cur===g&&busy){g.pendingRefresh=true;continue;}if(cur===g&&view==='game')g.refresh();else g.field=null;}}
+/* 1:1 chat from the house: takes over the screen once the current round is over */
+function handleChat(){
+  if(S.admin||!S.me)return;
+  if(S.chat&&S.chat.open){if(busy)return;if(view!=='chat'){toast('관리자가 1:1 대화를 시작했습니다');show('chat');}else renderChat();}
+  else if(view==='chat'){renderChat();toast('대화가 끝났습니다');setTimeout(()=>{if(view==='chat')show('lobby');},1200);}
 }
 
 /* presence: what the house sees about this player right now */
@@ -169,11 +192,11 @@ function enterShell(){$('#gate').hidden=true;$('#appShell').hidden=false;
   document.querySelectorAll('[data-role=player]').forEach(el=>el.hidden=S.admin);
   document.querySelectorAll('[data-role=admin]').forEach(el=>el.hidden=!S.admin);}
 function enterPlayer(me,mymail){
-  S.me=me;S.admin=false;S.bal=me.bal;S.stats=me.stats;S.hist=me.hist||[];S.mymail=mymail||[];
+  S.me=me;S.admin=false;S.bal=me.bal;S.stats=me.stats;S.hist=me.hist||[];S.mymail=mymail||[];S.chat=me.chat||null;
   enterShell();$('#whoText').innerHTML=`<b>${esc(me.name)}</b> · ${esc(clsLabel(me))}`;
   shownBal=S.bal;$('#balNum').textContent=fmt(S.bal);updateBal();renderMyMail();
   if(!['lobby','rank','stats','mail','game'].includes(view)||view==='game'&&!cur)view='lobby';
-  show(view==='game'?'game':view);pushPresence();checkReveal();
+  show(view==='game'?'game':view);pushPresence();checkReveal();handleChat();
 }
 function enterAdmin(){
   S.me=null;S.admin=true;enterShell();$('#whoText').innerHTML='<b>관리자</b>';
@@ -191,14 +214,18 @@ $('#logoutBtn').onclick=()=>{if(busy){toast('판이 끝난 뒤에 로그아웃�
 let view='lobby',cur=null,busy=false,choice=null,RANK=null,USERS=[],INBOX=[],rigBuilt=false;
 function show(v){
   if(busy&&v!=='game'){toast('판이 끝난 뒤에 이동할 수 있습니다');return;}
+  if(!S.admin&&S.chat&&S.chat.open&&v!=='chat'){toast('관리자와 대화가 끝날 때까지 다른 화면으로 갈 수 없습니다');v='chat';}
   view=v;
-  for(const id of['lobby','game','rank','stats','mail','admin','inbox'])$('#v-'+id).hidden=id!==v;
+  for(const id of['lobby','game','rank','stats','loan','chat','mail','admin','inbox','chats'])$('#v-'+id).hidden=id!==v;
   document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-current',String(b.dataset.v===v||(v==='game'&&b.dataset.v==='lobby'))));
   if(v==='stats')renderStats();
   if(v==='rank'){if(!RANK)svSend({t:'rank'});renderRank();}
   if(v==='admin')renderAdmin();
   if(v==='inbox')renderInbox();
   if(v==='mail')renderMyMail();
+  if(v==='loan')renderLoan();
+  if(v==='chat')renderChat();
+  if(v==='chats')renderChats();
   pushPresence();window.scrollTo({top:0});
 }
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('button[data-v]');if(b)show(b.dataset.v);});
@@ -213,8 +240,14 @@ function updateBal(){
   el.classList.remove('up','down');void el.offsetWidth;if(to>from)el.classList.add('up');else if(to<from)el.classList.add('down');
   const t0=performance.now(),dur=500;
   (function step(t){const k=Math.min(1,(t-t0)/dur);$('#balNum').textContent=fmt(from+(to-from)*(1-Math.pow(1-k,3)));if(k<1)requestAnimationFrame(step);})(t0);
-  const broke=S.bal<1&&!busy;
+  const loan=S.me&&S.me.loan;const debt=loan?debtNow(loan):0;
+  $('#debtTag').hidden=!loan;if(loan)$('#debtTag').textContent='빚 '+fmt(debt);
+  const expired=loan&&Date.now()-loan.at>LOAN_TERM;
+  const broke=(S.bal<1||expired)&&!busy;
   $('#brokeMsg').hidden=!broke;$('#playBtn').hidden=broke&&!busy;
+  if(broke){$('#brokeMsg b').textContent=expired?'대출 사용 기간이 끝났습니다':'포인트를 모두 잃었습니다';
+    $('#brokeText').textContent=expired?'대출 탭에서 갚아야 다시 게임을 할 수 있습니다.':loan?'이미 받은 대출이 있어 더 빌릴 수 없습니다.':'무료 충전은 없습니다. 대출을 받을 수 있습니다.';
+    $('#brokeLoan').textContent=expired||loan?'대출 탭으로 가기':'대출 받으러 가기';}
   if(S.bet>S.bal&&S.bal>=1&&!busy)setBet(S.bal);
 }
 function toast(msg){const d=document.createElement('div');d.textContent=msg;$('#toast').appendChild(d);setTimeout(()=>d.remove(),2400);}
@@ -259,7 +292,9 @@ async function play(){
   setBet(betIn.value);const bet=S.bet;
   if(bet>S.bal){toast('보유 포인트보다 많이 걸 수 없습니다');return;}
   const list=cur.choices();
+  if(cur.listChoices&&!list.length){toast('출전 정보를 불러오는 중입니다');return;}
   if(list.length&&choice==null){toast((cur.choiceLabel||'선택')+'을(를) 먼저 고르세요');return;}
+  if(S.chat&&S.chat.open){handleChat();return;}
   busy=true;setPlayBtn();
   const ack=await betRequest(cur.id,bet);
   if(ack.t!=='betok'){busy=false;setPlayBtn();toast(ack.msg||'베팅할 수 없습니다');if(ack.bal!=null){S.bal=ack.bal;updateBal();}return;}
@@ -270,11 +305,13 @@ async function play(){
   let r;
   try{r=await cur.play(bet,choice);}catch(e){console.error(e);r={pay:bet,manip:false,fairPay:bet,text:'오류로 원금 반환'};}
   const pay=Math.max(0,Math.floor(r.pay||0));
-  svSend({t:'settle',pay,manip:!!r.manip,d:r.manip?pay-Math.floor(r.fairPay||0):0});
+  svSend({t:'settle',pay,manip:!!r.manip,d:r.manip?pay-Math.floor(r.fairPay||0):0,winner:Number.isInteger(r.winner)?r.winner:undefined});
   showResult(bet,pay,r.text);
   busy=false;playing=false;curBetInfo=null;liveText='';setPlayBtn();
   updateBal();pushPresence(); // the server answers with the new balance
   if(cur.after)cur.after();
+  if(cur&&cur.pendingStable&&cur.refresh){cur.pendingStable=false;}
+  if(S.chat&&S.chat.open)setTimeout(handleChat,1200);
   if(updatePending){updatePending=false;setTimeout(()=>{if(!busy){toast('새 버전으로 업데이트합니다');setTimeout(()=>location.reload(),700);}else updatePending=true;},1800);}
 }
 $('#playBtn').onclick=play;

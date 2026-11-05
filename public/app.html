@@ -211,6 +211,38 @@ tr.me td{background:#1e1a12}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:70;display:grid;gap:6px;justify-items:center;pointer-events:none}
 #toast div{background:#0a0b0c;border:1px solid var(--line2);border-radius:6px;padding:8px 14px;font-size:14px;animation:popIn .3s}
 
+/* loan */
+.loan-card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;display:grid;gap:12px;max-width:640px}
+.loan-card .row{display:flex;justify-content:space-between;gap:10px;font-size:14px;border-bottom:1px solid var(--line);padding-bottom:8px}
+.loan-card .row:last-of-type{border-bottom:0}
+.loan-card .row b{font-family:var(--f-num);font-weight:500}
+.loan-big{font-family:var(--f-num);font-size:30px;color:#e08a80}
+.loan-terms{font-size:13px;color:var(--mute);margin:0;padding-left:18px}
+.debt-tag{font-family:var(--f-num);font-size:12px;color:#e08a80;border:1px solid #5a2420;border-radius:4px;padding:1px 6px}
+/* chat */
+.chat-box{background:var(--panel);border:1px solid var(--line);border-radius:8px;display:grid;grid-template-rows:auto minmax(0,1fr) auto;height:min(70vh,620px);min-height:360px}
+.chat-head{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.chat-log{overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.bubble{max-width:78%;padding:8px 11px;border-radius:10px;font-size:14px;white-space:pre-wrap;word-break:break-word}
+.bubble small{display:block;font-size:11px;color:var(--mute);margin-top:3px}
+.bubble.them{align-self:flex-start;background:var(--panel2);border:1px solid var(--line)}
+.bubble.me{align-self:flex-end;background:#2a2316;border:1px solid #4a3d22}
+.bubble.sys{align-self:center;background:none;color:var(--mute);font-size:12px}
+.chat-form{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)}
+.chat-form input{flex:1}
+.chat-lock{border:1px solid #4a3d22;background:#1d1912;color:#d8c49a;border-radius:6px;padding:9px 12px;font-size:13px;margin-bottom:10px}
+.chats-wrap{display:grid;grid-template-columns:260px minmax(0,1fr);gap:12px}
+@media (max-width:820px){.chats-wrap{grid-template-columns:minmax(0,1fr)}}
+.conv-list{display:grid;gap:6px;align-content:start;max-height:min(70vh,620px);overflow:auto}
+.conv{background:var(--steel2);border:1px solid var(--sline);border-radius:6px;padding:8px 10px;text-align:left;color:var(--sink);display:grid;gap:2px}
+.conv[aria-pressed="true"]{border-color:var(--cyan)}
+.conv small{color:var(--smute);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.admin-scope .chat-box{background:var(--steel2);border-color:var(--sline)}
+.admin-scope .chat-head,.admin-scope .chat-form{border-color:var(--sline)}
+.admin-scope .bubble.them{background:var(--steel3);border-color:var(--sline)}
+.admin-scope .bubble.me{background:#123040;border-color:#1f4d63}
+.admin-scope .chat-form input{background:var(--steel);border-color:var(--sline);color:var(--sink);width:auto;font-size:14px;font-family:var(--f-body);padding:8px 10px}
+
 /* ADMIN console */
 .admin-scope{background:var(--steel);color:var(--sink);border:1px solid var(--sline);border-radius:10px;padding:16px}
 .admin-scope .eyebrow{color:var(--smute)}
@@ -242,7 +274,14 @@ tr.me td{background:#1e1a12}
 .st-idle{color:var(--smute)}
 .ctl{display:grid;gap:5px;min-width:220px}
 .slider-row{display:flex;align-items:center;gap:8px}
-.slider-row input[type=range]{flex:1;accent-color:var(--cyan);min-width:80px}
+.slider-row input[type=range]{flex:1 1 0;width:0;min-width:0;accent-color:var(--cyan)}
+.odds-grid{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 10px;align-items:center;font-size:12px}
+.odds-grid .cell{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.admin-scope .odds-grid input[type=number]{width:62px}
+.abox + .abox{margin-top:12px}
+details.sub-more summary{cursor:pointer;font-size:13px;color:var(--sink);list-style:none;padding:4px 0}
+details.sub-more summary::-webkit-details-marker{display:none}
+details.sub-more summary::after{content:" ▾";color:var(--smute)}
 .slider-row output{font-family:var(--f-num);font-size:12px;min-width:44px;text-align:right}
 .abtns{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
 .abtn{background:var(--steel3);border:1px solid var(--sline);border-radius:4px;padding:3px 8px;font-size:12px;color:var(--sink)}
@@ -413,13 +452,15 @@ details.more[open] summary{color:var(--cyan)}
     <button type="button" data-v="lobby" data-role="player">로비</button>
     <button type="button" data-v="rank">랭킹</button>
     <button type="button" data-v="stats" data-role="player">기록</button>
+    <button type="button" data-v="loan" data-role="player">대출</button>
     <button type="button" data-v="mail" data-role="player">건의함</button>
     <button type="button" data-v="admin" data-role="admin">관리자 콘솔</button>
     <button type="button" data-v="inbox" data-role="admin">우편함<span class="badge" id="inboxBadge" hidden>0</span></button>
+    <button type="button" data-v="chats" data-role="admin">1:1 메시지<span class="badge" id="chatBadge" hidden>0</span></button>
   </nav>
   <div class="wallet">
     <button id="installBtn" class="install" type="button" hidden><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>앱 설치</button>
-    <div class="bal" id="bal" data-role="player"><span class="chip"></span><span class="num" id="balNum">0P</span></div>
+    <div class="bal" id="bal" data-role="player"><span class="chip"></span><span class="num" id="balNum">0P</span><span class="debt-tag" id="debtTag" hidden></span></div>
     <div class="who"><span id="whoText"></span><button class="btn" id="logoutBtn" type="button">로그아웃</button></div>
   </div>
 </div></header>
@@ -452,7 +493,7 @@ details.more[open] summary{color:var(--cyan)}
         <div><div class="lbl" id="choiceLbl" style="margin-bottom:6px">선택</div><div class="choices" id="choices"></div></div>
         <div id="gExtra"></div>
         <button class="play" id="playBtn" type="button">베팅</button>
-        <div class="broke" id="brokeMsg" hidden><b>포인트를 모두 잃었습니다</b>더 이상 베팅할 수 없습니다. 무료 충전은 없습니다.</div>
+        <div class="broke" id="brokeMsg" hidden><b>포인트를 모두 잃었습니다</b><span id="brokeText">무료 충전은 없습니다.</span><div style="margin-top:8px"><button class="btn" type="button" id="brokeLoan">대출 받으러 가기</button></div></div>
         <div class="result" id="result"></div>
       </aside>
     </div>
@@ -474,6 +515,20 @@ details.more[open] summary{color:var(--cyan)}
       <header><b style="font-weight:500">누적 손익 <span class="hint">(최근 300판)</span></b>
         <div style="display:flex;gap:8px;align-items:center"><label for="chartSel" class="hint">게임</label><select id="chartSel"></select></div></header>
       <canvas id="chart" height="260"></canvas>
+    </div>
+  </section>
+
+  <section class="view" id="v-loan" hidden>
+    <div class="view-head"><div><h2>대출</h2><div class="hint" style="margin-top:4px">포인트를 모두 잃었을 때 한 번에 10,000P까지 빌릴 수 있습니다.</div></div></div>
+    <div class="loan-card" id="loanCard"></div>
+  </section>
+
+  <section class="view" id="v-chat" hidden>
+    <div class="chat-lock">관리자가 1:1 대화를 시작했습니다. 대화가 끝날 때까지 게임을 할 수 없습니다.</div>
+    <div class="chat-box">
+      <div class="chat-head"><b>관리자와 1:1 대화</b><span class="hint" id="chatState"></span></div>
+      <div class="chat-log" id="chatLog"></div>
+      <form class="chat-form" id="chatForm"><input type="text" id="chatIn" maxlength="500" placeholder="메시지를 입력하세요" autocomplete="off"><button class="btn primary" type="submit">보내기</button></form>
     </div>
   </section>
 
@@ -516,9 +571,30 @@ details.more[open] summary{color:var(--cyan)}
         <h3 style="margin-top:14px">실시간 결과 로그</h3>
         <div class="feed" id="feed"><div style="color:var(--smute)">학생이 판을 끝내면 여기에 기록됩니다.</div></div>
       </div>
-      <div class="abox">
-        <h3>확률 조작</h3>
-        <div class="rig-list" id="rigList"></div>
+      <div>
+        <div class="abox">
+          <h3>확률 조작</h3>
+          <div class="rig-list" id="rigList"></div>
+        </div>
+        <div class="abox">
+          <h3>운영 설정</h3>
+          <div class="rig-list" id="opsList"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="view admin-scope" id="v-chats" hidden>
+    <div class="view-head"><div><div class="eyebrow">DIRECT MESSAGE</div><h2>1:1 메시지</h2><p class="sub">메시지를 보내면 그 학생은 진행 중인 판이 끝나는 즉시 대화 화면으로 넘어가고, 대화를 끝낼 때까지 게임을 할 수 없습니다.</p></div></div>
+    <div class="chats-wrap">
+      <div>
+        <div class="filters"><select id="chatPick" style="width:100%"><option value="">새 대화: 학생 고르기</option></select></div>
+        <div class="conv-list" id="convList"></div>
+      </div>
+      <div class="chat-box">
+        <div class="chat-head"><b id="admChatTitle">대화를 고르세요</b><span class="abtns"><span class="hint" id="admChatState" style="color:var(--smute)"></span><button type="button" class="abtn l" id="admChatClose" hidden>대화 끝내기</button></span></div>
+        <div class="chat-log" id="admChatLog"></div>
+        <form class="chat-form" id="admChatForm"><input type="text" id="admChatIn" maxlength="500" placeholder="학생에게 보낼 메시지" autocomplete="off" disabled><button class="abtn" type="submit" style="padding:6px 14px">보내기</button></form>
       </div>
     </div>
   </section>
@@ -562,7 +638,10 @@ function parseSid(sid){if(!/^\d{5}$/.test(sid))return null;const grade=+sid[0],c
 
 /* ---------------- state (balance and records live on the server) ---------------- */
 const prefs=Object.assign({bet:500,crashHist:[]},LS.get('he.prefs',{}));
-const S={me:null,admin:false,bal:0,stats:null,hist:[],mymail:[],crashHist:prefs.crashHist,bet:prefs.bet};
+const S={me:null,admin:false,bal:0,stats:null,hist:[],mymail:[],chat:null,crashHist:prefs.crashHist,bet:prefs.bet};
+let STABLE=null,CHATS={},SETTINGS={startBal:START};
+// admin-set game odds (fractions). Missing → the game's normal odds.
+function oddsP(k,def){const v=CFG.odds&&CFG.odds[k];return(typeof v==='number'&&v>=0&&v<=1)?v:def;}
 function save(){prefs.bet=S.bet;prefs.crashHist=S.crashHist;LS.set('he.prefs',prefs);}
 
 const META={
@@ -641,6 +720,7 @@ function onServer(m){
     case 'welcome':
       if(checkVersion(m.ver))break;
       if(m.cfg)applyCfg(m.cfg);
+      if(m.stable)onStable(m.stable);
       if(m.admin)enterAdmin();else if(m.me)enterPlayer(m.me,m.mymail);else{LS.del('he.token');showGate();}
       break;
     case 'authok':
@@ -652,7 +732,9 @@ function onServer(m){
     case 'betok':case 'betno':if(SV.wait){SV.wait.res(m);SV.wait=null;}break;
     case 'bal':
       if(!S.me)break;
-      S.bal=m.bal;if(m.stats)S.stats=m.stats;if(m.h){S.hist.push(m.h);if(S.hist.length>300)S.hist.shift();}
+      S.bal=m.bal;if(m.stats)S.stats=m.stats;if('loan' in m)S.me.loan=m.loan;if(m.h){S.hist.push(m.h);if(S.hist.length>300)S.hist.shift();}
+      if(m.loanMsg)toast(m.loanMsg);
+      if(view==='loan')renderLoan();
       if(!busy)updateBal();else shownBalPending=true;
       if(m.by==='admin')toast('관리자가 포인트를 조정했습니다');
       if(view==='stats')renderStats();
@@ -662,10 +744,15 @@ function onServer(m){
     case 'mailok':S.mymail=m.mymail||[];renderMyMail();$('#mailBody').value='';$('#mailCount').textContent='0 / 1000';toast('건의를 보냈습니다');break;
     case 'mymail':S.mymail=m.mymail||[];renderMyMail();break;
     case 'mailerr':toast(m.msg);break;
-    case 'users':if(S.admin){USERS=m.users;renderAdmin();}break;
+    case 'users':if(S.admin){USERS=m.users;renderAdmin();if(view==='chats')renderChats();}break;
     case 'mail':if(S.admin){INBOX=m.list;renderInbox();}break;
     case 'feed':if(S.admin)addFeed(m.e);break;
     case 'admack':toast(m.msg||(m.ok?'완료':'실패'));break;
+    case 'loanerr':toast(m.msg);break;
+    case 'stable':onStable(m.stable);break;
+    case 'chat':S.chat=m.chat;handleChat();break;
+    case 'chats':if(S.admin){CHATS=m.chats||{};renderChats();}break;
+    case 'settings':if(S.admin){SETTINGS=m.settings||SETTINGS;syncOps();}break;
   }
 }
 function onCmd(d){
@@ -681,6 +768,18 @@ function betRequest(g,bet){
     const done=m=>{clearTimeout(timer);res(m);};
     SV.wait={res:done};
   });
+}
+
+/* loans: 10,000P, 20% simple interest per hour, usable for 24 hours */
+const LOAN_TERM=24*3600*1000;
+const debtNow=l=>Math.floor(l.principal*(1+0.2*Math.max(0,(Date.now()-l.at)/3600000)));
+/* horse/snail shared stable from the server */
+function onStable(st){STABLE=st;for(const id of['horse','snail']){const g=GAMES[id];if(!g)continue;if(cur===g&&busy){g.pendingRefresh=true;continue;}if(cur===g&&view==='game')g.refresh();else g.field=null;}}
+/* 1:1 chat from the house: takes over the screen once the current round is over */
+function handleChat(){
+  if(S.admin||!S.me)return;
+  if(S.chat&&S.chat.open){if(busy)return;if(view!=='chat'){toast('관리자가 1:1 대화를 시작했습니다');show('chat');}else renderChat();}
+  else if(view==='chat'){renderChat();toast('대화가 끝났습니다');setTimeout(()=>{if(view==='chat')show('lobby');},1200);}
 }
 
 /* presence: what the house sees about this player right now */
@@ -718,11 +817,11 @@ function enterShell(){$('#gate').hidden=true;$('#appShell').hidden=false;
   document.querySelectorAll('[data-role=player]').forEach(el=>el.hidden=S.admin);
   document.querySelectorAll('[data-role=admin]').forEach(el=>el.hidden=!S.admin);}
 function enterPlayer(me,mymail){
-  S.me=me;S.admin=false;S.bal=me.bal;S.stats=me.stats;S.hist=me.hist||[];S.mymail=mymail||[];
+  S.me=me;S.admin=false;S.bal=me.bal;S.stats=me.stats;S.hist=me.hist||[];S.mymail=mymail||[];S.chat=me.chat||null;
   enterShell();$('#whoText').innerHTML=`<b>${esc(me.name)}</b> · ${esc(clsLabel(me))}`;
   shownBal=S.bal;$('#balNum').textContent=fmt(S.bal);updateBal();renderMyMail();
   if(!['lobby','rank','stats','mail','game'].includes(view)||view==='game'&&!cur)view='lobby';
-  show(view==='game'?'game':view);pushPresence();checkReveal();
+  show(view==='game'?'game':view);pushPresence();checkReveal();handleChat();
 }
 function enterAdmin(){
   S.me=null;S.admin=true;enterShell();$('#whoText').innerHTML='<b>관리자</b>';
@@ -740,14 +839,18 @@ $('#logoutBtn').onclick=()=>{if(busy){toast('판이 끝난 뒤에 로그아웃�
 let view='lobby',cur=null,busy=false,choice=null,RANK=null,USERS=[],INBOX=[],rigBuilt=false;
 function show(v){
   if(busy&&v!=='game'){toast('판이 끝난 뒤에 이동할 수 있습니다');return;}
+  if(!S.admin&&S.chat&&S.chat.open&&v!=='chat'){toast('관리자와 대화가 끝날 때까지 다른 화면으로 갈 수 없습니다');v='chat';}
   view=v;
-  for(const id of['lobby','game','rank','stats','mail','admin','inbox'])$('#v-'+id).hidden=id!==v;
+  for(const id of['lobby','game','rank','stats','loan','chat','mail','admin','inbox','chats'])$('#v-'+id).hidden=id!==v;
   document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-current',String(b.dataset.v===v||(v==='game'&&b.dataset.v==='lobby'))));
   if(v==='stats')renderStats();
   if(v==='rank'){if(!RANK)svSend({t:'rank'});renderRank();}
   if(v==='admin')renderAdmin();
   if(v==='inbox')renderInbox();
   if(v==='mail')renderMyMail();
+  if(v==='loan')renderLoan();
+  if(v==='chat')renderChat();
+  if(v==='chats')renderChats();
   pushPresence();window.scrollTo({top:0});
 }
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('button[data-v]');if(b)show(b.dataset.v);});
@@ -762,8 +865,14 @@ function updateBal(){
   el.classList.remove('up','down');void el.offsetWidth;if(to>from)el.classList.add('up');else if(to<from)el.classList.add('down');
   const t0=performance.now(),dur=500;
   (function step(t){const k=Math.min(1,(t-t0)/dur);$('#balNum').textContent=fmt(from+(to-from)*(1-Math.pow(1-k,3)));if(k<1)requestAnimationFrame(step);})(t0);
-  const broke=S.bal<1&&!busy;
+  const loan=S.me&&S.me.loan;const debt=loan?debtNow(loan):0;
+  $('#debtTag').hidden=!loan;if(loan)$('#debtTag').textContent='빚 '+fmt(debt);
+  const expired=loan&&Date.now()-loan.at>LOAN_TERM;
+  const broke=(S.bal<1||expired)&&!busy;
   $('#brokeMsg').hidden=!broke;$('#playBtn').hidden=broke&&!busy;
+  if(broke){$('#brokeMsg b').textContent=expired?'대출 사용 기간이 끝났습니다':'포인트를 모두 잃었습니다';
+    $('#brokeText').textContent=expired?'대출 탭에서 갚아야 다시 게임을 할 수 있습니다.':loan?'이미 받은 대출이 있어 더 빌릴 수 없습니다.':'무료 충전은 없습니다. 대출을 받을 수 있습니다.';
+    $('#brokeLoan').textContent=expired||loan?'대출 탭으로 가기':'대출 받으러 가기';}
   if(S.bet>S.bal&&S.bal>=1&&!busy)setBet(S.bal);
 }
 function toast(msg){const d=document.createElement('div');d.textContent=msg;$('#toast').appendChild(d);setTimeout(()=>d.remove(),2400);}
@@ -808,7 +917,9 @@ async function play(){
   setBet(betIn.value);const bet=S.bet;
   if(bet>S.bal){toast('보유 포인트보다 많이 걸 수 없습니다');return;}
   const list=cur.choices();
+  if(cur.listChoices&&!list.length){toast('출전 정보를 불러오는 중입니다');return;}
   if(list.length&&choice==null){toast((cur.choiceLabel||'선택')+'을(를) 먼저 고르세요');return;}
+  if(S.chat&&S.chat.open){handleChat();return;}
   busy=true;setPlayBtn();
   const ack=await betRequest(cur.id,bet);
   if(ack.t!=='betok'){busy=false;setPlayBtn();toast(ack.msg||'베팅할 수 없습니다');if(ack.bal!=null){S.bal=ack.bal;updateBal();}return;}
@@ -819,11 +930,13 @@ async function play(){
   let r;
   try{r=await cur.play(bet,choice);}catch(e){console.error(e);r={pay:bet,manip:false,fairPay:bet,text:'오류로 원금 반환'};}
   const pay=Math.max(0,Math.floor(r.pay||0));
-  svSend({t:'settle',pay,manip:!!r.manip,d:r.manip?pay-Math.floor(r.fairPay||0):0});
+  svSend({t:'settle',pay,manip:!!r.manip,d:r.manip?pay-Math.floor(r.fairPay||0):0,winner:Number.isInteger(r.winner)?r.winner:undefined});
   showResult(bet,pay,r.text);
   busy=false;playing=false;curBetInfo=null;liveText='';setPlayBtn();
   updateBal();pushPresence(); // the server answers with the new balance
   if(cur.after)cur.after();
+  if(cur&&cur.pendingStable&&cur.refresh){cur.pendingStable=false;}
+  if(S.chat&&S.chat.open)setTimeout(handleChat,1200);
   if(updatePending){updatePending=false;setTimeout(()=>{if(!busy){toast('새 버전으로 업데이트합니다');setTimeout(()=>location.reload(),700);}else updatePending=true;},1800);}
 }
 $('#playBtn').onclick=play;
@@ -839,7 +952,7 @@ GAMES.coin={id:'coin',rot:0,choiceLabel:'면 선택',
   choices:()=>[{label:'앞면',sub:'1.95x'},{label:'뒷면',sub:'1.95x'}],
   mount(st){st.innerHTML=`<div class="coin-scene"><div class="coin-shadow"></div><div class="coin" id="coin"><div class="cf cf-h">앞</div><div class="cf cf-t">뒤</div></div></div>`;this.rot=0;},
   async play(bet,pick){
-    const r=resolve('coin',bet,()=>rnd()<.5?0:1,o=>o===pick?Math.floor(bet*1.95):0);
+    const r=resolve('coin',bet,()=>rnd()<oddsP('coin',.5)?pick:1-pick,o=>o===pick?Math.floor(bet*1.95):0);
     const c=$('#coin');const base=this.rot-(this.rot%360);this.rot=base+360*7+(r.o?180:0);
     c.classList.remove('coin-toss');void c.offsetWidth;c.classList.add('coin-toss');
     c.style.transform=`rotateX(${this.rot}deg)`;
@@ -855,7 +968,7 @@ GAMES.rps={id:'rps',choiceLabel:'내 손',
   mount(st){st.innerHTML=`<div class="rps"><div class="side"><div class="hand l" id="hL">✊</div><span>나</span></div><div class="vs" id="rpsVs">VS</div><div class="side"><div class="hand r" id="hR">✊</div><span>하우스</span></div></div>`;},
   async play(bet,pick){
     const payOf=c=>{const d=(pick-c+3)%3;return d===0?bet:d===1?Math.floor(bet*1.95):0;};
-    const r=resolve('rps',bet,()=>Math.floor(rnd()*3),payOf);
+    const r=resolve('rps',bet,()=>{const w=oddsP('rpsWin',1/3),d=oddsP('rpsDraw',1/3),u=rnd();return u<w?(pick+2)%3:u<w+d?pick:(pick+1)%3;},payOf);
     const L=$('#hL'),R=$('#hR'),vs=$('#rpsVs');L.textContent=R.textContent='✊';
     L.className='hand l shake';R.className='hand r shake';
     for(const w of['가위','바위','보!']){vs.textContent=w;await wait(400);}
@@ -918,9 +1031,9 @@ function raceGame(cfg){
   return{id:cfg.id,listChoices:true,choiceLabel:cfg.choiceLabel,
     field:null,
     newField(){this.field=cfg.makeField();},
-    choices(){if(!this.field)this.newField();return this.field.map((h,i)=>({label:h.name,html:cfg.choiceHtml(h,i)}));},
+    choices(){if(!this.field||!this.field.length)this.newField();return this.field.map((h,i)=>({label:h.name,html:cfg.choiceHtml(h,i)}));},
     mount(st,extra){
-      if(!this.field)this.newField();
+      if(!this.field||!this.field.length)this.newField();
       st.innerHTML=`<div class="track ${cfg.id==='snail'?'snail':''}"><div class="finish"></div>${this.field.map((h,i)=>`<div class="lane" data-i="${i}"><span class="no" style="background:${h.color}">${i+1}</span><div class="runner"><i>${cfg.glyph}</i></div></div>`).join('')}<div class="photo"></div><div class="commentary" id="comm">출발 대기 중</div></div>`;
       if(cfg.extra)extra.innerHTML=cfg.extra();
     },
@@ -943,28 +1056,26 @@ function raceGame(cfg){
       };
       const w=await race.done;this.liveOverride=null;
       banner((w+1)+'번 우승',w===pick?'win':'lose');
-      return{pay:payOf(w),fairPay:r.fairPay,manip:manip&&payOf(w)!==r.fairPay,text:(w+1)+'번 '+F[w].name+' 우승'};
+      return{pay:payOf(w),fairPay:r.fairPay,manip:manip&&payOf(w)!==r.fairPay,text:(w+1)+'번 '+F[w].name+' 우승',winner:w};
     },
-    after(){this.newField();choice=null;renderChoices();setTimeout(()=>{if(!busy&&cur===this)this.mount(stage,$('#gExtra'));},1800);}
+    after(){this.pendingRefresh=true;setTimeout(()=>{if(this.pendingRefresh)this.refresh();},1800);},
+    refresh(){if(busy||cur!==this)return;this.pendingRefresh=false;this.newField();choice=null;renderChoices();this.mount(stage,$('#gExtra'));}
   };
 }
 const HORSE_NAMES=['번개발굽','흑진주','바람돌이','적토마','은하수','꼬마별','철갑기사','새벽안개','황금마차','폭풍질주','달빛소나타','청룡'];
 const COLORS=['#c9a560','#c7776f','#6f9fbf','#7fa877','#a58cc0','#c99561'];
+function stableField(kind){
+  const list=(STABLE&&STABLE[kind])||[];
+  return list.map((h,i)=>({name:h.name,p:h.p,runs:h.runs||0,wins:h.wins||0,odds:Math.floor(0.95/h.p*100)/100,color:COLORS[i%COLORS.length]}));
+}
+const runnerHtml=h=>`<span style="width:12px;height:12px;border-radius:50%;background:${h.color}"></span><span><b>${esc(h.name)}</b><div class="hint">${h.runs}판 중 ${h.wins}승 · 이번 판 승률 ${(h.p*100).toFixed(1)}%</div><div class="bar"><i style="width:${Math.min(100,h.p/0.6*100).toFixed(0)}%"></i></div></span><small style="font-size:15px">${h.odds.toFixed(2)}x</small>`;
 GAMES.horse=raceGame({id:'horse',glyph:'🏇',choiceLabel:'우승마 선택',base:6.2,spread:1.8,
-  makeField(){
-    const names=HORSE_NAMES.slice().sort(()=>rnd()-.5).slice(0,6);
-    const w=names.map(()=>Math.pow(.35+rnd(),2.2));const s=w.reduce((a,b)=>a+b,0);
-    const ps=w.map(v=>v/s);const mx=Math.max(...ps),mn=Math.min(...ps);
-    return names.map((nm,i)=>{const p=ps[i];const ab=Math.round(55+40*(p-mn)/((mx-mn)||1));
-      return{name:nm,p,odds:Math.floor(0.95/p*100)/100,ab,spd:Math.min(99,ab+Math.round(rnd()*8-4)),sta:Math.min(99,ab+Math.round(rnd()*10-5)),color:COLORS[i]};});
-  },
-  choiceHtml:(h)=>`<span style="width:12px;height:12px;border-radius:50%;background:${h.color}"></span><span><b>${esc(h.name)}</b><div class="hint">능력치 ${h.ab} · 스피드 ${h.spd} · 지구력 ${h.sta} · 승률 ${(h.p*100).toFixed(1)}%</div><div class="bar"><i style="width:${h.ab}%"></i></div></span><small style="font-size:15px">${h.odds.toFixed(2)}x</small>`,
-  extra:()=>`<div class="hint">배당은 0.95 ÷ 우승 확률입니다. 매 경기마다 출전마와 능력치가 바뀝니다.</div>`
+  makeField:()=>stableField('horse'),choiceHtml:runnerHtml,
+  extra:()=>`<div class="hint">이긴 말은 다음 판 승률이 내려가고, 진 말은 올라갑니다. 배당 = 0.95 ÷ 이번 판 승률.</div>`
 });
 GAMES.snail=raceGame({id:'snail',glyph:'🐌',choiceLabel:'달팽이 선택',base:9,spread:2.6,
-  makeField(){const nm=['느림보','끈적이','총알','껍데기왕'];return nm.map((n,i)=>({name:n,p:.25,odds:3.8,color:COLORS[i]}));},
-  choiceHtml:(h)=>`<span style="width:12px;height:12px;border-radius:50%;background:${h.color}"></span><span><b>${esc(h.name)}</b><div class="hint">우승 확률 25%</div></span><small style="font-size:15px">3.80x</small>`,
-  extra:()=>`<div class="hint">네 마리의 실력은 같습니다. 가끔 멈추거나 갑자기 빨라집니다.</div>`
+  makeField:()=>stableField('snail'),choiceHtml:runnerHtml,
+  extra:()=>`<div class="hint">이긴 달팽이는 다음 판 승률이 내려가고, 진 달팽이는 올라갑니다. 가끔 멈추거나 갑자기 빨라집니다.</div>`
 });
 
 /* ---------------- 5. odd/even ---------------- */
@@ -975,7 +1086,7 @@ GAMES.oddeven={id:'oddeven',choiceLabel:'홀 / 짝',
   choices:()=>[{label:'홀',sub:'1.95x'},{label:'짝',sub:'1.95x'}],
   mount(st){st.innerHTML=`<div class="dice-scene"><div><div class="dice-row">${dieHTML('d1')}${dieHTML('d2')}</div><div class="dice-sum" id="dsum">주사위를 굴리세요</div></div></div>`;setDie($('#d1'),3);setDie($('#d2'),4);},
   async play(bet,pick){
-    const r=resolve('oddeven',bet,()=>[1+Math.floor(rnd()*6),1+Math.floor(rnd()*6)],o=>((o[0]+o[1])%2===1?0:1)===pick?Math.floor(bet*1.95):0);
+    const r=resolve('oddeven',bet,()=>{const want=rnd()<oddsP('oddeven',.5);for(let i=0;i<60;i++){const d=[1+Math.floor(rnd()*6),1+Math.floor(rnd()*6)];if((((d[0]+d[1])%2===1?0:1)===pick)===want)return d;}return[1,2];},o=>((o[0]+o[1])%2===1?0:1)===pick?Math.floor(bet*1.95):0);
     const a=$('#d1'),b=$('#d2'),sum=$('#dsum');sum.textContent='…';
     a.className='die roll';b.className='die roll';
     const iv=setInterval(()=>{setDie(a,1+Math.floor(rnd()*6));setDie(b,1+Math.floor(rnd()*6));},70);
@@ -1111,7 +1222,7 @@ GAMES.crash={id:'crash',running:false,m:1,playLabel:'베팅하고 시작',
   },
   cashout(){if(this.running&&!this.out){this.out=this.m;}},
   async play(bet){
-    let U=rnd();let crash=0.97/(1-U);crash=crash<1?1:Math.floor(crash*100)/100;const fair=crash;
+    let U=rnd();let crash=0.97/(1-U);crash=crash<1?1:Math.floor(crash*100)/100;const cap=+CFG.crashCap||0;if(cap>=1.01)crash=Math.min(crash,cap);const fair=crash;
     const auto=parseFloat(($('#autoCo')||{}).value)||0;const b=bias('crash');let manip=false;
     if(b<0&&rnd()<-b){const c=auto>1.01?Math.max(1,Math.floor((auto-0.01-rnd()*.4)*100)/100):Math.floor((1+rnd()*.3)*100)/100;if(c<crash){crash=c;manip=true;}}
     else if(b>0&&rnd()<b){const c=auto>1.01?Math.floor((auto+0.05+rnd()*1.5)*100)/100:Math.floor((2+rnd()*4)*100)/100;if(c>crash){crash=c;manip=true;}}
@@ -1193,7 +1304,7 @@ function renderRank(){
   $('#classTabs').innerHTML=[1,2,3,4,5,6,7].map(k=>`<button type="button" data-c="${k}" aria-pressed="${k===rankCls}">${k}반</button>`).join('');
   const list=RANK.byClass[rankCls]||[];
   tbl.innerHTML=`<thead><tr><th>순위</th><th>번호</th><th>이름</th><th class="n">자산</th><th class="n">수익률</th><th class="n">판수</th></tr></thead><tbody>${
-    list.length?list.map((u,i)=>`<tr class="${S.me&&u.sid===S.me.sid?'me':''}"><td><span class="medal ${i<3?'m'+(i+1):''}">${i+1}</span></td><td>${u.grade}학년 ${u.num}번</td><td>${esc(u.name)}${S.me&&u.sid===S.me.sid?' <span class="tag on">나</span>':''}</td><td class="n">${fmt(u.bal)}</td><td class="n ${u.rate>=0?'pos':'neg'}">${pfmt(u.rate)}</td><td class="n">${u.rounds}</td></tr>`).join('')
+    list.length?list.map((u,i)=>`<tr class="${S.me&&u.sid===S.me.sid?'me':''}"><td><span class="medal ${i<3?'m'+(i+1):''}">${i+1}</span></td><td>${u.grade}학년 ${u.num}번</td><td>${esc(u.name)}${S.me&&u.sid===S.me.sid?' <span class="tag on">나</span>':''}</td><td class="n">${fmt(u.bal)}${u.debt?' <span class="debt-tag">빚 '+fmt(u.debt)+'</span>':''}</td><td class="n ${u.rate>=0?'pos':'neg'}">${pfmt(u.rate)}</td><td class="n">${u.rounds}</td></tr>`).join('')
     :`<tr><td colspan="6" class="hint" style="text-align:center;padding:20px">${rankCls}반에는 아직 가입한 학생이 없습니다.</td></tr>`}</tbody>`;
 }
 $('#classBoard').addEventListener('click',e=>{const b=e.target.closest('[data-c]');if(b){rankCls=+b.dataset.c;renderRank();}});
@@ -1273,7 +1384,17 @@ function buildRigPanel(){
   el.innerHTML=`
   <div><label for="rgGlobal">전체 학생 승률 조정</label><div class="slider-row"><input type="range" id="rgGlobal" min="-100" max="100" step="5"><output id="rgGlobalV"></output></div>
   <div class="sub">음수: 학생이 이긴 판을 그 확률로 패배로 바꿉니다. 양수: 진 판을 승리로 바꿉니다.</div></div>
-  <div><div style="font-size:13px;margin-bottom:4px">게임별 조정</div>${GIDS.map(g=>`<div class="slider-row"><label for="rg_${g}" style="width:84px;font-size:12px">${META[g].name}</label><input type="range" id="rg_${g}" min="-100" max="100" step="5"><output id="rg_${g}V"></output></div>`).join('')}</div>
+  <div><div style="font-size:13px;margin-bottom:6px">게임별 확률</div>
+    <div class="odds-grid">
+      <label for="od_coin">동전 적중</label><span class="cell"><input type="number" id="od_coin" min="0" max="100" step="1" placeholder="50">%</span>
+      <label for="od_rpsWin">가위바위보</label><span class="cell">승 <input type="number" id="od_rpsWin" min="0" max="100" step="1" placeholder="33">% 무 <input type="number" id="od_rpsDraw" min="0" max="100" step="1" placeholder="33">%</span>
+      <label for="od_oddeven">홀짝 적중</label><span class="cell"><input type="number" id="od_oddeven" min="0" max="100" step="1" placeholder="50">%</span>
+      <label for="od_crash">그래프 상한</label><span class="cell"><input type="number" id="od_crash" min="1.01" step="0.1" placeholder="없음">x</span>
+    </div>
+    <div class="sub" style="margin-top:4px">비워 두면 원래 확률(동전·홀짝 50%, 가위바위보 승 33%·무 33%, 상한 없음)을 씁니다. 그래프는 상한 배율에서 반드시 터집니다.</div>
+    <div class="abtns" style="margin-top:6px"><button type="button" class="abtn" id="oddsReset">확률 원래대로</button><button type="button" class="abtn" id="stableReset">말·달팽이 전적 초기화</button></div>
+  </div>
+  <details class="sub-more"><summary>게임별 추가 조작 (결과 재추첨)</summary>${GIDS.map(g=>`<div class="slider-row"><label for="rg_${g}" style="width:84px;font-size:12px">${META[g].name}</label><input type="range" id="rg_${g}" min="-100" max="100" step="5"><output id="rg_${g}V"></output></div>`).join('')}</details>
   <div class="toggle"><span><label for="rgLure">미끼 모드</label><div class="sub">처음 몇 판은 승률을 올려 줍니다.</div></span><input type="checkbox" id="rgLure"></div>
   <div class="slider-row"><label for="rgLureN" style="font-size:12px;width:84px">대상 판수</label><input type="number" id="rgLureN" min="1" max="200" style="width:64px"><label for="rgLureB" style="font-size:12px">보정</label><input type="range" id="rgLureB" min="0" max="100" step="5"><output id="rgLureBV"></output></div>
   <div class="toggle"><span><label for="rgNear">니어미스 연출</label><div class="sub">슬롯에서 진 판을 7·7·(아깝게 빗나감)으로 보여 줍니다.</div></span><input type="checkbox" id="rgNear"></div>
@@ -1287,6 +1408,15 @@ function buildRigPanel(){
   bind('#rgLureB',e=>{CFG.lure.boost=e.target.value/100;$('#rgLureBV').textContent=biasText(CFG.lure.boost);saveCfg();refreshEff();});
   $('#rgNear').addEventListener('change',e=>{CFG.nearMiss=e.target.checked;saveCfg();});
   $('#rgReveal').addEventListener('change',e=>{CFG.reveal=e.target.checked;saveCfg();toast(CFG.reveal?'모든 학생에게 공개합니다':'공개를 껐습니다');});
+  const oddsIds={coin:'od_coin',rpsWin:'od_rpsWin',rpsDraw:'od_rpsDraw',oddeven:'od_oddeven'};
+  for(const k in oddsIds)$('#'+oddsIds[k]).addEventListener('change',e=>{CFG.odds=Object.assign({},CFG.odds||{});const v=e.target.value.trim();
+    if(v===''){delete CFG.odds[k];}else{const p=Math.max(0,Math.min(100,+v))/100;CFG.odds[k]=p;e.target.value=Math.round(p*1000)/10;}
+    if((CFG.odds.rpsWin||0)+(CFG.odds.rpsDraw||0)>1){toast('가위바위보 승+무가 100%를 넘을 수 없습니다');CFG.odds.rpsDraw=Math.max(0,1-(CFG.odds.rpsWin||0));$('#od_rpsDraw').value=Math.round(CFG.odds.rpsDraw*1000)/10;}
+    saveCfg();});
+  $('#od_crash').addEventListener('change',e=>{const v=parseFloat(e.target.value);CFG.crashCap=v>=1.01?Math.round(v*100)/100:0;if(!CFG.crashCap)e.target.value='';saveCfg();});
+  $('#oddsReset').onclick=()=>{CFG.odds={};CFG.crashCap=0;saveCfg();syncRigPanel();toast('게임 확률을 원래대로 돌렸습니다');};
+  let srArm=0;$('#stableReset').onclick=e=>{if(Date.now()-srArm>3000){srArm=Date.now();e.target.textContent='한 번 더 누르면 초기화';return;}e.target.textContent='말·달팽이 전적 초기화';svSend({t:'adm',op:'stablereset'});};
+  buildOps();
   $('#allLose').onclick=()=>sendCmd('all','force',{want:'lose'});
   $('#allWin').onclick=()=>sendCmd('all','force',{want:'win'});
   $('#rigReset').onclick=()=>{const keep=CFG.reveal;CFG=JSON.parse(JSON.stringify(DEF_CFG));CFG.reveal=keep;saveCfg();syncRigPanel();refreshEff();sendCmd('all','clearforce');};
@@ -1297,6 +1427,8 @@ function syncRigPanel(){
   const setR=(id,v)=>{const el=$(id);if(el&&el!==act)el.value=pct(v);const o=$(id+'V');if(o)o.textContent=biasText(v);};
   setR('#rgGlobal',CFG.global);GIDS.forEach(g=>setR('#rg_'+g,CFG.games[g]||0));setR('#rgLureB',CFG.lure.boost);
   $('#rgLure').checked=!!CFG.lure.on;if($('#rgLureN')!==act)$('#rgLureN').value=CFG.lure.rounds;$('#rgNear').checked=!!CFG.nearMiss;$('#rgReveal').checked=!!CFG.reveal;
+  const od=CFG.odds||{};for(const [k,id] of [['coin','od_coin'],['rpsWin','od_rpsWin'],['rpsDraw','od_rpsDraw'],['oddeven','od_oddeven']]){const el=$('#'+id);if(el&&el!==act)el.value=typeof od[k]==='number'?Math.round(od[k]*1000)/10:'';}
+  if($('#od_crash')!==act)$('#od_crash').value=CFG.crashCap>=1.01?CFG.crashCap:'';
   rows.forEach(r=>{const v=((CFG.players||{})[r.sid]||{}).bias||0;if(r.slider!==act)r.slider.value=pct(v);r.out.textContent=biasText(v);});
 }
 function refreshEff(){rows.forEach(r=>r.updateEff());}
@@ -1324,8 +1456,8 @@ function makeRow(u){
   tr.innerHTML=`<td class="pname"><b></b><small></small></td><td class="n bl"></td><td class="n rt"></td><td class="st"></td><td class="n rw"></td><td class="n man"></td>
   <td><div class="ctl"><div class="slider-row"><input type="range" min="-100" max="100" step="5" aria-label="개인 승률 조정"><output></output></div><div class="hint eff" style="color:var(--smute);font-size:11px"></div>
   <div class="abtns"><button type="button" class="abtn w" data-c="fw">다음 판 승리</button><button type="button" class="abtn l" data-c="fl">다음 판 패배</button><button type="button" class="abtn w" data-c="lw">이번 판 승리</button><button type="button" class="abtn l" data-c="ll">이번 판 패배</button></div></div></td>
-  <td><div class="ctl" style="min-width:200px"><div class="abtns"><input type="number" min="0" step="1000" placeholder="금액" aria-label="지급·회수 금액" class="amt"><button type="button" class="abtn w" data-c="add">지급</button><button type="button" class="abtn l" data-c="sub">회수</button><button type="button" class="abtn" data-c="set">설정</button></div>
-  <details class="more"><summary>더보기</summary><div class="abtns" style="margin-top:5px"><input type="text" placeholder="새 비밀번호" aria-label="새 비밀번호" class="npw"><button type="button" class="abtn" data-c="pw">비밀번호 변경</button></div><div class="abtns" style="margin-top:5px"><button type="button" class="abtn l" data-c="del">계정 삭제</button></div></details></div></td>`;
+  <td><div class="ctl" style="min-width:200px"><div class="abtns"><input type="number" min="0" step="1000" placeholder="금액" aria-label="지급·회수 금액" class="amt"><button type="button" class="abtn w" data-c="add">지급</button><button type="button" class="abtn l" data-c="sub">회수</button><button type="button" class="abtn" data-c="set">설정</button><button type="button" class="abtn" data-c="chat">메시지</button></div>
+  <details class="more"><summary>더보기</summary><div class="abtns" style="margin-top:5px"><input type="text" placeholder="새 비밀번호" aria-label="새 비밀번호" class="npw"><button type="button" class="abtn" data-c="pw">비밀번호 변경</button></div><div class="abtns" style="margin-top:5px"><button type="button" class="abtn" data-c="forgive">대출 없애기</button><button type="button" class="abtn l" data-c="del">계정 삭제</button></div></details></div></td>`;
   const r={tr,sid,u,slider:tr.querySelector('input[type=range]'),out:tr.querySelector('output'),amt:tr.querySelector('.amt'),npw:tr.querySelector('.npw'),delArm:0};
   const v=((CFG.players||{})[sid]||{}).bias||0;r.slider.value=pct(v);r.out.textContent=biasText(v);
   r.slider.addEventListener('input',()=>{CFG.players[sid]=Object.assign({},CFG.players[sid]||{},{bias:r.slider.value/100});r.out.textContent=biasText(CFG.players[sid].bias);saveCfg();r.updateEff();});
@@ -1333,6 +1465,8 @@ function makeRow(u){
     if(c==='fw')sendCmd(sid,'force',{want:'win'});else if(c==='fl')sendCmd(sid,'force',{want:'lose'});
     else if(c==='lw')sendCmd(sid,'live',{want:'win'});else if(c==='ll')sendCmd(sid,'live',{want:'lose'});
     else if(c==='add'||c==='sub'||c==='set'){const a=Math.floor(+r.amt.value);if(!(a>=0)||r.amt.value===''){toast('금액을 입력하세요');return;}svSend({t:'adm',op:c,sid,amount:a});r.amt.value='';}
+    else if(c==='chat'){admChat=sid;show('chats');}
+    else if(c==='forgive'){svSend({t:'adm',op:'forgive',sid});}
     else if(c==='pw'){const p=r.npw.value;if(p.length<4){toast('새 비밀번호는 4자 이상이어야 합니다');return;}svSend({t:'adm',op:'pw',sid,pw:p});r.npw.value='';}
     else if(c==='del'){if(Date.now()-r.delArm>3000){r.delArm=Date.now();b.textContent='한 번 더 누르면 삭제';return;}svSend({t:'adm',op:'del',sid});}
   });
@@ -1340,8 +1474,10 @@ function makeRow(u){
   r.update=(nu)=>{r.u=nu;const p=nu.presence||{};
     tr.querySelector('.pname b').innerHTML=`<span class="odot ${nu.online?'on':''}"></span>${esc(nu.name)}`;
     tr.querySelector('.pname small').textContent=`${nu.sid} · ${nu.grade}학년 ${nu.cls}반 ${nu.num}번`;
-    tr.querySelector('.bl').textContent=fmt(nu.bal);
-    const rate=(nu.bal-START)/START*100;const rt=tr.querySelector('.rt');rt.textContent=pfmt(rate);rt.className='n rt '+(rate>=0?'pos':'neg');
+    tr.querySelector('.bl').innerHTML=fmt(nu.bal)+(nu.loan?`<div class="hint" style="color:${nu.loan.expired?'#e08a80':'var(--smute)'}">대출 ${fmt(nu.loan.principal)} · 빚 ${fmt(nu.loan.debt)}${nu.loan.expired?' · 만기':''}</div>`:'');
+    tr.querySelector('[data-c=chat]').textContent=nu.chatOpen?'대화 중':'메시지';
+    tr.querySelector('[data-c=forgive]').hidden=!nu.loan;
+    const debt=nu.loan?nu.loan.debt:0;const rate=(nu.bal-debt-(nu.start||START))/Math.max(1,nu.start||START)*100;const rt=tr.querySelector('.rt');rt.textContent=pfmt(rate);rt.className='n rt '+(rate>=0?'pos':'neg');
     const st=tr.querySelector('.st');const g=META[nu.pending?nu.pending.g:p.game];
     if(nu.pending){st.innerHTML=`<span class="st-play">${esc(g?g.name:'')}</span><div class="hint" style="color:var(--sink)">베팅 ${fmt(nu.pending.bet)}${p.pick?' · '+esc(p.pick):''}</div><div class="hint" style="color:var(--cyan)">${esc(p.live||'')}</div>`;}
     else st.innerHTML=`<span class="st-idle">${!nu.online?'오프라인':g?esc(g.name)+' 대기':({lobby:'로비',rank:'랭킹',stats:'기록',mail:'건의함'})[p.game]||'접속 중'}</span>${nu.bal<1?' <span class="tag" style="color:#e08a80;border-color:#5a2420">파산</span>':''}`;
@@ -1373,6 +1509,91 @@ function renderInbox(){
       else{if(Date.now()-arm>3000){arm=Date.now();b.textContent='한 번 더 누르면 삭제';return;}svSend({t:'adm',op:'maildel',id:m.id});}});
     el.appendChild(d);}
 }
+
+/* ---------------- ops settings (admin): start points, give to everyone ---------------- */
+function buildOps(){
+  $('#opsList').innerHTML=`
+  <div><label for="opStart">가입 시 지급 포인트</label><div class="abtns" style="margin-top:4px"><input type="number" id="opStart" min="0" step="1000"><button type="button" class="abtn" id="opStartSave">저장</button></div><div class="sub">이미 가입한 학생에게는 영향이 없습니다. 수익률은 각자 가입할 때 받은 포인트를 기준으로 계산합니다.</div></div>
+  <div class="toggle" style="display:block"><label for="opAllAmt">한꺼번에 지급 · 회수</label><div class="abtns" style="margin-top:4px"><select id="opAllCls" style="background:var(--steel);border:1px solid var(--sline);color:var(--sink);border-radius:4px;padding:3px 6px;font-size:12px"><option value="0">전체</option>${[1,2,3,4,5,6,7].map(k=>`<option value="${k}">${k}반</option>`).join('')}</select><input type="number" id="opAllAmt" min="1" step="1000" placeholder="금액"><button type="button" class="abtn w" id="opAllGive">지급</button><button type="button" class="abtn l" id="opAllTake">회수</button></div></div>`;
+  $('#opStartSave').onclick=()=>{const v=Math.floor(+$('#opStart').value);if(!(v>=0)||$('#opStart').value===''){toast('포인트를 입력하세요');return;}svSend({t:'adm',op:'settings',startBal:v});};
+  const all=take=>{const a=Math.floor(+$('#opAllAmt').value);if(!(a>0)){toast('금액을 입력하세요');return;}svSend({t:'adm',op:'giveall',amount:a,cls:+$('#opAllCls').value,take});$('#opAllAmt').value='';};
+  $('#opAllGive').onclick=()=>all(false);$('#opAllTake').onclick=()=>all(true);
+  syncOps();
+}
+function syncOps(){const el=$('#opStart');if(el&&el!==document.activeElement)el.value=SETTINGS.startBal;}
+
+/* ---------------- loan (player) ---------------- */
+let loanTimer=null;
+function renderLoan(){
+  const el=$('#loanCard');if(!el||!S.me)return;clearInterval(loanTimer);
+  const l=S.me.loan;
+  const terms=`<ul class="loan-terms"><li>포인트가 0P일 때만 10,000P를 빌릴 수 있습니다.</li><li>이자는 <b>시간당 20%</b>입니다. 24시간이 지나면 빌린 돈의 5.8배를 갚아야 합니다.</li><li>빌린 뒤 <b>24시간 동안만</b> 게임에 쓸 수 있습니다. 그 뒤에는 갚기 전까지 게임을 할 수 없습니다.</li><li>이자는 갚을 때까지 계속 늘어납니다.</li></ul>`;
+  if(!l){
+    const can=S.bal<1&&!busy;
+    el.innerHTML=`<div class="eyebrow">대출 없음</div>${terms}<div><button class="btn primary" type="button" id="loanGo" ${can?'':'disabled'}>10,000P 대출 받기</button></div><div class="hint">${can?'':'지금 보유 포인트는 '+fmt(S.bal)+'입니다. 포인트를 모두 잃었을 때만 대출을 받을 수 있습니다.'}</div>`;
+    const b=$('#loanGo');if(b)b.onclick=()=>{if(!svSend({t:'loan'}))toast('서버에 연결되어 있지 않습니다');};
+    return;
+  }
+  const paint=()=>{
+    const debt=debtNow(l),left=l.at+LOAN_TERM-Date.now(),exp=left<=0;
+    const hrs=(Date.now()-l.at)/3600000;
+    const hm=ms=>{const m=Math.max(0,Math.floor(ms/60000));return Math.floor(m/60)+'시간 '+(m%60)+'분';};
+    el.innerHTML=`<div class="eyebrow">${exp?'만기 지남 · 게임 불가':'대출 사용 중'}</div>
+      <div><div class="hint">지금 갚아야 할 금액</div><div class="loan-big">${fmt(debt)}</div></div>
+      <div class="row"><span>빌린 돈</span><b>${fmt(l.principal)}</b></div>
+      <div class="row"><span>이자 (${hrs.toFixed(1)}시간 × 20%)</span><b>${fmt(debt-l.principal)}</b></div>
+      <div class="row"><span>빌린 시각</span><b>${new Date(l.at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</b></div>
+      <div class="row"><span>${exp?'사용 기간':'게임에 쓸 수 있는 남은 시간'}</span><b style="color:${exp?'#e08a80':'inherit'}">${exp?'끝남':hm(left)}</b></div>
+      <div class="row"><span>보유 포인트</span><b>${fmt(S.bal)}</b></div>
+      <div><button class="btn primary" type="button" id="repayGo" ${S.bal>=debt&&!busy?'':'disabled'}>${fmt(debt)} 갚기</button></div>
+      <div class="hint">${S.bal>=debt?'':'갚으려면 '+fmt(debt-S.bal)+'가 더 필요합니다. 관리자에게 도움을 요청할 수 있습니다.'}</div>`;
+    const b=$('#repayGo');if(b)b.onclick=()=>{if(!svSend({t:'repay'}))toast('서버에 연결되어 있지 않습니다');};
+  };
+  paint();loanTimer=setInterval(()=>{if(view!=='loan'){clearInterval(loanTimer);return;}paint();},1000);
+}
+$('#brokeLoan').onclick=()=>show('loan');
+setInterval(()=>{if(S.me&&S.me.loan&&!busy)updateBal();},30000);
+
+/* ---------------- 1:1 chat ---------------- */
+const tm=t=>{const d=new Date(t);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
+function paintLog(el,msgs,mine){
+  el.innerHTML='';
+  for(const m of msgs||[]){const d=document.createElement('div');d.className='bubble '+(m.from==='system'?'sys':m.from===mine?'me':'them');d.textContent=m.body;
+    if(m.from!=='system'){const s=document.createElement('small');s.textContent=(m.from===mine?'나':m.from==='admin'?'관리자':'학생')+' · '+tm(m.t);d.appendChild(s);}
+    el.appendChild(d);}
+  el.scrollTop=el.scrollHeight;
+}
+function renderChat(){
+  const ch=S.chat;paintLog($('#chatLog'),ch?ch.msgs:[],'user');
+  const open=!!(ch&&ch.open);$('#chatIn').disabled=!open;$('#chatState').textContent=open?'대화 중':'대화가 끝났습니다';
+}
+$('#chatForm').addEventListener('submit',e=>{e.preventDefault();const v=$('#chatIn').value.trim();if(!v)return;if(svSend({t:'chat',body:v}))$('#chatIn').value='';else toast('서버에 연결되어 있지 않습니다');});
+
+let admChat=null;
+function renderChats(){
+  const list=Object.entries(CHATS||{});const unread=list.reduce((a,[,c])=>a+(c.unread||0),0);
+  const bd=$('#chatBadge');bd.hidden=!unread;bd.textContent=unread;
+  if(view!=='chats')return;
+  const pick=$('#chatPick');const cur0=pick.value;
+  pick.innerHTML='<option value="">새 대화: 학생 고르기</option>'+(USERS||[]).slice().sort((a,b)=>a.cls-b.cls||a.num-b.num).map(u=>`<option value="${u.sid}">${u.cls}반 ${u.num}번 ${esc(u.name)}${u.online?' (접속 중)':''}</option>`).join('');pick.value=cur0;
+  list.sort((a,b)=>(b[1].open-a[1].open)||((b[1].msgs.at(-1)||{}).t||0)-((a[1].msgs.at(-1)||{}).t||0));
+  const cl=$('#convList');cl.innerHTML='';
+  if(!list.length)cl.innerHTML='<div class="empty-note">아직 대화가 없습니다.</div>';
+  for(const [sid,c] of list){const b=document.createElement('button');b.type='button';b.className='conv';b.setAttribute('aria-pressed',String(sid===admChat));
+    const last=c.msgs[c.msgs.length-1];
+    b.innerHTML=`<span><b style="font-weight:500"></b> ${c.open?'<span class="tag on">대화 중</span>':''} ${c.unread?'<span class="badge" style="display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--red);color:#fff;font-size:11px;text-align:center">'+c.unread+'</span>':''}</span><small></small>`;
+    b.querySelector('b').textContent=c.cls+'반 '+c.num+'번 '+c.name;b.querySelector('small').textContent=last?last.body:'';
+    b.onclick=()=>{admChat=sid;renderChats();};cl.appendChild(b);}
+  const c=admChat&&CHATS[admChat];const u=admChat&&(USERS||[]).find(x=>x.sid===admChat);
+  $('#admChatTitle').textContent=admChat?((u?u.cls+'반 '+u.num+'번 '+u.name:(c?c.name:admChat))):'대화를 고르세요';
+  $('#admChatIn').disabled=!admChat;$('#admChatClose').hidden=!(c&&c.open);
+  $('#admChatState').textContent=!admChat?'':c&&c.open?(u&&u.pending?'학생이 판을 끝내면 대화 화면으로 넘어갑니다':'대화 중 · 학생은 게임을 할 수 없습니다'):'메시지를 보내면 대화가 시작됩니다';
+  paintLog($('#admChatLog'),c?c.msgs:[],'admin');
+  if(c&&c.unread)svSend({t:'adm',op:'chatseen',sid:admChat});
+}
+$('#chatPick').addEventListener('change',e=>{if(e.target.value){admChat=e.target.value;e.target.value='';renderChats();$('#admChatIn').focus();}});
+$('#admChatForm').addEventListener('submit',e=>{e.preventDefault();const v=$('#admChatIn').value.trim();if(!v||!admChat)return;if(svSend({t:'adm',op:'chat',sid:admChat,body:v}))$('#admChatIn').value='';});
+let ccArm=0;$('#admChatClose').onclick=e=>{if(!admChat)return;if(Date.now()-ccArm>3000){ccArm=Date.now();e.target.textContent='한 번 더 누르면 끝내기';return;}e.target.textContent='대화 끝내기';svSend({t:'adm',op:'chatclose',sid:admChat});};
 
 /* ---------------- app install (PWA) ---------------- */
 (function(){

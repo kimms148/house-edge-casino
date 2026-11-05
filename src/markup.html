@@ -33,13 +33,15 @@
     <button type="button" data-v="lobby" data-role="player">로비</button>
     <button type="button" data-v="rank">랭킹</button>
     <button type="button" data-v="stats" data-role="player">기록</button>
+    <button type="button" data-v="loan" data-role="player">대출</button>
     <button type="button" data-v="mail" data-role="player">건의함</button>
     <button type="button" data-v="admin" data-role="admin">관리자 콘솔</button>
     <button type="button" data-v="inbox" data-role="admin">우편함<span class="badge" id="inboxBadge" hidden>0</span></button>
+    <button type="button" data-v="chats" data-role="admin">1:1 메시지<span class="badge" id="chatBadge" hidden>0</span></button>
   </nav>
   <div class="wallet">
     <button id="installBtn" class="install" type="button" hidden><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>앱 설치</button>
-    <div class="bal" id="bal" data-role="player"><span class="chip"></span><span class="num" id="balNum">0P</span></div>
+    <div class="bal" id="bal" data-role="player"><span class="chip"></span><span class="num" id="balNum">0P</span><span class="debt-tag" id="debtTag" hidden></span></div>
     <div class="who"><span id="whoText"></span><button class="btn" id="logoutBtn" type="button">로그아웃</button></div>
   </div>
 </div></header>
@@ -72,7 +74,7 @@
         <div><div class="lbl" id="choiceLbl" style="margin-bottom:6px">선택</div><div class="choices" id="choices"></div></div>
         <div id="gExtra"></div>
         <button class="play" id="playBtn" type="button">베팅</button>
-        <div class="broke" id="brokeMsg" hidden><b>포인트를 모두 잃었습니다</b>더 이상 베팅할 수 없습니다. 무료 충전은 없습니다.</div>
+        <div class="broke" id="brokeMsg" hidden><b>포인트를 모두 잃었습니다</b><span id="brokeText">무료 충전은 없습니다.</span><div style="margin-top:8px"><button class="btn" type="button" id="brokeLoan">대출 받으러 가기</button></div></div>
         <div class="result" id="result"></div>
       </aside>
     </div>
@@ -94,6 +96,20 @@
       <header><b style="font-weight:500">누적 손익 <span class="hint">(최근 300판)</span></b>
         <div style="display:flex;gap:8px;align-items:center"><label for="chartSel" class="hint">게임</label><select id="chartSel"></select></div></header>
       <canvas id="chart" height="260"></canvas>
+    </div>
+  </section>
+
+  <section class="view" id="v-loan" hidden>
+    <div class="view-head"><div><h2>대출</h2><div class="hint" style="margin-top:4px">포인트를 모두 잃었을 때 한 번에 10,000P까지 빌릴 수 있습니다.</div></div></div>
+    <div class="loan-card" id="loanCard"></div>
+  </section>
+
+  <section class="view" id="v-chat" hidden>
+    <div class="chat-lock">관리자가 1:1 대화를 시작했습니다. 대화가 끝날 때까지 게임을 할 수 없습니다.</div>
+    <div class="chat-box">
+      <div class="chat-head"><b>관리자와 1:1 대화</b><span class="hint" id="chatState"></span></div>
+      <div class="chat-log" id="chatLog"></div>
+      <form class="chat-form" id="chatForm"><input type="text" id="chatIn" maxlength="500" placeholder="메시지를 입력하세요" autocomplete="off"><button class="btn primary" type="submit">보내기</button></form>
     </div>
   </section>
 
@@ -136,9 +152,30 @@
         <h3 style="margin-top:14px">실시간 결과 로그</h3>
         <div class="feed" id="feed"><div style="color:var(--smute)">학생이 판을 끝내면 여기에 기록됩니다.</div></div>
       </div>
-      <div class="abox">
-        <h3>확률 조작</h3>
-        <div class="rig-list" id="rigList"></div>
+      <div>
+        <div class="abox">
+          <h3>확률 조작</h3>
+          <div class="rig-list" id="rigList"></div>
+        </div>
+        <div class="abox">
+          <h3>운영 설정</h3>
+          <div class="rig-list" id="opsList"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="view admin-scope" id="v-chats" hidden>
+    <div class="view-head"><div><div class="eyebrow">DIRECT MESSAGE</div><h2>1:1 메시지</h2><p class="sub">메시지를 보내면 그 학생은 진행 중인 판이 끝나는 즉시 대화 화면으로 넘어가고, 대화를 끝낼 때까지 게임을 할 수 없습니다.</p></div></div>
+    <div class="chats-wrap">
+      <div>
+        <div class="filters"><select id="chatPick" style="width:100%"><option value="">새 대화: 학생 고르기</option></select></div>
+        <div class="conv-list" id="convList"></div>
+      </div>
+      <div class="chat-box">
+        <div class="chat-head"><b id="admChatTitle">대화를 고르세요</b><span class="abtns"><span class="hint" id="admChatState" style="color:var(--smute)"></span><button type="button" class="abtn l" id="admChatClose" hidden>대화 끝내기</button></span></div>
+        <div class="chat-log" id="admChatLog"></div>
+        <form class="chat-form" id="admChatForm"><input type="text" id="admChatIn" maxlength="500" placeholder="학생에게 보낼 메시지" autocomplete="off" disabled><button class="abtn" type="submit" style="padding:6px 14px">보내기</button></form>
       </div>
     </div>
   </section>

@@ -16,7 +16,7 @@ const MANAGER_PW = process.env.MANAGER_PW || 'manager';
 const START = 10000;
 const APP = path.join(__dirname, 'public', 'app.html');
 const GAMES = ['coin', 'rps', 'horse', 'snail', 'oddeven', 'baccarat', 'slot', 'crash'];
-const MAX_MULT = { coin: 1.95, rps: 1.95, horse: 200, snail: 3.8, oddeven: 1.95, baccarat: 9, slot: 500, crash: 100000 };
+const MAX_MULT = { coin: 1.95, rps: 1.95, horse: 40, snail: 40, oddeven: 1.95, baccarat: 9, slot: 500, crash: 100000 };
 
 /* ---------------- http ---------------- */
 const HEAD = '<!doctype html><html lang="ko"><head><meta charset="utf-8">' +
@@ -83,7 +83,8 @@ function parseSid(sid) {
 }
 function newStats() { const g = {}; for (const k of GAMES) g[k] = { n: 0, w: 0, net: 0, wag: 0 }; return { rounds: 0, wins: 0, net: 0, wag: 0, manip: 0, md: 0, games: g }; }
 function publicUser(u) {
-  return { sid: u.sid, name: u.name, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, stats: u.stats, hist: u.hist.slice(-300) };
+  const ch = chatOf(u.sid);
+  return { sid: u.sid, name: u.name, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: u.loan || null, stats: u.stats, hist: u.hist.slice(-300), chat: ch && ch.open ? { open: true, msgs: ch.msgs } : null };
 }
 function issueToken(payload) {
   const t = crypto.randomBytes(24).toString('base64url');
@@ -100,7 +101,57 @@ function resolveToken(t) {
   for (const u of Object.values(DB.users)) if ((u.sessions || []).includes(h)) { const p = { sid: u.sid }; tokens.set(h, p); return p; }
   return null;
 }
-const rate = u => (u.bal - START) / START * 100;
+/* ---------------- settings, loans, stable, chat ---------------- */
+const LOAN_AMOUNT = 10000, LOAN_RATE = 0.20, LOAN_TERM = 24 * 3600 * 1000; // 시간당 20% 단리, 24시간 사용
+const settings = () => Object.assign({ startBal: START }, DB.meta.settings || {});
+const userStart = u => u.start || START;
+function debtOf(u, now) {
+  if (!u.loan) return 0;
+  const hours = Math.max(0, ((now || Date.now()) - u.loan.at) / 3600000);
+  return Math.floor(u.loan.principal * (1 + LOAN_RATE * hours));
+}
+const loanExpired = u => !!u.loan && Date.now() - u.loan.at > LOAN_TERM;
+const worth = u => u.bal - debtOf(u);
+const rate = u => (worth(u) - userStart(u)) / Math.max(1, userStart(u)) * 100;
+
+// 말·달팽이 공용 전적: 이기면 다음 판 승률이 내려가고, 지면 올라간다
+const HORSES = ['번개발굽', '흑진주', '바람돌이', '적토마', '은하수', '꼬마별'];
+const SNAILS = ['느림보', '끈적이', '총알', '껍데기왕'];
+function freshStable() {
+  const w = HORSES.map(() => Math.pow(0.35 + Math.random(), 2.2)); const sum = w.reduce((a, b) => a + b, 0);
+  const horse = HORSES.map((name, i) => ({ name, p: w[i] / sum, runs: 0, wins: 0 }));
+  normalize(horse, 0.04, 0.6);
+  return { horse, snail: SNAILS.map(name => ({ name, p: 0.25, runs: 0, wins: 0 })) };
+}
+function normalize(list, lo, hi) {
+  for (let k = 0; k < 4; k++) {
+    for (const h of list) h.p = Math.min(hi, Math.max(lo, h.p));
+    const t = list.reduce((a, h) => a + h.p, 0); for (const h of list) h.p /= t;
+  }
+}
+function updateStable(kind, winner) {
+  const list = DB.meta.stable && DB.meta.stable[kind]; if (!list || !(winner >= 0 && winner < list.length)) return;
+  const w = list[winner]; const freed = w.p * 0.2; w.p -= freed;
+  for (let i = 0; i < list.length; i++) { list[i].runs++; if (i !== winner) list[i].p += freed / (list.length - 1); }
+  w.wins++;
+  normalize(list, kind === 'horse' ? 0.04 : 0.08, 0.6);
+  store.saveMeta('stable', DB.meta.stable);
+  const out = JSON.stringify({ t: 'stable', stable: DB.meta.stable }); for (const c of conns) if (c.ws.readyState === 1) c.ws.send(out);
+}
+
+// 관리자 1:1 메시지
+const chatOf = sid => DB.meta['chat:' + sid] || null;
+function saveChat(sid, ch) { DB.meta['chat:' + sid] = ch; store.saveMeta('chat:' + sid, ch); }
+function chatsForAdmin() {
+  const out = {};
+  for (const k of Object.keys(DB.meta)) if (k.startsWith('chat:')) { const sid = k.slice(5); const u = DB.users[sid]; if (u) out[sid] = Object.assign({ name: u.name, cls: u.cls, num: u.num, grade: u.grade }, DB.meta[k]); }
+  return out;
+}
+function pushChat(sid) {
+  const ch = chatOf(sid);
+  for (const c of userConns(sid)) send(c, { t: 'chat', chat: ch ? { open: ch.open, msgs: ch.msgs } : null });
+  const m = { t: 'chats', chats: chatsForAdmin() }; for (const c of admins()) send(c, m);
+}
 
 /* ---------------- sockets ---------------- */
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 64 * 1024 });
@@ -113,14 +164,14 @@ const authed = () => [...conns].filter(c => c.admin || c.sid);
 
 function pushBal(sid, extra) {
   const u = DB.users[sid]; if (!u) return;
-  for (const c of userConns(sid)) send(c, Object.assign({ t: 'bal', bal: u.bal, stats: u.stats }, extra || {}));
+  for (const c of userConns(sid)) send(c, Object.assign({ t: 'bal', bal: u.bal, stats: u.stats, loan: u.loan || null }, extra || {}));
 }
 
 // ranking: 반별 학생 순위 + 반 평균 수익률 순위
 function rankData() {
   const byClass = {};
   for (let k = 1; k <= 7; k++) byClass[k] = [];
-  for (const u of Object.values(DB.users)) byClass[u.cls] && byClass[u.cls].push({ sid: u.sid, name: u.name, grade: u.grade, num: u.num, bal: u.bal, rate: Math.round(rate(u) * 10) / 10, rounds: u.stats.rounds });
+  for (const u of Object.values(DB.users)) byClass[u.cls] && byClass[u.cls].push({ sid: u.sid, name: u.name, grade: u.grade, num: u.num, bal: worth(u), debt: debtOf(u), rate: Math.round(rate(u) * 10) / 10, rounds: u.stats.rounds });
   const classes = [];
   for (let k = 1; k <= 7; k++) {
     const l = byClass[k].sort((a, b) => b.rate - a.rate || b.bal - a.bal || a.num - b.num);
@@ -141,7 +192,7 @@ function usersMsg() {
   const online = {};
   for (const c of conns) if (c.sid) { const o = online[c.sid] || (online[c.sid] = { n: 0, presence: {} }); o.n++; if (c.presence && (c.presence.st === 'play' || !o.presence.game)) o.presence = c.presence; }
   const users = Object.values(DB.users).map(u => ({
-    sid: u.sid, name: u.name, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, stats: { rounds: u.stats.rounds, wins: u.stats.wins, net: u.stats.net, wag: u.stats.wag, manip: u.stats.manip, md: u.stats.md },
+    sid: u.sid, name: u.name, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: u.loan ? { principal: u.loan.principal, at: u.loan.at, debt: debtOf(u), expired: loanExpired(u) } : null, chatOpen: !!(chatOf(u.sid) && chatOf(u.sid).open), stats: { rounds: u.stats.rounds, wins: u.stats.wins, net: u.stats.net, wag: u.stats.wag, manip: u.stats.manip, md: u.stats.md },
     pending: u.pending ? { g: u.pending.g, bet: u.pending.bet } : null, online: online[u.sid] ? online[u.sid].n : 0, presence: online[u.sid] ? online[u.sid].presence : null,
     last: u.hist.length ? u.hist[u.hist.length - 1] : null, created: u.created,
   })).sort((a, b) => b.online - a.online || a.cls - b.cls || a.num - b.num);
@@ -170,7 +221,7 @@ function record(u, g, bet, pay, manip, d) {
 
 function login(c, payload) {
   c.admin = !!payload.admin; c.sid = payload.sid || null;
-  if (c.admin) { send(c, usersMsg()); send(c, { t: 'mail', list: mailList() }); }
+  if (c.admin) { send(c, usersMsg()); send(c, { t: 'mail', list: mailList() }); send(c, { t: 'chats', chats: chatsForAdmin() }); send(c, { t: 'settings', settings: settings() }); }
   send(c, rankData());
   scheduleUsers();
 }
@@ -187,7 +238,7 @@ wss.on('connection', ws => {
       case 'hello': {
         const p = m.token ? resolveToken(m.token) : null;
         const ok = p && (p.admin || DB.users[p.sid]);
-        send(c, { t: 'welcome', ver: (page(), VERSION), cfg: DB.meta.cfg || null, admin: !!(ok && p.admin), me: ok && p.sid ? publicUser(DB.users[p.sid]) : null, mymail: ok && p.sid ? myMail(p.sid) : [] });
+        send(c, { t: 'welcome', ver: (page(), VERSION), cfg: DB.meta.cfg || null, stable: DB.meta.stable, admin: !!(ok && p.admin), me: ok && p.sid ? publicUser(DB.users[p.sid]) : null, mymail: ok && p.sid ? myMail(p.sid) : [] });
         if (ok) login(c, p);
         break;
       }
@@ -199,7 +250,8 @@ wss.on('connection', ws => {
         if (pw.length < 4 || pw.length > 64) return send(c, { t: 'autherr', where: 'signup', msg: '비밀번호는 4자 이상이어야 합니다.' });
         if (DB.users[sid]) return send(c, { t: 'autherr', where: 'signup', msg: '이미 가입된 학번입니다. 로그인하세요.' });
         const salt = crypto.randomBytes(16).toString('hex');
-        const nu = { sid, name, grade: info.grade, cls: info.cls, num: info.num, salt, hash: hashPw(pw, salt), bal: START, stats: newStats(), hist: [], sessions: [], created: Date.now() };
+        const sb = settings().startBal;
+        const nu = { sid, name, grade: info.grade, cls: info.cls, num: info.num, salt, hash: hashPw(pw, salt), bal: sb, start: sb, stats: newStats(), hist: [], sessions: [], created: Date.now() };
         DB.users[sid] = nu; store.saveUser(nu);
         const token = issueToken({ sid });
         send(c, { t: 'authok', token, admin: false, me: publicUser(nu), mymail: [] });
@@ -240,6 +292,8 @@ wss.on('connection', ws => {
         const bet = Math.floor(+m.bet), g = String(m.g);
         if (!GAMES.includes(g) || !(bet >= 1)) return send(c, { t: 'betno', msg: '베팅 금액을 확인하세요.' });
         if (u.pending) return send(c, { t: 'betno', msg: '다른 창에서 진행 중인 판이 있습니다.' });
+        if (chatOf(u.sid) && chatOf(u.sid).open) return send(c, { t: 'betno', msg: '관리자와 대화 중에는 게임을 할 수 없습니다.' });
+        if (loanExpired(u)) return send(c, { t: 'betno', msg: '대출 사용 기간(24시간)이 끝났습니다. 대출 탭에서 갚아야 게임을 할 수 있습니다.', loan: true });
         if (bet > u.bal) return send(c, { t: 'betno', msg: '보유 포인트가 부족합니다.', bal: u.bal });
         u.bal -= bet; u.pending = { g, bet, conn: c.id, t: Date.now() };
         store.saveUser(u); send(c, { t: 'betok', bal: u.bal }); for (const o of userConns(u.sid)) if (o !== c) send(o, { t: 'bal', bal: u.bal, stats: u.stats });
@@ -253,6 +307,7 @@ wss.on('connection', ws => {
         pay = Math.min(pay, Math.floor(bet * MAX_MULT[g]));
         u.bal += pay; u.pending = null;
         const h = record(u, g, bet, pay, !!m.manip, +m.d || 0);
+        if ((g === 'horse' || g === 'snail') && Number.isInteger(m.winner)) updateStable(g, m.winner);
         store.saveUser(u); pushBal(u.sid, { h }); feedEvent(u, h); scheduleUsers(); scheduleRank();
         break;
       }
@@ -268,6 +323,31 @@ wss.on('connection', ws => {
         break;
       }
       case 'rank': send(c, rankData()); break;
+      case 'loan': {
+        if (!u) return;
+        if (u.loan) return send(c, { t: 'loanerr', msg: '이미 갚지 않은 대출이 있습니다.' });
+        if (u.bal >= 1 || u.pending) return send(c, { t: 'loanerr', msg: '포인트를 모두 잃었을 때만 대출을 받을 수 있습니다.' });
+        u.loan = { principal: LOAN_AMOUNT, at: Date.now() }; u.bal += LOAN_AMOUNT;
+        u.loans = (u.loans || []).concat([{ principal: LOAN_AMOUNT, at: u.loan.at }]).slice(-50);
+        store.saveUser(u); pushBal(u.sid, { loanMsg: '10,000P를 대출받았습니다. 24시간 안에 쓸 수 있고, 이자는 시간당 20%입니다.' }); scheduleUsers(); scheduleRank();
+        break;
+      }
+      case 'repay': {
+        if (!u || !u.loan) return;
+        if (u.pending) return send(c, { t: 'loanerr', msg: '판이 끝난 뒤에 갚을 수 있습니다.' });
+        const d = debtOf(u);
+        if (u.bal < d) return send(c, { t: 'loanerr', msg: '갚을 돈이 부족합니다. 필요한 금액 ' + d.toLocaleString() + 'P, 보유 ' + u.bal.toLocaleString() + 'P' });
+        u.bal -= d; const last = (u.loans || [])[u.loans.length - 1]; if (last && !last.repaidAt) { last.repaidAt = Date.now(); last.paid = d; }
+        u.loan = null; store.saveUser(u); pushBal(u.sid, { loanMsg: '대출금과 이자 ' + d.toLocaleString() + 'P를 갚았습니다.' }); scheduleUsers(); scheduleRank();
+        break;
+      }
+      case 'chat': {
+        if (!u) return; const ch = chatOf(u.sid); if (!ch || !ch.open) return;
+        const body = String(m.body || '').trim().slice(0, 500); if (!body) return;
+        ch.msgs.push({ from: 'user', body, t: Date.now() }); if (ch.msgs.length > 200) ch.msgs = ch.msgs.slice(-200);
+        ch.unread = (ch.unread || 0) + 1; saveChat(u.sid, ch); pushChat(u.sid);
+        break;
+      }
       // ---- admin only ----
       case 'emit': {
         if (!c.admin || (m.topic !== 'rig' && m.topic !== 'cmd')) return;
@@ -286,7 +366,35 @@ wss.on('connection', ws => {
           pushMail(); for (const o of userConns(mm.sid)) send(o, { t: 'mymail', mymail: myMail(mm.sid) });
           return;
         }
+        if (m.op === 'settings') {
+          const sb = Math.floor(+m.startBal); if (!(sb >= 0 && sb <= 1e9)) return ack(false, '가입 지급 포인트를 확인하세요.');
+          DB.meta.settings = Object.assign({}, DB.meta.settings || {}, { startBal: sb }); store.saveMeta('settings', DB.meta.settings);
+          for (const o of admins()) send(o, { t: 'settings', settings: settings() });
+          return ack(true, '이제 새로 가입하는 학생은 ' + sb.toLocaleString() + 'P로 시작합니다.');
+        }
+        if (m.op === 'giveall') {
+          const amt = Math.floor(+m.amount); const cls = +m.cls || 0; const take = !!m.take;
+          if (!(amt > 0) || amt > 1e9) return ack(false, '금액을 확인하세요.');
+          let n = 0;
+          for (const x of Object.values(DB.users)) { if (cls && x.cls !== cls) continue; x.bal = take ? Math.max(0, x.bal - amt) : x.bal + amt; n++; store.saveUser(x); pushBal(x.sid, { by: 'admin' }); }
+          scheduleUsers(); scheduleRank();
+          return ack(true, (cls ? cls + '반' : '전체') + ' ' + n + '명 ' + (take ? '회수' : '지급') + ': ' + amt.toLocaleString() + 'P씩');
+        }
+        if (m.op === 'stablereset') { DB.meta.stable = freshStable(); store.saveMeta('stable', DB.meta.stable); const out = { t: 'stable', stable: DB.meta.stable }; for (const o of conns) send(o, out); return ack(true, '말·달팽이 전적을 초기화했습니다.'); }
+        if (m.op === 'chatseen') { const ch = chatOf(String(m.sid || '')); if (ch && ch.unread) { ch.unread = 0; saveChat(String(m.sid), ch); const out = { t: 'chats', chats: chatsForAdmin() }; for (const o of admins()) send(o, out); } return; }
         if (!tu) return ack(false, '없는 학생입니다.');
+        if (m.op === 'chat') {
+          const body = String(m.body || '').trim().slice(0, 500); if (!body) return;
+          const ch = chatOf(tu.sid) || { open: false, msgs: [], unread: 0 };
+          ch.open = true; ch.msgs.push({ from: 'admin', body, t: Date.now() }); if (ch.msgs.length > 200) ch.msgs = ch.msgs.slice(-200);
+          saveChat(tu.sid, ch); pushChat(tu.sid); scheduleUsers(); return;
+        }
+        if (m.op === 'chatclose') {
+          const ch = chatOf(tu.sid); if (!ch) return; ch.open = false; ch.unread = 0;
+          ch.msgs.push({ from: 'system', body: '관리자가 대화를 끝냈습니다.', t: Date.now() });
+          saveChat(tu.sid, ch); pushChat(tu.sid); scheduleUsers(); return ack(true, tu.name + ' 학생과의 대화를 끝냈습니다.');
+        }
+        if (m.op === 'forgive') { if (!tu.loan) return ack(false, '대출이 없습니다.'); tu.loan = null; store.saveUser(tu); pushBal(tu.sid, { by: 'admin' }); scheduleUsers(); scheduleRank(); return ack(true, tu.name + ' 학생의 대출을 없앴습니다.'); }
         const amt = Math.floor(+m.amount);
         if (m.op === 'add' || m.op === 'sub' || m.op === 'set') {
           if (!(amt >= 0) || amt > 1e12) return ack(false, '금액을 확인하세요.');
@@ -302,7 +410,7 @@ wss.on('connection', ws => {
           store.saveUser(tu); return ack(true, `${tu.name} 비밀번호를 바꿨습니다.`);
         }
         if (m.op === 'del') {
-          delete DB.users[tu.sid]; store.deleteUser(tu.sid);
+          delete DB.users[tu.sid]; store.deleteUser(tu.sid); if (DB.meta['chat:' + tu.sid]) { delete DB.meta['chat:' + tu.sid]; store.saveMeta('chat:' + tu.sid, null); }
           for (const [h, p] of tokens) if (p.sid === tu.sid) tokens.delete(h);
           for (const o of userConns(tu.sid)) { send(o, { t: 'kicked' }); o.sid = null; }
           scheduleUsers(); scheduleRank(); return ack(true, `${tu.name} 계정을 삭제했습니다.`);
@@ -323,6 +431,7 @@ wss.on('connection', ws => {
   });
 });
 
+setInterval(() => { if (Object.values(DB.users).some(u => u.loan)) { scheduleUsers(); scheduleRank(); } }, 60000);
 setInterval(() => {
   for (const c of conns) { if (!c.alive) { c.ws.terminate(); continue; } c.alive = false; try { c.ws.ping(); } catch (e) {} }
 }, 25000);
@@ -330,6 +439,7 @@ setInterval(() => {
 (async () => {
   DB = await store.load();
   DB.users = DB.users || {}; DB.mail = DB.mail || {}; DB.meta = DB.meta || {};
+  if (!DB.meta.stable || !DB.meta.stable.horse) { DB.meta.stable = freshStable(); store.saveMeta('stable', DB.meta.stable); }
   for (const u of Object.values(DB.users)) { u.pending = null; u.stats = Object.assign(newStats(), u.stats || {}); u.hist = u.hist || []; }
   server.listen(PORT, () => console.log(`house-edge listening on :${PORT} (storage: ${store.kind}, users: ${Object.keys(DB.users).length})`));
 })().catch(e => { console.error(e); process.exit(1); });
