@@ -53,7 +53,8 @@ nav.tabs button.admin-tab[aria-current="true"]{background:var(--steel2);border-c
 .step b{display:block;margin-bottom:4px;color:var(--brass2)}
 .step ol{margin:0;padding-left:20px;color:var(--ink);font-size:14px}
 @media (max-width:520px){.install span.t{display:none}}
-.refill{background:var(--win);color:#06130c;border:0;border-radius:999px;padding:6px 12px;font-weight:700;animation:bob 1.4s ease-in-out infinite}
+.broke{border:1px solid #6a1d1a;background:#2a0d0c;color:#ffb3ab;border-radius:12px;padding:12px 14px;font-size:13px;text-align:center}
+.broke b{display:block;font-family:var(--f-display);font-weight:400;font-size:20px;color:#ff8a80;margin-bottom:2px}
 @keyframes bob{50%{transform:translateY(-2px)}}
 .reveal-bar{background:#3a0f0e;color:#ffd9d4;text-align:center;font-size:14px;padding:6px 16px;border-bottom:1px solid #6a1d1a}
 .reveal-bar button{background:none;border:1px solid #ffd9d4;border-radius:999px;padding:1px 10px;margin-left:8px;color:inherit;font-size:13px}
@@ -349,7 +350,6 @@ select{background:#0b0708;color:var(--ink);border:1px solid var(--line);border-r
   </nav>
   <div class="wallet">
     <button id="installBtn" class="install" type="button" hidden><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>앱 설치</button>
-    <button id="refillTop" class="refill" type="button" hidden>무료 리필</button>
     <div class="bal" id="bal"><span class="chip"></span><span class="num" id="balNum">10,000P</span></div>
   </div>
 </div></header>
@@ -360,7 +360,7 @@ select{background:#0b0708;color:var(--ink);border:1px solid var(--line);border-r
       <div>
         <div class="eyebrow">가상 포인트 전용 · 실제 돈 없음</div>
         <h1>오늘의 테이블은 <em>여덟 개</em>입니다</h1>
-        <p>모든 플레이어는 10,000P로 시작합니다. 포인트를 모두 잃으면 무료로 다시 채울 수 있습니다.</p>
+        <p>모든 플레이어는 10,000P로 시작합니다. 잃은 포인트는 다시 충전되지 않습니다.</p>
       </div>
       <div class="nick"><label for="nickIn">닉네임</label><input type="text" id="nickIn" maxlength="16"></div>
     </div>
@@ -391,7 +391,7 @@ select{background:#0b0708;color:var(--ink);border:1px solid var(--line);border-r
         <div><div class="lbl" id="choiceLbl" style="font-size:12px;color:var(--mute);margin-bottom:6px">선택</div><div class="choices" id="choices"></div></div>
         <div id="gExtra"></div>
         <button class="play" id="playBtn" type="button">베팅</button>
-        <button class="play" id="refillPanel" type="button" hidden style="background:linear-gradient(#7ff0b4,var(--win));box-shadow:0 4px 0 #1d6b45">무료 리필 (10,000P)</button>
+        <div class="broke" id="brokeMsg" hidden><b>포인트를 모두 잃었습니다</b>더 이상 베팅할 수 없습니다. 무료 충전은 없습니다.</div>
         <div class="result" id="result"></div>
         <div class="hint" id="keyHint"></div>
       </aside>
@@ -408,7 +408,7 @@ select{background:#0b0708;color:var(--ink);border:1px solid var(--line);border-r
         <div style="display:flex;gap:8px;align-items:center"><label for="chartSel" class="hint">게임</label><select id="chartSel"></select></div></header>
       <canvas id="chart" height="280"></canvas>
     </div>
-    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn danger" id="resetAll" type="button">기록과 포인트 초기화</button><span class="hint" id="resetHint"></span></div>
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn danger" id="resetAll" type="button">기록 지우기</button><span class="hint" id="resetHint"></span></div>
   </section>
 
   <section class="view" id="v-keys" hidden>
@@ -683,7 +683,7 @@ function pushPresence(){
     presLast=Date.now();const st=stats();const last=S.hist[S.hist.length-1];
     const p={nick:String(S.nick).slice(0,16),uid:NET.uid||null,bal:Math.floor(S.bal),game:(playing||view==='game')&&cur?cur.id:(view==='admin'?'lobby':view||'lobby'),
       st:playing?'play':'idle',bet:curBetInfo?curBetInfo.bet:0,pick:curBetInfo?String(curBetInfo.pick).slice(0,24):'',live:String(liveText).slice(0,60),
-      rounds:st.rounds,wins:st.wins,net:Math.floor(st.net),wag:Math.floor(st.wag),manip:st.manip,md:Math.floor(st.md),refills:S.refills||0,
+      rounds:st.rounds,wins:st.wins,net:Math.floor(st.net),wag:Math.floor(st.wag),manip:st.manip,md:Math.floor(st.md),
       force:force||'',last:last?{g:last.g,b:last.b,p:last.p,m:last.m?1:0,t:last.t}:null};
     NET.room.presence(p).catch(()=>{});
   },delay);
@@ -714,11 +714,9 @@ function updateBal(){
   const t0=performance.now(),dur=500;
   (function step(t){const k=Math.min(1,(t-t0)/dur);$('#balNum').textContent=fmt(from+(to-from)*(1-Math.pow(1-k,3)));if(k<1)requestAnimationFrame(step);})(t0);
   const broke=S.bal<1&&!busy;
-  $('#refillTop').hidden=!broke;$('#refillPanel').hidden=!broke;$('#playBtn').hidden=broke&&!busy;
+  $('#brokeMsg').hidden=!broke;$('#playBtn').hidden=broke&&!busy;
   if(S.bet>S.bal&&S.bal>=1&&!busy)setBet(S.bal);
 }
-function refill(){S.bal=START;S.refills=(S.refills||0)+1;save();updateBal();setBet(Math.min(S.bet,S.bal));pushPresence();toast('10,000P가 충전되었습니다');}
-$('#refillTop').onclick=refill;$('#refillPanel').onclick=refill;
 
 function toast(msg){const d=document.createElement('div');d.textContent=msg;$('#toast').appendChild(d);setTimeout(()=>d.remove(),2200);}
 
@@ -757,7 +755,7 @@ function setPlayBtn(){
 async function play(){
   if(!cur)return;
   if(busy){if(cur.id==='crash')cur.cashout();return;}
-  if(S.bal<1){toast('포인트가 없습니다. 무료 리필을 이용하세요');return;}
+  if(S.bal<1){toast('포인트가 없습니다');return;}
   setBet(betIn.value);const bet=S.bet;
   if(bet>S.bal){toast('보유 포인트보다 많이 걸 수 없습니다');return;}
   const list=cur.choices();
@@ -1134,7 +1132,7 @@ nickIn.addEventListener('change',()=>{S.nick=nickIn.value.trim().slice(0,16)||S.
 /* ---------------- stats ---------------- */
 function renderStats(){
   const st=stats();const rows=GIDS.map(g=>{const hs=S.hist.filter(h=>h.g===g);const w=hs.filter(h=>h.p>h.b).length;const net=hs.reduce((a,h)=>a+h.p-h.b,0);const wag=hs.reduce((a,h)=>a+h.b,0);return{g,n:hs.length,w,net,wag};});
-  $('#statKpis').innerHTML=`<div class="kpi"><span>총 판수</span><b>${st.rounds.toLocaleString()}</b></div><div class="kpi"><span>승률</span><b>${st.rounds?(st.wins/st.rounds*100).toFixed(1):'0.0'}%</b></div><div class="kpi"><span>총 베팅액</span><b>${fmt(st.wag)}</b></div><div class="kpi"><span>누적 손익</span><b class="${st.net>=0?'pos':'neg'}">${sfmt(st.net)}</b></div><div class="kpi"><span>무료 리필</span><b>${S.refills||0}회</b></div>`;
+  $('#statKpis').innerHTML=`<div class="kpi"><span>총 판수</span><b>${st.rounds.toLocaleString()}</b></div><div class="kpi"><span>승률</span><b>${st.rounds?(st.wins/st.rounds*100).toFixed(1):'0.0'}%</b></div><div class="kpi"><span>총 베팅액</span><b>${fmt(st.wag)}</b></div><div class="kpi"><span>누적 손익</span><b class="${st.net>=0?'pos':'neg'}">${sfmt(st.net)}</b></div><div class="kpi"><span>보유 포인트</span><b>${fmt(S.bal)}</b></div>`;
   $('#statTbl').innerHTML=`<thead><tr><th>게임</th><th class="n">판 수</th><th class="n">승률</th><th class="n">베팅액</th><th class="n">누적 손익</th><th class="n">실제 환급률</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${META[r.g].name}</td><td class="n">${r.n}</td><td class="n">${r.n?(r.w/r.n*100).toFixed(1)+'%':'–'}</td><td class="n">${fmt(r.wag)}</td><td class="n ${r.net>=0?'pos':'neg'}">${sfmt(r.net)}</td><td class="n">${r.wag?((r.wag+r.net)/r.wag*100).toFixed(1)+'%':'–'}</td></tr>`).join('')}</tbody>`;
   const sel=$('#chartSel');const v=sel.value||'all';sel.innerHTML=`<option value="all">전체</option>`+GIDS.map(g=>`<option value="${g}">${META[g].name}</option>`).join('');sel.value=v;
   drawChart();
@@ -1158,8 +1156,8 @@ function drawChart(){
   c.beginPath();c.arc(X(pts.length-1),Y(last),4,0,7);c.fillStyle=col;c.fill();
 }
 let resetArm=0;
-$('#resetAll').onclick=()=>{if(Date.now()-resetArm>3000){resetArm=Date.now();$('#resetHint').textContent='한 번 더 누르면 모든 기록과 포인트가 초기화됩니다.';return;}
-  S.hist=[];S.bal=START;S.refills=0;S.crashHist=[];save();updateBal();renderStats();$('#resetHint').textContent='초기화했습니다.';pushPresence();};
+$('#resetAll').onclick=()=>{if(Date.now()-resetArm>3000){resetArm=Date.now();$('#resetHint').textContent='한 번 더 누르면 모든 기록이 지워집니다. 포인트는 바뀌지 않습니다.';return;}
+  S.hist=[];S.crashHist=[];save();renderStats();$('#resetHint').textContent='기록을 지웠습니다. 포인트는 그대로입니다.';pushPresence();};
 window.addEventListener('resize',()=>{if(view==='stats')drawChart();});
 
 /* ---------------- key bindings ---------------- */
@@ -1241,7 +1239,7 @@ function openReveal(){
   const m=$('#revealModal');
   m.innerHTML=`<div class="box" role="dialog" aria-modal="true" aria-labelledby="rvT"><div class="eyebrow">공개</div><h2 id="rvT">이 카지노는 조작되어 있었습니다</h2>
   <p>당신이 플레이하는 동안 관리자는 실시간으로 당신의 포인트를 보고, 확률을 바꾸고, 진행 중인 판의 결과를 뒤집을 수 있었습니다. 화면에는 아무 표시도 나타나지 않았습니다.</p>
-  <div class="big"><div class="kpi"><span>플레이한 판</span><b>${st.rounds}</b></div><div class="kpi"><span>결과가 바뀐 판</span><b class="neg">${st.manip}</b></div><div class="kpi"><span>조작으로 달라진 포인트</span><b class="${st.md>=0?'pos':'neg'}">${sfmt(st.md)}</b></div><div class="kpi"><span>실제 누적 손익</span><b class="${st.net>=0?'pos':'neg'}">${sfmt(st.net)}</b></div><div class="kpi"><span>공정했다면 기대 손익</span><b>${sfmt(fairExp)}</b></div><div class="kpi"><span>무료 리필 횟수</span><b>${S.refills||0}회</b></div></div>
+  <div class="big"><div class="kpi"><span>플레이한 판</span><b>${st.rounds}</b></div><div class="kpi"><span>결과가 바뀐 판</span><b class="neg">${st.manip}</b></div><div class="kpi"><span>조작으로 달라진 포인트</span><b class="${st.md>=0?'pos':'neg'}">${sfmt(st.md)}</b></div><div class="kpi"><span>실제 누적 손익</span><b class="${st.net>=0?'pos':'neg'}">${sfmt(st.net)}</b></div><div class="kpi"><span>공정했다면 기대 손익</span><b>${sfmt(fairExp)}</b></div><div class="kpi"><span>남은 포인트</span><b>${fmt(S.bal)}</b></div></div>
   ${CFG.lure&&CFG.lure.on?`<p>처음 ${CFG.lure.rounds}판은 이기기 쉽게 설정되어 있었습니다. 초반의 승리는 계속 하게 만들기 위한 미끼였습니다.</p>`:''}
   <div class="help"><b>조작이 없어도 하우스가 이깁니다.</b> 모든 게임의 환급률은 100% 미만이라 오래 할수록 잃습니다. 불법 온라인 도박 사이트는 여기에 더해 결과 조작, 출금 거부, 개인정보 유출 위험까지 있습니다. 도움이 필요하면 한국도박문제예방치유원 <b>1336</b>(24시간 무료 상담).</div>
   <div><button class="btn" type="button" id="rvClose">닫기</button></div></div>`;
@@ -1301,8 +1299,8 @@ function renderAdmin(ch){
   }
   for(const [peer,r] of rows)if(!seen.has(peer)){r.tr.remove();rows.delete(peer);}
   $('#admEmpty').hidden=peers.length>0;
-  const tot=peers.reduce((a,p)=>a+(+p.presence.bal||0),0),house=peers.reduce((a,p)=>a-(+p.presence.net||0),0),live=peers.filter(p=>p.presence.st==='play').length,man=peers.reduce((a,p)=>a+(+p.presence.manip||0),0),ref=peers.reduce((a,p)=>a+(+p.presence.refills||0),0);
-  $('#akpis').innerHTML=`<div class="akpi"><span>접속 중</span><b>${peers.length}명</b></div><div class="akpi"><span>진행 중인 판</span><b>${live}</b></div><div class="akpi"><span>플레이어 보유 합계</span><b>${fmt(tot)}</b></div><div class="akpi"><span>하우스 누적 수익</span><b class="${house>=0?'pos':'neg'}">${sfmt(house)}</b></div><div class="akpi"><span>조작된 판 · 리필</span><b>${man} · ${ref}회</b></div>`;
+  const tot=peers.reduce((a,p)=>a+(+p.presence.bal||0),0),house=peers.reduce((a,p)=>a-(+p.presence.net||0),0),live=peers.filter(p=>p.presence.st==='play').length,man=peers.reduce((a,p)=>a+(+p.presence.manip||0),0);
+  $('#akpis').innerHTML=`<div class="akpi"><span>접속 중</span><b>${peers.length}명</b></div><div class="akpi"><span>진행 중인 판</span><b>${live}</b></div><div class="akpi"><span>플레이어 보유 합계</span><b>${fmt(tot)}</b></div><div class="akpi"><span>하우스 누적 수익</span><b class="${house>=0?'pos':'neg'}">${sfmt(house)}</b></div><div class="akpi"><span>조작된 판</span><b>${man}판</b></div>`;
   const ids=peers.map(p=>p.by).filter(Boolean);
   if(ids.length&&NET.user){NET.user.profiles(ids).then(ps=>{for(const id in ps)profileNames[id]=ps[id].name||'';rows.forEach(r=>r.setName&&r.setName());}).catch(()=>{});}
 }
@@ -1319,7 +1317,7 @@ function makeRow(p){
     if(c==='fw')sendCmd(to,'force',{want:'win'});else if(c==='fl')sendCmd(to,'force',{want:'lose'});
     else if(c==='lw')sendCmd(to,'live',{want:'win'});else if(c==='ll')sendCmd(to,'live',{want:'lose'});
     else if(c==='bal'){const a=Math.floor(+r.balIn.value);if(!(a>=0)){toast('포인트를 입력하세요');return;}sendCmd(to,'setbal',{amount:a});r.balIn.value='';}});
-  r.setName=()=>{const pr=r.p.presence;tr.querySelector('.pname b').innerHTML=esc(pr.nick)+(r.p.sameTab?'<span class="me-chip">나</span>':'');const nm=r.p.by&&profileNames[r.p.by];tr.querySelector('.pname small').textContent=(nm?nm+' · ':'')+(r.p.guest?'외부 게스트':'')+(pr.refills?` 리필 ${pr.refills}회`:'');};
+  r.setName=()=>{const pr=r.p.presence;tr.querySelector('.pname b').innerHTML=esc(pr.nick)+(r.p.sameTab?'<span class="me-chip">나</span>':'');const nm=r.p.by&&profileNames[r.p.by];tr.querySelector('.pname small').textContent=(nm?nm+' · ':'')+(r.p.guest?'외부 게스트':'')+((pr.bal||0)<1?' 파산':'');};
   r.updateEff=()=>{const pr=r.p.presence;const g=GIDS.includes(pr.game)?pr.game:null;const e=g?biasFor(g,key,pr.rounds||0):biasFor('_',key,pr.rounds||0);tr.querySelector('.eff').textContent=(g?META[g].name+' ':'')+'실제 적용 '+biasText(e)+(pr.force?` · 대기: 다음 판 ${pr.force==='win'?'승리':'패배'}`:'');};
   r.update=(np)=>{r.p=np;const pr=np.presence;
     tr.querySelector('.pbal').textContent=fmt(pr.bal||0);
