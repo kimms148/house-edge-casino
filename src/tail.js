@@ -215,11 +215,15 @@ function renderInbox(){
   const ua=navigator.userAgent;
   const os=/iphone|ipad|ipod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)?'ios':/android/i.test(ua)?'android':'desktop';
   if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).catch(()=>{});
-  let deferred=null;const btn=$('#installBtn');
+  let deferred=null,installed=false;const btn=$('#installBtn');
   if(!standalone)btn.hidden=false;
+  // Already installed on this device (Chrome/Edge)? Then the button explains how to open it instead.
+  const markInstalled=()=>{installed=true;btn.lastChild.textContent='앱으로 열기';$('#instDone').hidden=false;$('#instLead').hidden=true;$('#installModal .steps').hidden=true;};
+  if(navigator.getInstalledRelatedApps)navigator.getInstalledRelatedApps().then(l=>{if(l&&l.length)markInstalled();}).catch(()=>{});
   window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;if(!standalone)btn.hidden=false;});
-  window.addEventListener('appinstalled',()=>{deferred=null;btn.hidden=true;$('#installModal').hidden=true;toast('앱이 설치되었습니다');});
+  window.addEventListener('appinstalled',()=>{deferred=null;markInstalled();$('#installModal').hidden=true;toast('앱이 설치되었습니다. 작업 표시줄이나 홈 화면 아이콘으로 여세요');});
   btn.onclick=async()=>{
+    if(installed){$('#installModal').hidden=false;return;}
     if(deferred){deferred.prompt();try{const r=await deferred.userChoice;if(r&&r.outcome==='accepted')btn.hidden=true;}catch(e){}deferred=null;return;}
     document.querySelectorAll('#installModal .step').forEach(s=>s.classList.toggle('here',s.dataset.os===os));
     const steps=$('#installModal .steps');const here=steps.querySelector('.here');if(here)steps.prepend(here);

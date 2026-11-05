@@ -535,7 +535,8 @@ details.more[open] summary{color:var(--cyan)}
 <div id="revealModal" class="modal" hidden></div>
 <div id="installModal" class="modal" hidden><div class="box" role="dialog" aria-modal="true" aria-labelledby="instT">
   <div class="eyebrow">홈 화면에 추가</div><h2 id="instT">앱으로 설치하기</h2>
-  <p>설치하면 홈 화면 아이콘으로 바로 열리고, 주소창 없이 앱처럼 실행됩니다.</p>
+  <p id="instLead">설치하면 홈 화면 아이콘으로 바로 열리고, 주소창 없이 앱처럼 실행됩니다.</p>
+  <div class="step here" id="instDone" hidden><b>이미 이 기기에 설치되어 있습니다</b><ol><li>주소창 오른쪽의 <b style="display:inline;color:var(--ink)">앱에서 열기</b>를 누르거나</li><li>작업 표시줄·시작 메뉴(휴대폰은 홈 화면)의 하우스 엣지 아이콘으로 여세요.</li></ol></div>
   <div class="steps">
     <div class="step" data-os="ios"><b>아이폰 · 아이패드 (Safari)</b><ol><li>공유 버튼을 누릅니다.</li><li>홈 화면에 추가를 고릅니다.</li><li>오른쪽 위 추가를 누릅니다.</li></ol></div>
     <div class="step" data-os="android"><b>안드로이드 (Chrome · 삼성 인터넷)</b><ol><li>메뉴(⋮ 또는 ≡)를 엽니다.</li><li>앱 설치 또는 홈 화면에 추가를 누릅니다.</li></ol></div>
@@ -1380,11 +1381,15 @@ function renderInbox(){
   const ua=navigator.userAgent;
   const os=/iphone|ipad|ipod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)?'ios':/android/i.test(ua)?'android':'desktop';
   if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).catch(()=>{});
-  let deferred=null;const btn=$('#installBtn');
+  let deferred=null,installed=false;const btn=$('#installBtn');
   if(!standalone)btn.hidden=false;
+  // Already installed on this device (Chrome/Edge)? Then the button explains how to open it instead.
+  const markInstalled=()=>{installed=true;btn.lastChild.textContent='앱으로 열기';$('#instDone').hidden=false;$('#instLead').hidden=true;$('#installModal .steps').hidden=true;};
+  if(navigator.getInstalledRelatedApps)navigator.getInstalledRelatedApps().then(l=>{if(l&&l.length)markInstalled();}).catch(()=>{});
   window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;if(!standalone)btn.hidden=false;});
-  window.addEventListener('appinstalled',()=>{deferred=null;btn.hidden=true;$('#installModal').hidden=true;toast('앱이 설치되었습니다');});
+  window.addEventListener('appinstalled',()=>{deferred=null;markInstalled();$('#installModal').hidden=true;toast('앱이 설치되었습니다. 작업 표시줄이나 홈 화면 아이콘으로 여세요');});
   btn.onclick=async()=>{
+    if(installed){$('#installModal').hidden=false;return;}
     if(deferred){deferred.prompt();try{const r=await deferred.userChoice;if(r&&r.outcome==='accepted')btn.hidden=true;}catch(e){}deferred=null;return;}
     document.querySelectorAll('#installModal .step').forEach(s=>s.classList.toggle('here',s.dataset.os===os));
     const steps=$('#installModal .steps');const here=steps.querySelector('.here');if(here)steps.prepend(here);

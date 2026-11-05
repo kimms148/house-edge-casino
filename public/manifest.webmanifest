@@ -11,6 +11,7 @@
   "background_color": "#110c0d",
   "theme_color": "#1a1214",
   "categories": ["education", "games"],
+  "related_applications": [{ "platform": "webapp", "url": "https://house-edge-casino.onrender.com/manifest.webmanifest" }],
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
