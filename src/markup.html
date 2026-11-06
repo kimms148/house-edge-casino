@@ -146,10 +146,7 @@
           <select id="fOnline"><option value="">접속 전체</option><option value="on">접속 중만</option></select>
           <input type="text" id="fQ" placeholder="이름·학번 검색" style="width:140px">
         </div>
-        <div class="tbl-wrap"><table class="t" id="admTbl">
-          <thead><tr><th>학생</th><th class="n">자산</th><th class="n">수익률</th><th>상태 / 진행 중인 판</th><th class="n">판수 · 승률</th><th class="n">조작 판</th><th>개인 확률 · 판 조작</th><th>자산 지급 · 회수</th></tr></thead>
-          <tbody id="admBody"></tbody>
-        </table></div>
+        <div class="pgrid" id="admBody"></div>
         <div class="empty-note" id="admEmpty">아직 가입한 학생이 없습니다.</div>
         <h3 style="margin-top:14px">실시간 결과 로그</h3>
         <div class="feed" id="feed"><div style="color:var(--smute)">학생이 판을 끝내면 여기에 기록됩니다.</div></div>
@@ -184,7 +181,7 @@
 
   <section class="view admin-scope" id="v-inbox" hidden>
     <div class="view-head"><div><div class="eyebrow">MAILBOX</div><h2>우편함</h2><p class="sub">학생들이 건의함에 보낸 글입니다.</p></div>
-      <select id="inboxFilter" style="background:var(--steel);border-color:var(--sline);color:var(--sink)"><option value="">전체</option><option value="unread">안 읽은 것</option></select></div>
+      <div class="abtns"><button type="button" class="abtn" id="inboxReadAll" style="padding:6px 12px">전체 읽음 표시</button><select id="inboxFilter" style="background:var(--steel);border-color:var(--sline);color:var(--sink)"><option value="">전체</option><option value="unread">안 읽은 것</option></select></div></div>
     <div class="mail-list" id="inboxList"></div>
   </section>
 </main>

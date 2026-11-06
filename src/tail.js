@@ -198,7 +198,8 @@ function renderAdmin(){
   if(view!=='admin')return;
   const fc=$('#fCls').value,fo=$('#fOnline').value,q=$('#fQ').value.trim();
   const body=$('#admBody');const seen=new Set();
-  for(const u of users){
+  const ordered=users.slice().sort((a,b)=>(!!b.pending-!!a.pending)||(!!b.online-!!a.online)||a.cls-b.cls||a.num-b.num);
+  for(const u of ordered){
     if(fc&&String(u.cls)!==fc)continue;if(fo==='on'&&!u.online)continue;if(q&&!(u.name.includes(q)||u.sid.includes(q)))continue;
     seen.add(u.sid);let r=rows.get(u.sid);
     if(!r){r=makeRow(u);rows.set(u.sid,r);}
@@ -209,13 +210,17 @@ function renderAdmin(){
   $('#admEmpty').textContent=users.length?'조건에 맞는 학생이 없습니다.':'아직 가입한 학생이 없습니다.';
 }
 function makeRow(u){
-  const tr=document.createElement('tr');const sid=u.sid;
-  tr.innerHTML=`<td class="pname"><b></b><small></small></td><td class="n bl"></td><td class="n rt"></td><td class="st"></td><td class="n rw"></td><td class="n man"></td>
-  <td><div class="ctl"><div class="slider-row"><input type="range" min="-100" max="100" step="5" aria-label="개인 승률 조정"><output></output></div><div class="hint eff" style="color:var(--smute);font-size:11px"></div>
-  <div class="abtns"><button type="button" class="abtn w" data-c="fw">다음 판 승리</button><button type="button" class="abtn l" data-c="fl">다음 판 패배</button><button type="button" class="abtn w" data-c="lw">이번 판 승리</button><button type="button" class="abtn l" data-c="ll">이번 판 패배</button></div></div></td>
-  <td><div class="ctl" style="min-width:200px"><div class="abtns"><input type="number" min="0" step="1000" placeholder="금액" aria-label="지급·회수 금액" class="amt"><button type="button" class="abtn w" data-c="add">지급</button><button type="button" class="abtn l" data-c="sub">회수</button><button type="button" class="abtn" data-c="set">설정</button><button type="button" class="abtn" data-c="chat">메시지</button></div>
-  <div class="abtns"><input type="text" placeholder="새 비밀번호" aria-label="새 비밀번호" class="npw" autocomplete="off"><button type="button" class="abtn" data-c="pw">비밀번호 변경</button></div>
-  <details class="more"><summary>더보기</summary><div class="abtns" style="margin-top:5px"><button type="button" class="abtn" data-c="forgive">대출 없애기</button><button type="button" class="abtn l" data-c="del">계정 삭제</button></div></details></div></td>`;
+  const tr=document.createElement('div');tr.className='pcard';const sid=u.sid;
+  tr.innerHTML=`<div class="pc-top"><span class="odot"></span><b class="pc-name"></b><span class="pc-id"></span><span class="pc-st"></span></div>
+  <div class="pc-money"><b class="bl"></b><span class="pc-rate rt"></span><span class="pc-loan"></span></div>
+  <div class="pc-live" hidden></div>
+  <div class="pc-meta"></div>
+  <div class="abtns"><button type="button" class="abtn w" data-c="fw">다음 판 승</button><button type="button" class="abtn l" data-c="fl">다음 판 패</button><button type="button" class="abtn w" data-c="lw">이번 판 승</button><button type="button" class="abtn l" data-c="ll">이번 판 패</button><button type="button" class="abtn" data-c="chat">메시지</button></div>
+  <div class="abtns"><input type="number" min="0" step="1000" placeholder="금액" aria-label="지급·회수 금액" class="amt"><button type="button" class="abtn w" data-c="add">지급</button><button type="button" class="abtn l" data-c="sub">회수</button><button type="button" class="abtn" data-c="set">설정</button></div>
+  <details class="more"><summary>개인 확률 · 비밀번호 · 계정</summary>
+    <div class="slider-row" style="margin-top:6px"><input type="range" min="-100" max="100" step="5" aria-label="개인 승률 조정"><output></output></div><div class="hint eff" style="color:var(--smute);font-size:11px"></div>
+    <div class="abtns" style="margin-top:5px"><input type="text" placeholder="새 비밀번호" aria-label="새 비밀번호" class="npw" autocomplete="off"><button type="button" class="abtn" data-c="pw">비밀번호 변경</button></div>
+    <div class="abtns" style="margin-top:5px"><button type="button" class="abtn" data-c="forgive">대출 없애기</button><button type="button" class="abtn l" data-c="del">계정 삭제</button></div></details>`;
   const r={tr,sid,u,slider:tr.querySelector('input[type=range]'),out:tr.querySelector('output'),amt:tr.querySelector('.amt'),npw:tr.querySelector('.npw'),delArm:0};
   const v=((CFG.players||{})[sid]||{}).bias||0;r.slider.value=pct(v);r.out.textContent=biasText(v);
   r.slider.addEventListener('input',()=>{CFG.players[sid]=Object.assign({},CFG.players[sid]||{},{bias:r.slider.value/100});r.out.textContent=biasText(CFG.players[sid].bias);saveCfg();r.updateEff();});
@@ -228,23 +233,32 @@ function makeRow(u){
     else if(c==='pw'){const p=r.npw.value;if(p.length<4){toast('새 비밀번호는 4자 이상이어야 합니다');return;}svSend({t:'adm',op:'pw',sid,pw:p});r.npw.value='';}
     else if(c==='del'){if(Date.now()-r.delArm>3000){r.delArm=Date.now();b.textContent='한 번 더 누르면 삭제';return;}svSend({t:'adm',op:'del',sid});}
   });
-  r.updateEff=()=>{const p=r.u.presence||{};const g=GIDS.includes(p.game)?p.game:null;const e=biasFor(g||'_',sid,r.u.stats.rounds);tr.querySelector('.eff').textContent=(g?META[g].name+' ':'')+'실제 적용 '+biasText(e)+(p.force?` · 대기: 다음 판 ${p.force==='win'?'승리':'패배'}`:'');};
+  r.updateEff=()=>{const p=r.u.presence||{};const g=GIDS.includes(p.game)?p.game:null;const e=biasFor(g||'_',sid,r.u.stats.rounds);tr.querySelector('.eff').textContent=(g?META[g].name+' ':'')+'실제 적용 '+biasText(e)+(p.force?` · 대기: 다음 판 ${p.force==='win'?'승리':'패배'}`:'');
+    const pm=tr.querySelector('.pc-meta');const s=r.u.stats;pm.textContent=`${s.rounds}판 · 승률 ${s.rounds?Math.round(s.wins/s.rounds*100):0}% · 조작 ${s.manip}판${s.md?' ('+sfmt(s.md)+')':''}${Math.round(e*100)?' · 확률 '+biasText(e):''}${p.force?' · 다음 판 '+(p.force==='win'?'승리':'패배')+' 대기':''}`;};
   r.update=(nu)=>{r.u=nu;const p=nu.presence||{};
-    tr.querySelector('.pname b').innerHTML=`<span class="odot ${nu.online?'on':''}"></span>${esc(nu.name)}`;
-    tr.querySelector('.pname small').textContent=`${nu.sid} · ${nu.grade}학년 ${nu.cls}반 ${nu.num}번`;
-    tr.querySelector('.bl').innerHTML=fmt(nu.bal)+(nu.loan?`<div class="hint" style="color:${nu.loan.expired?'#e08a80':'var(--smute)'}">${nu.loan.n}차 대출 ${fmt(nu.loan.principal)} (${Math.round(nu.loan.rate*100)}%) · 빚 ${fmt(nu.loan.debt)}${nu.loan.expired?' · 만기':''}</div>`:nu.loanCount?`<div class="hint" style="color:var(--smute)">대출 ${nu.loanCount}번 받음</div>`:'');
+    tr.querySelector('.odot').className='odot'+(nu.online?' on':'');
+    tr.querySelector('.pc-name').textContent=nu.name;
+    tr.querySelector('.pc-id').textContent=`${nu.cls}반 ${nu.num}번`;tr.title=`${nu.sid} · ${nu.grade}학년 ${nu.cls}반 ${nu.num}번`;
+    tr.querySelector('.bl').textContent=fmt(nu.bal);
+    const debt=nu.loan?nu.loan.debt:0;const rate=(nu.bal-debt-(nu.start||START))/Math.max(1,nu.start||START)*100;const rt=tr.querySelector('.rt');rt.textContent=pfmt(rate);rt.className='pc-rate rt '+(rate>=0?'pos':'neg');
+    const ln=tr.querySelector('.pc-loan');ln.className='pc-loan'+(nu.loan&&nu.loan.expired?' bad':'');
+    ln.textContent=nu.loan?`${nu.loan.n}차 대출 ${fmt(nu.loan.principal)} (${Math.round(nu.loan.rate*100)}%) · 빚 ${fmt(nu.loan.debt)}${nu.loan.expired?' · 만기':''}`:nu.loanCount?`대출 ${nu.loanCount}번 받음 · 지금은 없음`:'';ln.hidden=!ln.textContent;
+    const g=META[nu.pending?nu.pending.g:p.game];const stEl=tr.querySelector('.pc-st');
+    let stTxt,stCls='';
+    if(nu.chatOpen){stTxt='대화 중';stCls='chat';}
+    else if(nu.pending){stTxt=(g?g.name:'')+' 진행 중';stCls='play';}
+    else if(!nu.online)stTxt='오프라인';
+    else stTxt=g?g.name+' 대기':({lobby:'로비',rank:'랭킹',stats:'기록',mail:'건의함',loan:'대출',chat:'대화'})[p.game]||'접속 중';
+    if(!nu.pending&&nu.bal<1&&!nu.chatOpen){stTxt+=' · 파산';stCls='bad';}
+    stEl.textContent=stTxt;stEl.className='pc-st '+stCls;
+    const lv=tr.querySelector('.pc-live');lv.hidden=!nu.pending;if(nu.pending)lv.textContent=`베팅 ${fmt(nu.pending.bet)}${p.pick?' · '+p.pick:''}${p.live?' · '+p.live:''}`;
+    tr.classList.toggle('playing',!!nu.pending);tr.classList.toggle('broke',!nu.pending&&nu.bal<1);tr.classList.toggle('offline',!nu.online);
     tr.querySelector('[data-c=chat]').textContent=nu.chatOpen?'대화 중':'메시지';
     tr.querySelector('[data-c=forgive]').hidden=!nu.loan;
-    const debt=nu.loan?nu.loan.debt:0;const rate=(nu.bal-debt-(nu.start||START))/Math.max(1,nu.start||START)*100;const rt=tr.querySelector('.rt');rt.textContent=pfmt(rate);rt.className='n rt '+(rate>=0?'pos':'neg');
-    const st=tr.querySelector('.st');const g=META[nu.pending?nu.pending.g:p.game];
-    if(nu.pending){st.innerHTML=`<span class="st-play">${esc(g?g.name:'')}</span><div class="hint" style="color:var(--sink)">베팅 ${fmt(nu.pending.bet)}${p.pick?' · '+esc(p.pick):''}</div><div class="hint" style="color:var(--cyan)">${esc(p.live||'')}</div>`;}
-    else st.innerHTML=`<span class="st-idle">${!nu.online?'오프라인':g?esc(g.name)+' 대기':({lobby:'로비',rank:'랭킹',stats:'기록',mail:'건의함'})[p.game]||'접속 중'}</span>${nu.bal<1?' <span class="tag" style="color:#e08a80;border-color:#5a2420">파산</span>':''}`;
-    tr.querySelector('.rw').textContent=`${nu.stats.rounds} · ${nu.stats.rounds?Math.round(nu.stats.wins/nu.stats.rounds*100):0}%`;
-    tr.querySelector('.man').textContent=nu.stats.manip+(nu.stats.md?` (${sfmt(nu.stats.md)})`:'');
     const canLive=!!nu.pending&&nu.online&&['horse','snail','crash'].includes(nu.pending.g);
     tr.querySelectorAll('[data-c=lw],[data-c=ll]').forEach(b=>{b.disabled=!canLive;b.title=canLive?'':'경마·달팽이·그래프 게임이 진행 중일 때만 쓸 수 있습니다';});
     tr.querySelectorAll('[data-c=fw],[data-c=fl]').forEach(b=>{b.disabled=!nu.online;b.title=nu.online?'':'접속 중일 때만 쓸 수 있습니다';});
-    tr.querySelector('[data-c=ll]').textContent=nu.pending&&nu.pending.g==='crash'?'지금 터뜨리기':'이번 판 패배';
+    tr.querySelector('[data-c=ll]').textContent=nu.pending&&nu.pending.g==='crash'?'지금 터뜨리기':'이번 판 패';
     r.updateEff();};
   return r;
 }
@@ -253,6 +267,7 @@ function addFeed(e){feed.unshift(e);if(feed.length>80)feed.pop();
 
 /* inbox (admin) */
 $('#inboxFilter').addEventListener('change',renderInbox);
+$('#inboxReadAll').onclick=()=>svSend({t:'adm',op:'mailreadall'});
 function renderInbox(){
   const unread=(INBOX||[]).filter(m=>!m.read).length;const bd=$('#inboxBadge');bd.hidden=!unread;bd.textContent=unread;
   if(view!=='inbox')return;

@@ -380,6 +380,12 @@ wss.on('connection', ws => {
         if (!c.admin) return;
         const tu = DB.users[String(m.sid || '')];
         const ack = (ok, msg) => send(c, { t: 'admack', ok, msg });
+        if (m.op === 'mailreadall') {
+          const touched = new Set();
+          for (const mm of Object.values(DB.mail)) if (!mm.read) { mm.read = true; store.saveMail(mm); touched.add(mm.sid); }
+          pushMail(); for (const sid of touched) for (const o of userConns(sid)) send(o, { t: 'mymail', mymail: myMail(sid) });
+          return ack(true, touched.size ? '모든 건의를 읽음으로 표시했습니다.' : '안 읽은 건의가 없습니다.');
+        }
         if (m.op === 'mailread' || m.op === 'maildel') {
           const mm = DB.mail[String(m.id || '')]; if (!mm) return ack(false, '없는 건의입니다.');
           if (m.op === 'mailread') { mm.read = !mm.read; store.saveMail(mm); } else { delete DB.mail[mm.id]; store.deleteMail(mm.id); }
