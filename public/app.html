@@ -283,7 +283,7 @@ tr.me td{background:#1e1a12}
 .slider-row input[type=range]{flex:1 1 0;width:0;min-width:0;accent-color:var(--cyan)}
 .odds-grid{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 10px;align-items:center;font-size:12px}
 .odds-grid .cell{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-.admin-scope .odds-grid input[type=number]{width:62px}
+.admin-scope .odds-grid input[type=number]{width:72px}
 .abox + .abox{margin-top:12px}
 details.sub-more summary{cursor:pointer;font-size:13px;color:var(--sink);list-style:none;padding:4px 0}
 details.sub-more summary::-webkit-details-marker{display:none}
@@ -421,6 +421,32 @@ details.more[open] summary{color:var(--cyan)}
 .crash-hist span{font-family:var(--f-num);font-size:12px;padding:3px 8px;border-radius:999px;background:#0b0708;border:1px solid var(--line)}
 .crash-hist span.lo{color:#ff8a80} .crash-hist span.mid{color:var(--ink)} .crash-hist span.hi{color:var(--win)}
 
+
+/* blackjack */
+.bj{position:absolute;inset:0;display:grid;grid-template-rows:1fr auto 1fr auto;gap:6px;padding:16px 14px 34px;justify-items:center}
+.bj-row{display:grid;justify-items:center;align-content:center;gap:8px}
+.bj-lbl{font-size:14px;color:#d8d2c6;letter-spacing:.04em}
+.bj-sc{display:inline-block;min-width:34px;padding:1px 8px;margin-left:6px;border-radius:4px;background:#0d0e0fcc;font-family:var(--f-num);color:var(--brass2);text-align:center}
+.bj-msg{font-size:13px;color:#d8d2c6aa;min-height:20px;align-self:center}
+.bj-act{display:flex;gap:8px;justify-content:center}
+.bj-act .btn{min-width:84px;padding:9px 14px;font-weight:700}
+.bj-act .btn[data-a=hit]{border-color:var(--brass)}
+.bj-act .btn:disabled{opacity:.35;cursor:not-allowed}
+/* roulette */
+.roul{position:absolute;inset:0;display:grid;place-items:center;align-content:center;gap:10px;padding:12px}
+.roul canvas{width:min(340px,80vw);height:auto;aspect-ratio:1;max-width:100%}
+.roul-hist{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;min-height:22px}
+.roul-hist span{min-width:24px;padding:1px 5px;border-radius:4px;font-family:var(--f-num);font-size:12px;color:#e4ded2;text-align:center;border:1px solid #ffffff22}
+/* admin top-up */
+.gift{position:fixed;inset:0;z-index:80;display:grid;place-items:center;pointer-events:none;background:#0008;animation:giftBg 2.6s ease forwards}
+.gift .gbox{background:var(--bg2);border:1px solid var(--brass);border-radius:10px;padding:18px 26px;text-align:center;display:grid;gap:4px;animation:giftIn 2.6s cubic-bezier(.2,1.3,.4,1) forwards}
+.gift .gbox b{font-size:28px;font-family:var(--f-num);color:var(--brass2);font-weight:500}
+.gift .gbox span{font-size:15px;color:var(--ink)}
+.gift .coin-fly{position:fixed;width:18px;height:18px;border-radius:50%;background:repeating-conic-gradient(var(--brass) 0 30deg,#5d1d19 30deg 60deg);box-shadow:inset 0 0 0 3px #0a0b0c,0 0 0 1px var(--brass);z-index:81}
+@keyframes giftBg{0%{opacity:0}10%{opacity:1}80%{opacity:1}100%{opacity:0}}
+@keyframes giftIn{0%{transform:scale(.6);opacity:0}12%{transform:scale(1);opacity:1}80%{opacity:1}100%{opacity:0;transform:translateY(-20px)}}
+.bal.gifted{animation:giftPulse 1.2s ease}
+@keyframes giftPulse{20%,60%{border-color:var(--brass2);box-shadow:0 0 0 3px #c9a56044}}
 
 </style>
 <section class="gate" id="gate">
@@ -660,7 +686,9 @@ const META={
   oddeven:{name:'홀짝',desc:'주사위 두 개의 합이 홀수일까, 짝수일까.',pay:'적중 1.95배',rtp:97.5},
   baccarat:{name:'바카라',desc:'플레이어·뱅커·타이. 8덱 슈 사용.',pay:'P 2배 · B 1.95배 · T 9배',rtp:98.8},
   slot:{name:'슬롯머신',desc:'3릴, 다섯 가지 심볼.',pay:'777 = 500배',rtp:94.95},
-  crash:{name:'그래프',desc:'터지기 전에 캐시아웃하세요.',pay:'캐시아웃 배율만큼',rtp:97}
+  crash:{name:'그래프',desc:'터지기 전에 캐시아웃하세요.',pay:'캐시아웃 배율만큼',rtp:97},
+  blackjack:{name:'블랙잭',desc:'직접 플레이하거나, 플레이어·딜러 승부를 맞히세요.',pay:'승리 2배 · 블랙잭 2.5배',rtp:99.5},
+  roulette:{name:'룰렛',desc:'0부터 36까지 37칸 유럽식 룰렛.',pay:'숫자 36배 · 색 2배',rtp:97.3}
 };
 const GIDS=Object.keys(META);
 
@@ -740,13 +768,14 @@ function onServer(m){
     case 'autherr':{const el=m.where==='signup'?$('#suErr'):$('#liErr');el.textContent=m.msg;break;}
     case 'kicked':toast('계정이 삭제되었습니다');doLogout(true);break;
     case 'betok':case 'betno':if(SV.wait){SV.wait.res(m);SV.wait=null;}break;
+    case 'betaddok':case 'betaddno':if(SV.waitAdd){SV.waitAdd(m);SV.waitAdd=null;}if(m.t==='betaddok'){S.bal=m.bal;shownBal=S.bal;$('#balNum').textContent=fmt(S.bal);}else toast(m.msg);break;
     case 'bal':
       if(!S.me)break;
-      S.bal=m.bal;if(m.stats)S.stats=m.stats;if('loan' in m)S.me.loan=m.loan;if('loanCount' in m)S.me.loanCount=m.loanCount;if(m.h){S.hist.push(m.h);if(S.hist.length>300)S.hist.shift();}
+      S.bal=m.bal;if(m.stats)S.stats=m.stats;if('loan' in m)S.me.loan=m.loan;if('loanCount' in m)S.me.loanCount=m.loanCount;if('nextLoanAt' in m)S.me.nextLoanAt=m.nextLoanAt;if(m.h){S.hist.push(m.h);if(S.hist.length>300)S.hist.shift();}
       if(m.loanMsg)toast(m.loanMsg);
       if(view==='loan')renderLoan();
       if(!busy)updateBal();else shownBalPending=true;
-      if(m.by==='admin')toast('관리자가 포인트를 조정했습니다');
+      if(m.by==='admin'){if(m.delta>0)giftArrive(m.delta);else if(m.delta<0)toast('관리자가 '+fmt(-m.delta)+'를 회수했습니다');else if(!('delta' in m))toast('관리자가 포인트를 조정했습니다');}
       if(view==='stats')renderStats();
       break;
     case 'rank':RANK=m;if(view==='rank')renderRank();break;
@@ -771,6 +800,8 @@ function onCmd(d){
   else if(d.type==='clearforce'){force=null;pushPresence();}
   else if(d.type==='live'&&(d.want==='win'||d.want==='lose')){if(cur&&cur.liveOverride&&busy)cur.liveOverride(d.want);}
 }
+// blackjack double: ask the server to add to the stake of the round in progress
+function betAdd(amount){return new Promise(res=>{if(!svSend({t:'betadd',amount}))return res(false);const tm=setTimeout(()=>{SV.waitAdd=null;res(false);},6000);SV.waitAdd=m=>{clearTimeout(tm);res(m.t==='betaddok');};});}
 function betRequest(g,bet){
   return new Promise(res=>{
     if(!svSend({t:'bet',g,bet}))return res({t:'betno',msg:'서버에 연결되어 있지 않습니다.'});
@@ -882,8 +913,8 @@ function updateBal(){
   const broke=(S.bal<1||expired)&&!busy;
   $('#brokeMsg').hidden=!broke;$('#playBtn').hidden=broke&&!busy;
   if(broke){$('#brokeMsg b').textContent=expired?'대출 사용 기간이 끝났습니다':'포인트를 모두 잃었습니다';
-    const next=LOAN_TIERS[S.me.loanCount||0];
-    $('#brokeText').textContent=expired?'대출 탭에서 갚아야 다시 게임을 할 수 있습니다.':loan?'이미 받은 대출이 있어 더 빌릴 수 없습니다.':next?'무료 충전은 없습니다. '+((S.me.loanCount||0)+1)+'차 대출('+fmt(next.amount)+')을 받을 수 있습니다.':'대출도 3번 모두 받았습니다. 더 이상 빌릴 수 없습니다.';
+    const next=Date.now()>=(S.me.nextLoanAt||0)?LOAN_TIERS[Math.min(S.me.loanCount||0,2)]:null;
+    $('#brokeText').textContent=expired?'대출 탭에서 갚아야 다시 게임을 할 수 있습니다.':loan?'이미 받은 대출이 있어 더 빌릴 수 없습니다.':next?'무료 충전은 없습니다. '+((S.me.loanCount||0)+1)+'차 대출('+fmt(next.amount)+')을 받을 수 있습니다.':'대출은 하루에 한 번입니다. 대출 탭에서 다시 빌릴 수 있는 시각을 확인하세요.';
     $('#brokeLoan').textContent=expired||loan?'대출 탭으로 가기':next?'대출 받으러 가기':'대출 기록 보기';}
   if(S.bet>S.bal&&S.bal>=1&&!busy)setBet(S.bal);
 }
@@ -945,7 +976,7 @@ async function play(){
   try{r=await cur.play(bet,choice);}catch(e){console.error(e);r={pay:bet,manip:false,fairPay:bet,text:'오류로 원금 반환'};}
   const pay=Math.max(0,Math.floor(r.pay||0));
   svSend({t:'settle',pay,manip:!!r.manip,d:r.manip?pay-Math.floor(r.fairPay||0):0,winner:Number.isInteger(r.winner)?r.winner:undefined});
-  showResult(bet,pay,r.text);
+  showResult(r.bet||bet,pay,r.text);
   busy=false;playing=false;curBetInfo=null;liveText='';setPlayBtn();
   updateBal();pushPresence(); // the server answers with the new balance
   if(cur.after)cur.after();
@@ -1290,6 +1321,165 @@ const K=0.00006; // multiplier = e^(K·ms): 2x ≈ 11.6s, 5x ≈ 26.8s
 
 
 
+/* ---------------- 9. blackjack ---------------- */
+// Two ways to play: play your own hand (hit / stand / double), or bet on who wins an auto-played hand.
+// Every rule and the card "luck" of each side can be changed by the house (CFG.bj).
+const BJ_DEF={payout:'3:2',s17:'stand',decks:6,dealerLuck:0,playerUnluck:0,tieHouse:false,betP:2.05,betD:1.75,betT:9};
+const bjCfg=()=>Object.assign({},BJ_DEF,CFG.bj||{});
+const BJ_PAY={'3:2':2.5,'6:5':2.2,'1:1':2};
+function bjVal(h){let t=0,a=0;for(const c of h){t+=c.r===1?1:Math.min(10,c.r);if(c.r===1)a++;}let soft=false;if(a&&t+10<=21){t+=10;soft=true;}return{t,soft,bj:h.length===2&&t===21};}
+const bjScore=h=>{const v=bjVal(h).t;return v>21?-1:v;};
+function bjCardEl(c,down){const red=c.s===1||c.s===2;const d=document.createElement('div');d.className='card deal'+(down?'':' open');
+  d.innerHTML=`<div class="in"><div class="f ${red?'red':''}"><span class="r">${RANKS[c.r]}</span><span class="s">${SUITS[c.s]}</span></div><div class="b"></div></div>`;return d;}
+GAMES.blackjack={id:'blackjack',mode:'play',shoe:[],choiceLabel:'누가 이길까',
+  get playLabel(){return this.mode==='bet'?'베팅하고 시작':'베팅하고 카드 받기';},
+  choices(){if(this.mode!=='bet')return[];const c=bjCfg();
+    return[{label:'플레이어',sub:'승률 41.2% · '+c.betP+'배'},{label:'딜러',sub:'승률 49.1% · '+c.betD+'배'},{label:'무승부',sub:'확률 9.8% · '+c.betT+'배'}];},
+  newShoe(){const n=Math.max(1,Math.min(8,Math.floor(bjCfg().decks)||6));const s=[];for(let k=0;k<n;k++)for(let su=0;su<4;su++)for(let r=1;r<=13;r++)s.push({r,s:su});this.shoe=shuffle(s);this.decks=n;},
+  ensure(){const n=Math.max(1,Math.min(8,Math.floor(bjCfg().decks)||6));if(this.shoe.length<52*n*0.25||this.decks!==n)this.newShoe();},
+  // draw one card; with some chance look at two and keep the one that helps (or hurts) this hand
+  draw(sh,hand,good,bad,st){
+    let c=sh.pop();
+    const g=rnd()<good,b=!g&&rnd()<bad;
+    if(g||b){const c2=sh.pop();const s1=bjScore(hand.concat([c])),s2=bjScore(hand.concat([c2]));
+      const take2=g?s2>s1:s2<s1;if(take2){sh.unshift(c);c=c2;st.manip=true;}else sh.unshift(c2);}
+    return c;
+  },
+  edges(b){const c=bjCfg();return{dGood:Math.min(1,(+c.dealerLuck||0)+Math.max(0,-b)),pBad:Math.min(1,(+c.playerUnluck||0)+Math.max(0,-b)),pGood:Math.max(0,b),dBad:Math.max(0,b)};},
+  dealerPlays(sh,D,e,st){const c=bjCfg();for(;;){const v=bjVal(D);if(v.t>21||v.t>17||(v.t===17&&!(v.soft&&c.s17==='hit')))break;D.push(this.draw(sh,D,e.dGood,e.dBad,st));}},
+  mount(st,extra){
+    this.ensure();
+    st.innerHTML=`<div class="bj"><div class="bj-row"><div class="bj-lbl">딜러 <span class="bj-sc" id="bjD">–</span></div><div class="hand-cards" id="bjDc"></div></div>
+      <div class="bj-msg" id="bjMsg">베팅하고 시작하세요</div>
+      <div class="bj-row"><div class="bj-lbl">플레이어 <span class="bj-sc" id="bjP">–</span></div><div class="hand-cards" id="bjPc"></div></div>
+      <div class="bj-act" id="bjAct" hidden><button type="button" class="btn" data-a="hit">히트</button><button type="button" class="btn" data-a="stand">스탠드</button><button type="button" class="btn" data-a="double">더블</button></div>
+      <div class="shoe-info" id="bjShoe"></div></div>`;
+    const c=bjCfg();
+    extra.innerHTML=`<div class="seg" role="group" aria-label="블랙잭 방식" style="margin-bottom:8px"><button type="button" data-m="play" aria-pressed="${this.mode==='play'}">직접 플레이</button><button type="button" data-m="bet" aria-pressed="${this.mode==='bet'}">승부 맞히기</button></div>
+      <div class="hint">${this.mode==='play'?`블랙잭 ${c.payout} (원금 포함 ${BJ_PAY[c.payout]||2.5}배) · 이기면 2배 · 비기면 ${c.tieHouse?'하우스 승':'원금 반환'} · 딜러 소프트 17 ${c.s17==='hit'?'히트':'스탠드'} · ${this.decks}덱`:`플레이어 손은 17이 될 때까지 자동으로 받습니다. 플레이어·딜러에 걸었는데 비기면 원금을 돌려받습니다.`}</div>`;
+    extra.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{if(busy)return;this.mode=b.dataset.m;choice=null;renderChoices();this.mount(stage,$('#gExtra'));setPlayBtn();});
+    this.info();
+  },
+  info(){const el=$('#bjShoe');if(el)el.textContent=`${this.decks}덱 슈 · 남은 카드 ${this.shoe.length}장`;},
+  async show(zone,c,down){const el=bjCardEl(c,true);zone.appendChild(el);await wait(330);if(!down)el.classList.add('open');await wait(300);return el;},
+  paint(id,h,hide){$('#'+id).textContent=hide?'?':String(bjVal(h).t)+(bjVal(h).soft&&bjVal(h).t<21?' (소프트)':'');},
+  async play(bet,pick){this.ensure();return this.mode==='bet'?this.playBet(bet,pick):this.playSelf(bet);},
+  async playSelf(bet){
+    const c=bjCfg(),e=this.edges(bias('blackjack')),st={manip:false},sh=this.shoe;
+    const P=[],D=[];const pc=$('#bjPc'),dc=$('#bjDc'),msg=$('#bjMsg');pc.innerHTML=dc.innerHTML='';msg.textContent='';
+    P.push(this.draw(sh,P,e.pGood,e.pBad,st));await this.show(pc,P[0]);this.paint('bjP',P);
+    D.push(this.draw(sh,D,e.dGood,e.dBad,st));await this.show(dc,D[0]);this.paint('bjD',D);
+    P.push(this.draw(sh,P,e.pGood,e.pBad,st));await this.show(pc,P[1]);this.paint('bjP',P);
+    D.push(this.draw(sh,D,e.dGood,e.dBad,st));const hole=await this.show(dc,D[1],true);$('#bjD').textContent=String(bjVal([D[0]]).t)+' + ?';
+    let total=bet;const reveal=()=>{hole.classList.add('open');this.paint('bjD',D);};
+    const pv=bjVal(P),dv=bjVal(D);
+    if(pv.bj||dv.bj){await wait(300);reveal();
+      if(pv.bj&&dv.bj){msg.textContent='둘 다 블랙잭';return{pay:c.tieHouse?0:bet,bet,manip:st.manip,fairPay:bet,text:'둘 다 블랙잭'};}
+      if(pv.bj){banner('블랙잭!','win');return{pay:Math.floor(bet*(BJ_PAY[c.payout]||2.5)),bet,manip:st.manip,fairPay:0,text:'블랙잭'};}
+      banner('딜러 블랙잭','lose');return{pay:0,bet,manip:st.manip,fairPay:0,text:'딜러 블랙잭'};}
+    // player decisions
+    const act=$('#bjAct');let first=true;
+    for(;;){
+      if(bjVal(P).t>=21)break;
+      act.hidden=false;act.querySelector('[data-a=double]').disabled=!first||S.bal<bet;msg.textContent='히트, 스탠드, 더블 중에 고르세요';
+      const a=await new Promise(res=>{act.onclick=ev=>{const b=ev.target.closest('[data-a]');if(b&&!b.disabled)res(b.dataset.a);};});
+      act.hidden=true;msg.textContent='';
+      if(a==='stand')break;
+      if(a==='double'){const ok=await betAdd(bet);if(!ok){first=false;continue;}total+=bet;P.push(this.draw(sh,P,e.pGood,e.pBad,st));await this.show(pc,P[P.length-1]);this.paint('bjP',P);break;}
+      P.push(this.draw(sh,P,e.pGood,e.pBad,st));await this.show(pc,P[P.length-1]);this.paint('bjP',P);first=false;
+    }
+    act.hidden=true;
+    const p=bjVal(P).t;
+    if(p>21){reveal();banner('버스트','lose');return{pay:0,bet:total,manip:st.manip,fairPay:0,text:'버스트 '+p};}
+    await wait(300);reveal();await wait(400);
+    while(true){const v=bjVal(D);if(v.t>21||v.t>17||(v.t===17&&!(v.soft&&c.s17==='hit')))break;D.push(this.draw(sh,D,e.dGood,e.dBad,st));await this.show(dc,D[D.length-1]);this.paint('bjD',D);}
+    const d=bjVal(D).t;this.info();
+    if(d>21||p>d){banner('승리','win');return{pay:total*2,bet:total,manip:st.manip,fairPay:0,text:`${p} : ${d}${d>21?' 딜러 버스트':''}`};}
+    if(p===d){banner('무승부',c.tieHouse?'lose':'win');return{pay:c.tieHouse?0:total,bet:total,manip:st.manip||c.tieHouse,fairPay:total,text:`${p} : ${d} 무승부${c.tieHouse?' (하우스 승)':''}`};}
+    banner('패배','lose');return{pay:0,bet:total,manip:st.manip,fairPay:0,text:`${p} : ${d}`};
+  },
+  async playBet(bet,pick){
+    const c=bjCfg(),e=this.edges(0);
+    const gen=()=>{const sh=this.shoe.slice(),st={manip:false},P=[],D=[];
+      P.push(this.draw(sh,P,0,e.pBad,st));D.push(this.draw(sh,D,e.dGood,0,st));P.push(this.draw(sh,P,0,e.pBad,st));D.push(this.draw(sh,D,e.dGood,0,st));
+      let res;const pv=bjVal(P),dv=bjVal(D);
+      if(pv.bj||dv.bj)res=pv.bj&&dv.bj?'T':pv.bj?'P':'D';
+      else{while(bjVal(P).t<17)P.push(this.draw(sh,P,0,e.pBad,st));
+        if(bjVal(P).t>21)res='D';else{this.dealerPlays(sh,D,{dGood:e.dGood,dBad:0},st);const p=bjVal(P).t,d=bjVal(D).t;res=d>21||p>d?'P':d>p?'D':'T';}}
+      return{P,D,sh,res,manip:st.manip};};
+    const payOf=o=>o.res==='T'?(pick===2?Math.floor(bet*c.betT):bet):(pick===(o.res==='P'?0:1)?Math.floor(bet*(o.res==='P'?c.betP:c.betD)):0);
+    const r=resolve('blackjack',bet,gen,payOf);const o=r.o;this.shoe=o.sh;
+    const pc=$('#bjPc'),dc=$('#bjDc');pc.innerHTML=dc.innerHTML='';$('#bjMsg').textContent='';
+    await this.show(pc,o.P[0]);this.paint('bjP',o.P.slice(0,1));await this.show(dc,o.D[0]);this.paint('bjD',o.D.slice(0,1));
+    await this.show(pc,o.P[1]);this.paint('bjP',o.P.slice(0,2));const hole=await this.show(dc,o.D[1],true);
+    for(let i=2;i<o.P.length;i++){await this.show(pc,o.P[i]);this.paint('bjP',o.P.slice(0,i+1));}
+    hole.classList.add('open');this.paint('bjD',o.D.slice(0,2));await wait(300);
+    for(let i=2;i<o.D.length;i++){await this.show(dc,o.D[i]);this.paint('bjD',o.D.slice(0,i+1));}
+    this.info();const name={P:'플레이어 승',D:'딜러 승',T:'무승부'}[o.res];banner(name,r.pay>bet?'win':r.pay===bet?'win':'lose');
+    return{pay:r.pay,fairPay:r.fairPay,manip:r.manip||o.manip,text:`${bjVal(o.P).t} : ${bjVal(o.D).t} ${name}`};
+  }};
+
+/* ---------------- 10. roulette (European, single zero) ---------------- */
+const RW=[0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+const REDS=new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+const RBETS=[
+  {k:'red',label:'빨강',pay:2,win:n=>REDS.has(n)},{k:'black',label:'검정',pay:2,win:n=>n>0&&!REDS.has(n)},
+  {k:'odd',label:'홀',pay:2,win:n=>n>0&&n%2===1},{k:'even',label:'짝',pay:2,win:n=>n>0&&n%2===0},
+  {k:'low',label:'1~18',pay:2,win:n=>n>=1&&n<=18},{k:'high',label:'19~36',pay:2,win:n=>n>=19},
+  {k:'d1',label:'1~12',pay:3,win:n=>n>=1&&n<=12},{k:'d2',label:'13~24',pay:3,win:n=>n>=13&&n<=24},{k:'d3',label:'25~36',pay:3,win:n=>n>=25},
+  {k:'num',label:'숫자 하나',pay:36,win:(n,x)=>n===x}];
+const rOfficial=b=>b.k==='num'?1/37:[...Array(37).keys()].filter(n=>b.win(n,-1)).length/37;
+const rColor=n=>n===0?'#2f6b45':REDS.has(n)?'#9d2a20':'#16181a';
+GAMES.roulette={id:'roulette',angle:0,choiceLabel:'베팅 종류',
+  choices:()=>RBETS.map(b=>({label:b.label,html:`<b>${b.label}</b><small>${(rOfficial(b)*100).toFixed(2)}% · ${b.pay}배</small>`})),
+  num(){const v=Math.floor(+($('#rNum')||{}).value);return v>=0&&v<=36?v:17;},
+  mount(st,extra){
+    st.innerHTML=`<div class="roul"><canvas id="rCv" width="340" height="340"></canvas><div class="roul-hist" id="rHist"></div></div>`;
+    extra.innerHTML=`<div class="amt-row"><label class="lbl" for="rNum" style="white-space:nowrap">숫자 하나에 걸 숫자</label><input id="rNum" type="number" min="0" max="36" value="${LS.get('he.rnum',17)}" style="font-size:15px;padding:6px 8px"></div>
+      <table class="paytable" style="margin-top:8px"><tr><td>공식 당첨 확률</td><td style="color:var(--mute)">배당 (원금 포함)</td></tr>
+      <tr><td>숫자 하나 (0 포함) 1/37 = 2.70%</td><td>36배</td></tr><tr><td>빨강·검정·홀·짝·1~18·19~36 18/37 = 48.65%</td><td>2배</td></tr><tr><td>1~12·13~24·25~36 12/37 = 32.43%</td><td>3배</td></tr></table>
+      <div class="hint" style="margin-top:6px">0이 나오면 숫자 하나에 0을 건 경우만 이깁니다. 그래서 이론 환급률은 97.3%입니다.</div>`;
+    $('#rNum').addEventListener('change',e=>{const v=Math.max(0,Math.min(36,Math.floor(+e.target.value)||0));e.target.value=v;LS.set('he.rnum',v);});
+    this.draw(this.angle,null,null);this.hist();
+  },
+  hist(){const el=$('#rHist');if(!el)return;const h=LS.get('he.rhist',[]);el.innerHTML=h.length?h.slice(-12).reverse().map(n=>`<span style="background:${rColor(n)}">${n}</span>`).join(''):'';},
+  draw(wa,ball,hit){
+    const cv=$('#rCv');if(!cv)return;const g=cv.getContext('2d');const W=cv.width,c=W/2,R=W/2-8,seg=Math.PI*2/37;
+    g.clearRect(0,0,W,W);
+    g.beginPath();g.arc(c,c,R+6,0,7);g.fillStyle='#3a2a18';g.fill();
+    g.beginPath();g.arc(c,c,R,0,7);g.fillStyle='#24190f';g.fill();
+    for(let i=0;i<37;i++){const a0=wa+i*seg-Math.PI/2-seg/2;
+      g.beginPath();g.moveTo(c,c);g.arc(c,c,R*0.93,a0,a0+seg);g.closePath();g.fillStyle=rColor(RW[i]);if(hit!=null&&RW[i]===hit)g.fillStyle='#c9a560';g.fill();
+      g.strokeStyle='#8a6a32';g.lineWidth=1;g.stroke();
+      g.save();g.translate(c,c);g.rotate(a0+seg/2+Math.PI/2);g.fillStyle=hit!=null&&RW[i]===hit?'#16110a':'#e4ded2';g.font='bold 11px DM Mono, monospace';g.textAlign='center';g.fillText(String(RW[i]),0,-R*0.82);g.restore();}
+    g.beginPath();g.arc(c,c,R*0.62,0,7);g.fillStyle='#1c1e21';g.fill();g.strokeStyle='#8a6a32';g.lineWidth=2;g.stroke();
+    g.beginPath();g.arc(c,c,R*0.16,0,7);g.fillStyle='#a8823f';g.fill();
+    for(let k=0;k<4;k++){g.save();g.translate(c,c);g.rotate(wa+k*Math.PI/2);g.fillStyle='#a8823f';g.fillRect(-3,-R*0.58,6,R*0.42);g.restore();}
+    g.beginPath();g.moveTo(c-9,2);g.lineTo(c+9,2);g.lineTo(c,18);g.closePath();g.fillStyle='#c9a560';g.fill();
+    if(ball){g.beginPath();g.arc(c+Math.cos(ball.a)*ball.r*R,c+Math.sin(ball.a)*ball.r*R,6,0,7);g.fillStyle='#eeeae2';g.fill();g.strokeStyle='#0008';g.stroke();}
+  },
+  async play(bet,pick){
+    const bt=RBETS[pick],x=this.num();
+    const gen=()=>{const p=CFG.roul&&CFG.roul[bt.k];
+      if(typeof p==='number'&&p>=0&&p<=1){const want=rnd()<p;const pool=[...Array(37).keys()].filter(n=>!!bt.win(n,x)===want);return pool.length?pool[Math.floor(rnd()*pool.length)]:Math.floor(rnd()*37);}
+      return Math.floor(rnd()*37);};
+    const r=resolve('roulette',bet,gen,n=>bt.win(n,x)?bet*bt.pay:0);const n=r.o;
+    if(bt.k==='num'&&curBetInfo)curBetInfo.pick='숫자 '+x;
+    const seg=Math.PI*2/37,idx=RW.indexOf(n);
+    const start=this.angle,target=-idx*seg;let delta=((target-start)%(Math.PI*2)+Math.PI*2)%(Math.PI*2);const total=delta+Math.PI*2*4;
+    const b0=rnd()*Math.PI*2,bEnd=-Math.PI/2,bTot=((b0-bEnd)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)+Math.PI*2*7;
+    const T=5200,t0=performance.now();
+    await new Promise(res=>{const step=now=>{const k=Math.min(1,(now-t0)/T),ease=1-Math.pow(1-k,3);
+      const wa=start+total*ease,ba=b0-bTot*(1-Math.pow(1-k,2.4)),br=k<0.7?0.97:0.97-0.22*Math.min(1,(k-0.7)/0.25);
+      this.draw(wa,{a:ba,r:br},null);liveText='룰렛 회전 중';if(k<1)requestAnimationFrame(step);else{this.angle=wa%(Math.PI*2);res();}};requestAnimationFrame(step);});
+    this.draw(this.angle,{a:-Math.PI/2,r:0.75},n);
+    const h=LS.get('he.rhist',[]);h.push(n);LS.set('he.rhist',h.slice(-30));this.hist();
+    const col=n===0?'초록':REDS.has(n)?'빨강':'검정';
+    banner(n+' '+col,r.pay>0?'win':'lose');
+    return{pay:r.pay,fairPay:r.fairPay,manip:r.manip,text:`${n} (${col})`};
+  }};
+
+
 /* ---------------- lobby ---------------- */
 const ART={
   coin:`<div class="mini-coin">앞</div>`,
@@ -1299,6 +1489,8 @@ const ART={
   oddeven:`<div class="mini-dice"><div class="die" style="width:48px;height:48px;padding:7px;border-radius:9px">${'<i></i>'.repeat(9)}</div><div class="die" style="width:48px;height:48px;padding:7px;border-radius:9px">${'<i></i>'.repeat(9)}</div></div>`,
   baccarat:`<div class="mini-cards"><span>A♠</span><span>9♥</span></div>`,
   slot:`<div class="mini-slot"><span>7</span><span>7</span><span>7</span></div>`,
+  blackjack:`<div class="mini-cards"><span>A♣</span><span style="color:#16110f">K♠</span></div>`,
+  roulette:`<svg width="86" height="86" viewBox="0 0 100 100" aria-hidden="true">${Array.from({length:18},(_,i)=>{const a0=i*20*Math.PI/180,a1=(i+1)*20*Math.PI/180;return `<path d="M50 50 L${50+46*Math.cos(a0)} ${50+46*Math.sin(a0)} A46 46 0 0 1 ${50+46*Math.cos(a1)} ${50+46*Math.sin(a1)} Z" fill="${i===0?'#2f6b45':i%2?'#9d2a20':'#16181a'}" stroke="#8a6a32" stroke-width=".6"/>`;}).join('')}<circle cx="50" cy="50" r="26" fill="#1c1e21" stroke="#8a6a32"/><circle cx="50" cy="50" r="7" fill="#a8823f"/><circle cx="74" cy="22" r="4" fill="#eeeae2"/></svg>`,
   crash:`<svg width="140" height="76" viewBox="0 0 150 80"><path d="M5 75 Q 90 72 140 10" stroke="#c9a560" stroke-width="3" fill="none"/><circle cx="140" cy="10" r="5" fill="#d9d3c8"/><text x="10" y="30" font-family="DM Mono, monospace" font-size="18" fill="#d9d3c8">2.41x</text></svg>`
 };
 $('#games').innerHTML=GIDS.map((id,i)=>`<button type="button" class="gcard" data-g="${id}"><div class="gart">${ART[id]}<span class="gkey">${String(i+1).padStart(2,'0')}</span></div><div class="gbody"><h3>${META[id].name}</h3><p>${META[id].desc}</p><div class="gmeta"><span>${META[id].pay}</span><span>RTP ${META[id].rtp}%</span></div></div></button>`).join('');
@@ -1413,6 +1605,19 @@ function buildRigPanel(){
     <div class="sub" style="margin-top:4px">비워 두면 원래 확률(동전·홀짝 50%, 가위바위보 승 33%·무 33%, 상한 없음)을 씁니다. 그래프는 상한 배율에서 반드시 터집니다.</div>
     <div class="abtns" style="margin-top:6px"><button type="button" class="abtn" id="oddsReset">확률 원래대로</button><button type="button" class="abtn" id="stableReset">말·달팽이 전적 초기화</button></div>
   </div>
+  <details class="sub-more"><summary>블랙잭 조건</summary><div class="odds-grid" style="margin-top:6px">
+    <label for="bj_payout">블랙잭 배당</label><span class="cell"><select id="bj_payout"><option value="3:2">3:2 (2.5배)</option><option value="6:5">6:5 (2.2배)</option><option value="1:1">1:1 (2배)</option></select></span>
+    <label for="bj_s17">딜러 소프트 17</label><span class="cell"><select id="bj_s17"><option value="stand">스탠드</option><option value="hit">히트</option></select></span>
+    <label for="bj_decks">덱 수</label><span class="cell"><input type="number" id="bj_decks" min="1" max="8" step="1"></span>
+    <label for="bj_dl">딜러 좋은 카드</label><span class="cell"><input type="number" id="bj_dl" min="0" max="100" step="5">%</span>
+    <label for="bj_pu">플레이어 나쁜 카드</label><span class="cell"><input type="number" id="bj_pu" min="0" max="100" step="5">%</span>
+    <label for="bj_tie">무승부</label><span class="cell"><select id="bj_tie"><option value="">원금 반환</option><option value="house">하우스 승</option></select></span>
+    <label for="bj_bp">승부 맞히기 배당</label><span class="cell">P <input type="number" id="bj_bp" min="1" max="10" step="0.05">D <input type="number" id="bj_bd" min="1" max="10" step="0.05">T <input type="number" id="bj_bt" min="1" max="10" step="0.5"></span>
+  </div><div class="sub" style="margin-top:4px">"좋은/나쁜 카드"는 카드를 두 장 보고 그쪽에 유리하거나 불리한 카드를 주는 확률입니다. 승부 맞히기 기본 배당은 P 2.05 · D 1.75 · T 9입니다.</div>
+  <div class="abtns" style="margin-top:6px"><button type="button" class="abtn" id="bjReset">블랙잭 조건 원래대로</button></div></details>
+  <details class="sub-more"><summary>룰렛 당첨 확률</summary><div class="odds-grid" style="margin-top:6px">${RBETS.map(b=>`<label for="ro_${b.k}">${b.label}</label><span class="cell"><input type="number" id="ro_${b.k}" min="0" max="100" step="0.5" placeholder="${(rOfficial(b)*100).toFixed(2)}">% <span class="sub">공식 ${(rOfficial(b)*100).toFixed(2)}%</span></span>`).join('')}</div>
+  <div class="sub" style="margin-top:4px">비워 두면 공식 확률입니다. 학생 화면에는 항상 공식 확률이 표시됩니다.</div>
+  <div class="abtns" style="margin-top:6px"><button type="button" class="abtn" id="roReset">룰렛 확률 원래대로</button></div></details>
   <details class="sub-more"><summary>게임별 추가 조작 (결과 재추첨)</summary>${GIDS.map(g=>`<div class="slider-row"><label for="rg_${g}" style="width:84px;font-size:12px">${META[g].name}</label><input type="range" id="rg_${g}" min="-100" max="100" step="5"><output id="rg_${g}V"></output></div>`).join('')}</details>
   <div class="toggle"><span><label for="rgLure">미끼 모드</label><div class="sub">처음 몇 판은 승률을 올려 줍니다.</div></span><input type="checkbox" id="rgLure"></div>
   <div class="slider-row"><label for="rgLureN" style="font-size:12px;width:84px">대상 판수</label><input type="number" id="rgLureN" min="1" max="200" style="width:64px"><label for="rgLureB" style="font-size:12px">보정</label><input type="range" id="rgLureB" min="0" max="100" step="5"><output id="rgLureBV"></output></div>
@@ -1433,6 +1638,15 @@ function buildRigPanel(){
     if((CFG.odds.rpsWin||0)+(CFG.odds.rpsDraw||0)>1){toast('가위바위보 승+무가 100%를 넘을 수 없습니다');CFG.odds.rpsDraw=Math.max(0,1-(CFG.odds.rpsWin||0));$('#od_rpsDraw').value=Math.round(CFG.odds.rpsDraw*1000)/10;}
     saveCfg();});
   $('#od_crash').addEventListener('change',e=>{const v=parseFloat(e.target.value);CFG.crashCap=v>=1.01?Math.round(v*100)/100:0;if(!CFG.crashCap)e.target.value='';saveCfg();});
+  const bjSet=()=>{const n=(id,lo,hi,div)=>{const v=$('#'+id).value.trim();if(v==='')return undefined;return Math.max(lo,Math.min(hi,+v))/(div||1);};
+    const bj={payout:$('#bj_payout').value,s17:$('#bj_s17').value,tieHouse:$('#bj_tie').value==='house'};
+    const d=n('bj_decks',1,8);if(d)bj.decks=Math.floor(d);const dl=n('bj_dl',0,100,100);if(dl!=null)bj.dealerLuck=dl;const pu=n('bj_pu',0,100,100);if(pu!=null)bj.playerUnluck=pu;
+    const bp=n('bj_bp',1,10),bd=n('bj_bd',1,10),bt=n('bj_bt',1,10);if(bp)bj.betP=bp;if(bd)bj.betD=bd;if(bt)bj.betT=bt;
+    CFG.bj=bj;saveCfg();};
+  ['bj_payout','bj_s17','bj_decks','bj_dl','bj_pu','bj_tie','bj_bp','bj_bd','bj_bt'].forEach(id=>$('#'+id).addEventListener('change',bjSet));
+  $('#bjReset').onclick=()=>{CFG.bj={};saveCfg();syncRigPanel();toast('블랙잭 조건을 원래대로 돌렸습니다');};
+  RBETS.forEach(b=>$('#ro_'+b.k).addEventListener('change',e=>{CFG.roul=Object.assign({},CFG.roul||{});const v=e.target.value.trim();if(v==='')delete CFG.roul[b.k];else{CFG.roul[b.k]=Math.max(0,Math.min(100,+v))/100;}saveCfg();}));
+  $('#roReset').onclick=()=>{CFG.roul={};saveCfg();syncRigPanel();toast('룰렛 확률을 원래대로 돌렸습니다');};
   $('#oddsReset').onclick=()=>{CFG.odds={};CFG.crashCap=0;saveCfg();syncRigPanel();toast('게임 확률을 원래대로 돌렸습니다');};
   let srArm=0;$('#stableReset').onclick=e=>{if(Date.now()-srArm>3000){srArm=Date.now();e.target.textContent='한 번 더 누르면 초기화';return;}e.target.textContent='말·달팽이 전적 초기화';svSend({t:'adm',op:'stablereset'});};
   buildOps();
@@ -1448,6 +1662,9 @@ function syncRigPanel(){
   $('#rgLure').checked=!!CFG.lure.on;if($('#rgLureN')!==act)$('#rgLureN').value=CFG.lure.rounds;$('#rgNear').checked=!!CFG.nearMiss;$('#rgReveal').checked=!!CFG.reveal;
   const od=CFG.odds||{};for(const [k,id] of [['coin','od_coin'],['rpsWin','od_rpsWin'],['rpsDraw','od_rpsDraw'],['oddeven','od_oddeven']]){const el=$('#'+id);if(el&&el!==act)el.value=typeof od[k]==='number'?Math.round(od[k]*1000)/10:'';}
   if($('#od_crash')!==act)$('#od_crash').value=CFG.crashCap>=1.01?CFG.crashCap:'';
+  const bj=Object.assign({},BJ_DEF,CFG.bj||{});const sv=(id,v)=>{const el=$('#'+id);if(el&&el!==act)el.value=v;};
+  sv('bj_payout',bj.payout);sv('bj_s17',bj.s17);sv('bj_decks',bj.decks);sv('bj_dl',Math.round(bj.dealerLuck*100));sv('bj_pu',Math.round(bj.playerUnluck*100));sv('bj_tie',bj.tieHouse?'house':'');sv('bj_bp',bj.betP);sv('bj_bd',bj.betD);sv('bj_bt',bj.betT);
+  RBETS.forEach(b=>{const v=CFG.roul&&CFG.roul[b.k];sv('ro_'+b.k,typeof v==='number'?Math.round(v*1000)/10:'');});
   rows.forEach(r=>{const v=((CFG.players||{})[r.sid]||{}).bias||0;if(r.slider!==act)r.slider.value=pct(v);r.out.textContent=biasText(v);});
 }
 function refreshEff(){rows.forEach(r=>r.updateEff());}
@@ -1532,6 +1749,19 @@ function renderInbox(){
     el.appendChild(d);}
 }
 
+/* ---------------- admin top-up: coins fly into the balance ---------------- */
+function giftArrive(amount){
+  const wrap=document.createElement('div');wrap.className='gift';wrap.innerHTML='<div class="gbox"><span>관리자가 용돈을 지급했습니다</span><b>+'+fmt(amount)+'</b></div>';document.body.appendChild(wrap);
+  const box=wrap.querySelector('.gbox'),bal=$('#bal');
+  setTimeout(()=>{const a=box.getBoundingClientRect(),b=bal.getBoundingClientRect();const n=Math.min(18,6+Math.floor(Math.log10(Math.max(10,amount))*3));
+    for(let i=0;i<n;i++){const c=document.createElement('div');c.className='coin-fly';c.style.left=(a.left+a.width/2-9+(rnd()-.5)*60)+'px';c.style.top=(a.top+a.height/2-9)+'px';wrap.appendChild(c);
+      const dx=b.left+14-parseFloat(c.style.left),dy=b.top+b.height/2-9-parseFloat(c.style.top);
+      c.animate([{transform:'translate(0,0) scale(1)',opacity:1},{transform:`translate(${dx*0.5+(rnd()-.5)*120}px,${dy*0.5-80}px) scale(1.2)`,opacity:1,offset:.5},{transform:`translate(${dx}px,${dy}px) scale(.6)`,opacity:.2}],{duration:900+rnd()*300,delay:i*60,easing:'cubic-bezier(.5,0,.6,1)',fill:'forwards'});}
+    setTimeout(()=>{bal.classList.remove('gifted');void bal.offsetWidth;bal.classList.add('gifted');},900);
+  },500);
+  setTimeout(()=>wrap.remove(),2700);
+}
+
 /* ---------------- ops settings (admin): start points, give to everyone ---------------- */
 function buildOps(){
   $('#opsList').innerHTML=`
@@ -1556,12 +1786,12 @@ let loanTimer=null;
 function renderLoan(){
   const el=$('#loanCard');if(!el||!S.me)return;clearInterval(loanTimer);
   const l=S.me.loan;
-  const cnt=S.me.loanCount||0,next=LOAN_TIERS[cnt];
-  const tierTbl=`<table class="paytable" style="max-width:420px"><tr><td>단계</td><td style="text-align:right;color:var(--mute)">빌리는 돈 · 시간당 이자 · 24시간 뒤 갚을 돈</td></tr>${LOAN_TIERS.map((t,i)=>`<tr style="${i<cnt?'opacity:.45':''}${i===cnt&&!l?';color:var(--brass2)':''}"><td>${i+1}차${i<cnt?' (사용함)':i===cnt&&!l?' ← 다음':''}</td><td>${fmt(t.amount)} · ${Math.round(t.rate*100)}% · ${fmt(t.amount*(1+t.rate*24))}</td></tr>`).join('')}</table>`;
-  const terms=`<ul class="loan-terms"><li>포인트가 0P이고 갚지 않은 대출이 없을 때만 빌릴 수 있습니다.</li><li>빌릴 때마다 금액과 이자가 커집니다. 대출은 <b>3번까지</b>입니다.</li><li>빌린 뒤 <b>24시간 동안만</b> 게임에 쓸 수 있습니다. 그 뒤에는 갚기 전까지 게임을 할 수 없습니다.</li><li>이자는 갚을 때까지 계속 늘어납니다.</li></ul>${tierTbl}`;
+  const cnt=S.me.loanCount||0,ti=Math.min(cnt,2),next=LOAN_TIERS[ti],waitUntil=S.me.nextLoanAt||0,cooling=Date.now()<waitUntil;
+  const tierTbl=`<table class="paytable" style="max-width:420px"><tr><td>단계</td><td style="text-align:right;color:var(--mute)">빌리는 돈 · 시간당 이자 · 24시간 뒤 갚을 돈</td></tr>${LOAN_TIERS.map((t,i)=>`<tr style="${i<ti?'opacity:.45':''}${i===ti&&!l?';color:var(--brass2)':''}"><td>${i+1}차${i===2?' 이후':''}${i<ti?' (사용함)':i===ti&&!l?' ← 다음':''}</td><td>${fmt(t.amount)} · ${Math.round(t.rate*100)}% · ${fmt(t.amount*(1+t.rate*24))}</td></tr>`).join('')}</table>`;
+  const terms=`<ul class="loan-terms"><li>포인트가 0P이고 갚지 않은 대출이 없을 때만 빌릴 수 있습니다.</li><li>대출은 <b>하루(24시간)에 한 번</b>입니다. 그 전에 갚아 두면 하루가 지난 뒤 다시 빌릴 수 있습니다.</li><li>빌릴 때마다 금액과 이자가 커지고, 4번째부터는 3차 조건으로 빌립니다.</li><li>빌린 뒤 <b>24시간 동안만</b> 게임에 쓸 수 있습니다. 그 뒤에는 갚기 전까지 게임을 할 수 없습니다.</li><li>이자는 갚을 때까지 계속 늘어납니다.</li></ul>${tierTbl}`;
   if(!l){
-    const can=S.bal<1&&!busy&&!!next;
-    el.innerHTML=`<div class="eyebrow">대출 없음 · 지금까지 ${cnt}번 빌림</div>${terms}<div>${next?`<button class="btn primary" type="button" id="loanGo" ${can?'':'disabled'}>${cnt+1}차 대출 ${fmt(next.amount)} 받기 (시간당 ${Math.round(next.rate*100)}%)</button>`:'<b style="color:#e08a80">대출을 3번 모두 받아서 더 이상 빌릴 수 없습니다.</b>'}</div><div class="hint">${!next||can?'':'지금 보유 포인트는 '+fmt(S.bal)+'입니다. 포인트를 모두 잃었을 때만 대출을 받을 수 있습니다.'}</div>`;
+    const can=S.bal<1&&!busy&&!cooling;const wd=new Date(waitUntil);const when=(wd.getMonth()+1)+'/'+wd.getDate()+' '+String(wd.getHours()).padStart(2,'0')+':'+String(wd.getMinutes()).padStart(2,'0');
+    el.innerHTML=`<div class="eyebrow">대출 없음 · 지금까지 ${cnt}번 빌림</div>${terms}<div><button class="btn primary" type="button" id="loanGo" ${can?'':'disabled'}>${cnt+1}번째 대출 ${fmt(next.amount)} 받기 (시간당 ${Math.round(next.rate*100)}%)</button></div><div class="hint">${cooling?'다음 대출은 '+when+' 이후에 받을 수 있습니다.':can?'':'지금 보유 포인트는 '+fmt(S.bal)+'입니다. 포인트를 모두 잃었을 때만 대출을 받을 수 있습니다.'}</div>`;
     const b=$('#loanGo');if(b)b.onclick=()=>{if(!svSend({t:'loan'}))toast('서버에 연결되어 있지 않습니다');};
     return;
   }

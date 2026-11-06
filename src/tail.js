@@ -8,6 +8,8 @@ const ART={
   oddeven:`<div class="mini-dice"><div class="die" style="width:48px;height:48px;padding:7px;border-radius:9px">${'<i></i>'.repeat(9)}</div><div class="die" style="width:48px;height:48px;padding:7px;border-radius:9px">${'<i></i>'.repeat(9)}</div></div>`,
   baccarat:`<div class="mini-cards"><span>A♠</span><span>9♥</span></div>`,
   slot:`<div class="mini-slot"><span>7</span><span>7</span><span>7</span></div>`,
+  blackjack:`<div class="mini-cards"><span>A♣</span><span style="color:#16110f">K♠</span></div>`,
+  roulette:`<svg width="86" height="86" viewBox="0 0 100 100" aria-hidden="true">${Array.from({length:18},(_,i)=>{const a0=i*20*Math.PI/180,a1=(i+1)*20*Math.PI/180;return `<path d="M50 50 L${50+46*Math.cos(a0)} ${50+46*Math.sin(a0)} A46 46 0 0 1 ${50+46*Math.cos(a1)} ${50+46*Math.sin(a1)} Z" fill="${i===0?'#2f6b45':i%2?'#9d2a20':'#16181a'}" stroke="#8a6a32" stroke-width=".6"/>`;}).join('')}<circle cx="50" cy="50" r="26" fill="#1c1e21" stroke="#8a6a32"/><circle cx="50" cy="50" r="7" fill="#a8823f"/><circle cx="74" cy="22" r="4" fill="#eeeae2"/></svg>`,
   crash:`<svg width="140" height="76" viewBox="0 0 150 80"><path d="M5 75 Q 90 72 140 10" stroke="#c9a560" stroke-width="3" fill="none"/><circle cx="140" cy="10" r="5" fill="#d9d3c8"/><text x="10" y="30" font-family="DM Mono, monospace" font-size="18" fill="#d9d3c8">2.41x</text></svg>`
 };
 $('#games').innerHTML=GIDS.map((id,i)=>`<button type="button" class="gcard" data-g="${id}"><div class="gart">${ART[id]}<span class="gkey">${String(i+1).padStart(2,'0')}</span></div><div class="gbody"><h3>${META[id].name}</h3><p>${META[id].desc}</p><div class="gmeta"><span>${META[id].pay}</span><span>RTP ${META[id].rtp}%</span></div></div></button>`).join('');
@@ -122,6 +124,19 @@ function buildRigPanel(){
     <div class="sub" style="margin-top:4px">비워 두면 원래 확률(동전·홀짝 50%, 가위바위보 승 33%·무 33%, 상한 없음)을 씁니다. 그래프는 상한 배율에서 반드시 터집니다.</div>
     <div class="abtns" style="margin-top:6px"><button type="button" class="abtn" id="oddsReset">확률 원래대로</button><button type="button" class="abtn" id="stableReset">말·달팽이 전적 초기화</button></div>
   </div>
+  <details class="sub-more"><summary>블랙잭 조건</summary><div class="odds-grid" style="margin-top:6px">
+    <label for="bj_payout">블랙잭 배당</label><span class="cell"><select id="bj_payout"><option value="3:2">3:2 (2.5배)</option><option value="6:5">6:5 (2.2배)</option><option value="1:1">1:1 (2배)</option></select></span>
+    <label for="bj_s17">딜러 소프트 17</label><span class="cell"><select id="bj_s17"><option value="stand">스탠드</option><option value="hit">히트</option></select></span>
+    <label for="bj_decks">덱 수</label><span class="cell"><input type="number" id="bj_decks" min="1" max="8" step="1"></span>
+    <label for="bj_dl">딜러 좋은 카드</label><span class="cell"><input type="number" id="bj_dl" min="0" max="100" step="5">%</span>
+    <label for="bj_pu">플레이어 나쁜 카드</label><span class="cell"><input type="number" id="bj_pu" min="0" max="100" step="5">%</span>
+    <label for="bj_tie">무승부</label><span class="cell"><select id="bj_tie"><option value="">원금 반환</option><option value="house">하우스 승</option></select></span>
+    <label for="bj_bp">승부 맞히기 배당</label><span class="cell">P <input type="number" id="bj_bp" min="1" max="10" step="0.05">D <input type="number" id="bj_bd" min="1" max="10" step="0.05">T <input type="number" id="bj_bt" min="1" max="10" step="0.5"></span>
+  </div><div class="sub" style="margin-top:4px">"좋은/나쁜 카드"는 카드를 두 장 보고 그쪽에 유리하거나 불리한 카드를 주는 확률입니다. 승부 맞히기 기본 배당은 P 2.05 · D 1.75 · T 9입니다.</div>
+  <div class="abtns" style="margin-top:6px"><button type="button" class="abtn" id="bjReset">블랙잭 조건 원래대로</button></div></details>
+  <details class="sub-more"><summary>룰렛 당첨 확률</summary><div class="odds-grid" style="margin-top:6px">${RBETS.map(b=>`<label for="ro_${b.k}">${b.label}</label><span class="cell"><input type="number" id="ro_${b.k}" min="0" max="100" step="0.5" placeholder="${(rOfficial(b)*100).toFixed(2)}">% <span class="sub">공식 ${(rOfficial(b)*100).toFixed(2)}%</span></span>`).join('')}</div>
+  <div class="sub" style="margin-top:4px">비워 두면 공식 확률입니다. 학생 화면에는 항상 공식 확률이 표시됩니다.</div>
+  <div class="abtns" style="margin-top:6px"><button type="button" class="abtn" id="roReset">룰렛 확률 원래대로</button></div></details>
   <details class="sub-more"><summary>게임별 추가 조작 (결과 재추첨)</summary>${GIDS.map(g=>`<div class="slider-row"><label for="rg_${g}" style="width:84px;font-size:12px">${META[g].name}</label><input type="range" id="rg_${g}" min="-100" max="100" step="5"><output id="rg_${g}V"></output></div>`).join('')}</details>
   <div class="toggle"><span><label for="rgLure">미끼 모드</label><div class="sub">처음 몇 판은 승률을 올려 줍니다.</div></span><input type="checkbox" id="rgLure"></div>
   <div class="slider-row"><label for="rgLureN" style="font-size:12px;width:84px">대상 판수</label><input type="number" id="rgLureN" min="1" max="200" style="width:64px"><label for="rgLureB" style="font-size:12px">보정</label><input type="range" id="rgLureB" min="0" max="100" step="5"><output id="rgLureBV"></output></div>
@@ -142,6 +157,15 @@ function buildRigPanel(){
     if((CFG.odds.rpsWin||0)+(CFG.odds.rpsDraw||0)>1){toast('가위바위보 승+무가 100%를 넘을 수 없습니다');CFG.odds.rpsDraw=Math.max(0,1-(CFG.odds.rpsWin||0));$('#od_rpsDraw').value=Math.round(CFG.odds.rpsDraw*1000)/10;}
     saveCfg();});
   $('#od_crash').addEventListener('change',e=>{const v=parseFloat(e.target.value);CFG.crashCap=v>=1.01?Math.round(v*100)/100:0;if(!CFG.crashCap)e.target.value='';saveCfg();});
+  const bjSet=()=>{const n=(id,lo,hi,div)=>{const v=$('#'+id).value.trim();if(v==='')return undefined;return Math.max(lo,Math.min(hi,+v))/(div||1);};
+    const bj={payout:$('#bj_payout').value,s17:$('#bj_s17').value,tieHouse:$('#bj_tie').value==='house'};
+    const d=n('bj_decks',1,8);if(d)bj.decks=Math.floor(d);const dl=n('bj_dl',0,100,100);if(dl!=null)bj.dealerLuck=dl;const pu=n('bj_pu',0,100,100);if(pu!=null)bj.playerUnluck=pu;
+    const bp=n('bj_bp',1,10),bd=n('bj_bd',1,10),bt=n('bj_bt',1,10);if(bp)bj.betP=bp;if(bd)bj.betD=bd;if(bt)bj.betT=bt;
+    CFG.bj=bj;saveCfg();};
+  ['bj_payout','bj_s17','bj_decks','bj_dl','bj_pu','bj_tie','bj_bp','bj_bd','bj_bt'].forEach(id=>$('#'+id).addEventListener('change',bjSet));
+  $('#bjReset').onclick=()=>{CFG.bj={};saveCfg();syncRigPanel();toast('블랙잭 조건을 원래대로 돌렸습니다');};
+  RBETS.forEach(b=>$('#ro_'+b.k).addEventListener('change',e=>{CFG.roul=Object.assign({},CFG.roul||{});const v=e.target.value.trim();if(v==='')delete CFG.roul[b.k];else{CFG.roul[b.k]=Math.max(0,Math.min(100,+v))/100;}saveCfg();}));
+  $('#roReset').onclick=()=>{CFG.roul={};saveCfg();syncRigPanel();toast('룰렛 확률을 원래대로 돌렸습니다');};
   $('#oddsReset').onclick=()=>{CFG.odds={};CFG.crashCap=0;saveCfg();syncRigPanel();toast('게임 확률을 원래대로 돌렸습니다');};
   let srArm=0;$('#stableReset').onclick=e=>{if(Date.now()-srArm>3000){srArm=Date.now();e.target.textContent='한 번 더 누르면 초기화';return;}e.target.textContent='말·달팽이 전적 초기화';svSend({t:'adm',op:'stablereset'});};
   buildOps();
@@ -157,6 +181,9 @@ function syncRigPanel(){
   $('#rgLure').checked=!!CFG.lure.on;if($('#rgLureN')!==act)$('#rgLureN').value=CFG.lure.rounds;$('#rgNear').checked=!!CFG.nearMiss;$('#rgReveal').checked=!!CFG.reveal;
   const od=CFG.odds||{};for(const [k,id] of [['coin','od_coin'],['rpsWin','od_rpsWin'],['rpsDraw','od_rpsDraw'],['oddeven','od_oddeven']]){const el=$('#'+id);if(el&&el!==act)el.value=typeof od[k]==='number'?Math.round(od[k]*1000)/10:'';}
   if($('#od_crash')!==act)$('#od_crash').value=CFG.crashCap>=1.01?CFG.crashCap:'';
+  const bj=Object.assign({},BJ_DEF,CFG.bj||{});const sv=(id,v)=>{const el=$('#'+id);if(el&&el!==act)el.value=v;};
+  sv('bj_payout',bj.payout);sv('bj_s17',bj.s17);sv('bj_decks',bj.decks);sv('bj_dl',Math.round(bj.dealerLuck*100));sv('bj_pu',Math.round(bj.playerUnluck*100));sv('bj_tie',bj.tieHouse?'house':'');sv('bj_bp',bj.betP);sv('bj_bd',bj.betD);sv('bj_bt',bj.betT);
+  RBETS.forEach(b=>{const v=CFG.roul&&CFG.roul[b.k];sv('ro_'+b.k,typeof v==='number'?Math.round(v*1000)/10:'');});
   rows.forEach(r=>{const v=((CFG.players||{})[r.sid]||{}).bias||0;if(r.slider!==act)r.slider.value=pct(v);r.out.textContent=biasText(v);});
 }
 function refreshEff(){rows.forEach(r=>r.updateEff());}
@@ -241,6 +268,19 @@ function renderInbox(){
     el.appendChild(d);}
 }
 
+/* ---------------- admin top-up: coins fly into the balance ---------------- */
+function giftArrive(amount){
+  const wrap=document.createElement('div');wrap.className='gift';wrap.innerHTML='<div class="gbox"><span>관리자가 용돈을 지급했습니다</span><b>+'+fmt(amount)+'</b></div>';document.body.appendChild(wrap);
+  const box=wrap.querySelector('.gbox'),bal=$('#bal');
+  setTimeout(()=>{const a=box.getBoundingClientRect(),b=bal.getBoundingClientRect();const n=Math.min(18,6+Math.floor(Math.log10(Math.max(10,amount))*3));
+    for(let i=0;i<n;i++){const c=document.createElement('div');c.className='coin-fly';c.style.left=(a.left+a.width/2-9+(rnd()-.5)*60)+'px';c.style.top=(a.top+a.height/2-9)+'px';wrap.appendChild(c);
+      const dx=b.left+14-parseFloat(c.style.left),dy=b.top+b.height/2-9-parseFloat(c.style.top);
+      c.animate([{transform:'translate(0,0) scale(1)',opacity:1},{transform:`translate(${dx*0.5+(rnd()-.5)*120}px,${dy*0.5-80}px) scale(1.2)`,opacity:1,offset:.5},{transform:`translate(${dx}px,${dy}px) scale(.6)`,opacity:.2}],{duration:900+rnd()*300,delay:i*60,easing:'cubic-bezier(.5,0,.6,1)',fill:'forwards'});}
+    setTimeout(()=>{bal.classList.remove('gifted');void bal.offsetWidth;bal.classList.add('gifted');},900);
+  },500);
+  setTimeout(()=>wrap.remove(),2700);
+}
+
 /* ---------------- ops settings (admin): start points, give to everyone ---------------- */
 function buildOps(){
   $('#opsList').innerHTML=`
@@ -265,12 +305,12 @@ let loanTimer=null;
 function renderLoan(){
   const el=$('#loanCard');if(!el||!S.me)return;clearInterval(loanTimer);
   const l=S.me.loan;
-  const cnt=S.me.loanCount||0,next=LOAN_TIERS[cnt];
-  const tierTbl=`<table class="paytable" style="max-width:420px"><tr><td>단계</td><td style="text-align:right;color:var(--mute)">빌리는 돈 · 시간당 이자 · 24시간 뒤 갚을 돈</td></tr>${LOAN_TIERS.map((t,i)=>`<tr style="${i<cnt?'opacity:.45':''}${i===cnt&&!l?';color:var(--brass2)':''}"><td>${i+1}차${i<cnt?' (사용함)':i===cnt&&!l?' ← 다음':''}</td><td>${fmt(t.amount)} · ${Math.round(t.rate*100)}% · ${fmt(t.amount*(1+t.rate*24))}</td></tr>`).join('')}</table>`;
-  const terms=`<ul class="loan-terms"><li>포인트가 0P이고 갚지 않은 대출이 없을 때만 빌릴 수 있습니다.</li><li>빌릴 때마다 금액과 이자가 커집니다. 대출은 <b>3번까지</b>입니다.</li><li>빌린 뒤 <b>24시간 동안만</b> 게임에 쓸 수 있습니다. 그 뒤에는 갚기 전까지 게임을 할 수 없습니다.</li><li>이자는 갚을 때까지 계속 늘어납니다.</li></ul>${tierTbl}`;
+  const cnt=S.me.loanCount||0,ti=Math.min(cnt,2),next=LOAN_TIERS[ti],waitUntil=S.me.nextLoanAt||0,cooling=Date.now()<waitUntil;
+  const tierTbl=`<table class="paytable" style="max-width:420px"><tr><td>단계</td><td style="text-align:right;color:var(--mute)">빌리는 돈 · 시간당 이자 · 24시간 뒤 갚을 돈</td></tr>${LOAN_TIERS.map((t,i)=>`<tr style="${i<ti?'opacity:.45':''}${i===ti&&!l?';color:var(--brass2)':''}"><td>${i+1}차${i===2?' 이후':''}${i<ti?' (사용함)':i===ti&&!l?' ← 다음':''}</td><td>${fmt(t.amount)} · ${Math.round(t.rate*100)}% · ${fmt(t.amount*(1+t.rate*24))}</td></tr>`).join('')}</table>`;
+  const terms=`<ul class="loan-terms"><li>포인트가 0P이고 갚지 않은 대출이 없을 때만 빌릴 수 있습니다.</li><li>대출은 <b>하루(24시간)에 한 번</b>입니다. 그 전에 갚아 두면 하루가 지난 뒤 다시 빌릴 수 있습니다.</li><li>빌릴 때마다 금액과 이자가 커지고, 4번째부터는 3차 조건으로 빌립니다.</li><li>빌린 뒤 <b>24시간 동안만</b> 게임에 쓸 수 있습니다. 그 뒤에는 갚기 전까지 게임을 할 수 없습니다.</li><li>이자는 갚을 때까지 계속 늘어납니다.</li></ul>${tierTbl}`;
   if(!l){
-    const can=S.bal<1&&!busy&&!!next;
-    el.innerHTML=`<div class="eyebrow">대출 없음 · 지금까지 ${cnt}번 빌림</div>${terms}<div>${next?`<button class="btn primary" type="button" id="loanGo" ${can?'':'disabled'}>${cnt+1}차 대출 ${fmt(next.amount)} 받기 (시간당 ${Math.round(next.rate*100)}%)</button>`:'<b style="color:#e08a80">대출을 3번 모두 받아서 더 이상 빌릴 수 없습니다.</b>'}</div><div class="hint">${!next||can?'':'지금 보유 포인트는 '+fmt(S.bal)+'입니다. 포인트를 모두 잃었을 때만 대출을 받을 수 있습니다.'}</div>`;
+    const can=S.bal<1&&!busy&&!cooling;const wd=new Date(waitUntil);const when=(wd.getMonth()+1)+'/'+wd.getDate()+' '+String(wd.getHours()).padStart(2,'0')+':'+String(wd.getMinutes()).padStart(2,'0');
+    el.innerHTML=`<div class="eyebrow">대출 없음 · 지금까지 ${cnt}번 빌림</div>${terms}<div><button class="btn primary" type="button" id="loanGo" ${can?'':'disabled'}>${cnt+1}번째 대출 ${fmt(next.amount)} 받기 (시간당 ${Math.round(next.rate*100)}%)</button></div><div class="hint">${cooling?'다음 대출은 '+when+' 이후에 받을 수 있습니다.':can?'':'지금 보유 포인트는 '+fmt(S.bal)+'입니다. 포인트를 모두 잃었을 때만 대출을 받을 수 있습니다.'}</div>`;
     const b=$('#loanGo');if(b)b.onclick=()=>{if(!svSend({t:'loan'}))toast('서버에 연결되어 있지 않습니다');};
     return;
   }

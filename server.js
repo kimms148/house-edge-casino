@@ -15,8 +15,8 @@ const MANAGER_ID = process.env.MANAGER_ID || 'manager';
 const MANAGER_PW = process.env.MANAGER_PW || 'manager';
 const START = 10000;
 const APP = path.join(__dirname, 'public', 'app.html');
-const GAMES = ['coin', 'rps', 'horse', 'snail', 'oddeven', 'baccarat', 'slot', 'crash'];
-const MAX_MULT = { coin: 1.95, rps: 1.95, horse: 40, snail: 40, oddeven: 1.95, baccarat: 9, slot: 500, crash: 100000 };
+const GAMES = ['coin', 'rps', 'horse', 'snail', 'oddeven', 'baccarat', 'slot', 'crash', 'blackjack', 'roulette'];
+const MAX_MULT = { coin: 1.95, rps: 1.95, horse: 40, snail: 40, oddeven: 1.95, baccarat: 9, slot: 500, crash: 100000, blackjack: 10, roulette: 36 };
 
 /* ---------------- http ---------------- */
 const HEAD = '<!doctype html><html lang="ko"><head><meta charset="utf-8">' +
@@ -84,7 +84,7 @@ function parseSid(sid) {
 function newStats() { const g = {}; for (const k of GAMES) g[k] = { n: 0, w: 0, net: 0, wag: 0 }; return { rounds: 0, wins: 0, net: 0, wag: 0, manip: 0, md: 0, games: g }; }
 function publicUser(u) {
   const ch = chatOf(u.sid);
-  return { sid: u.sid, name: u.name, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: u.loan || null, loanCount: loanCount(u), stats: u.stats, hist: u.hist.slice(-300), chat: ch && ch.open ? { open: true, msgs: ch.msgs } : null };
+  return { sid: u.sid, name: u.name, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: u.loan || null, loanCount: loanCount(u), nextLoanAt: nextLoanAt(u), stats: u.stats, hist: u.hist.slice(-300), chat: ch && ch.open ? { open: true, msgs: ch.msgs } : null };
 }
 function issueToken(payload) {
   const t = crypto.randomBytes(24).toString('base64url');
@@ -106,6 +106,8 @@ function resolveToken(t) {
 const LOAN_TIERS = [{ amount: 10000, rate: 0.20 }, { amount: 50000, rate: 0.40 }, { amount: 100000, rate: 0.60 }];
 const LOAN_TERM = 24 * 3600 * 1000;
 const loanCount = u => (u.loans || []).length;
+const lastLoanAt = u => { const l = (u.loans || [])[(u.loans || []).length - 1]; return l ? l.at : 0; };
+const nextLoanAt = u => lastLoanAt(u) ? lastLoanAt(u) + LOAN_TERM : 0;
 const settings = () => Object.assign({ startBal: START }, DB.meta.settings || {});
 const userStart = u => u.start || START;
 function debtOf(u, now) {
@@ -167,7 +169,7 @@ const authed = () => [...conns].filter(c => c.admin || c.sid);
 
 function pushBal(sid, extra) {
   const u = DB.users[sid]; if (!u) return;
-  for (const c of userConns(sid)) send(c, Object.assign({ t: 'bal', bal: u.bal, stats: u.stats, loan: u.loan || null, loanCount: loanCount(u) }, extra || {}));
+  for (const c of userConns(sid)) send(c, Object.assign({ t: 'bal', bal: u.bal, stats: u.stats, loan: u.loan || null, loanCount: loanCount(u), nextLoanAt: nextLoanAt(u) }, extra || {}));
 }
 
 // ranking: 반별 학생 순위 + 반 평균 수익률 순위
@@ -308,6 +310,14 @@ wss.on('connection', ws => {
         scheduleUsers();
         break;
       }
+      case 'betadd': {
+        if (!u || !u.pending || u.pending.g !== 'blackjack' || u.pending.added) return send(c, { t: 'betaddno', msg: '추가 베팅을 할 수 없습니다.' });
+        const amt = Math.floor(+m.amount);
+        if (!(amt >= 1) || amt > u.pending.bet || amt > u.bal) return send(c, { t: 'betaddno', msg: '더블을 하려면 같은 금액이 더 있어야 합니다.' });
+        u.bal -= amt; u.pending.bet += amt; u.pending.added = true; store.saveUser(u);
+        send(c, { t: 'betaddok', bal: u.bal, bet: u.pending.bet }); scheduleUsers();
+        break;
+      }
       case 'settle': {
         if (!u || !u.pending) return;
         const { g, bet } = u.pending;
@@ -335,8 +345,8 @@ wss.on('connection', ws => {
         if (!u) return;
         if (u.loan) return send(c, { t: 'loanerr', msg: '이미 갚지 않은 대출이 있습니다.' });
         if (u.bal >= 1 || u.pending) return send(c, { t: 'loanerr', msg: '포인트를 모두 잃었을 때만 대출을 받을 수 있습니다.' });
-        const tier = LOAN_TIERS[loanCount(u)];
-        if (!tier) return send(c, { t: 'loanerr', msg: '대출은 3번까지만 받을 수 있습니다. 더 이상 빌릴 수 없습니다.' });
+        if (Date.now() < nextLoanAt(u)) { const d = new Date(nextLoanAt(u)); return send(c, { t: 'loanerr', msg: '대출은 하루에 한 번입니다. ' + (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ' 이후에 다시 빌릴 수 있습니다.' }); }
+        const tier = LOAN_TIERS[Math.min(loanCount(u), LOAN_TIERS.length - 1)];
         u.loan = { principal: tier.amount, rate: tier.rate, at: Date.now(), n: loanCount(u) + 1 }; u.bal += tier.amount;
         u.loans = (u.loans || []).concat([{ principal: tier.amount, rate: tier.rate, at: u.loan.at }]);
         store.saveUser(u); pushBal(u.sid, { loanMsg: u.loan.n + '차 대출 ' + tier.amount.toLocaleString() + 'P를 받았습니다. 24시간 안에 쓸 수 있고, 이자는 시간당 ' + Math.round(tier.rate * 100) + '%입니다.' }); scheduleUsers(); scheduleRank();
@@ -386,7 +396,7 @@ wss.on('connection', ws => {
           const amt = Math.floor(+m.amount); const cls = +m.cls || 0; const take = !!m.take;
           if (!(amt > 0) || amt > 1e9) return ack(false, '금액을 확인하세요.');
           let n = 0;
-          for (const x of Object.values(DB.users)) { if (cls && x.cls !== cls) continue; x.bal = take ? Math.max(0, x.bal - amt) : x.bal + amt; n++; store.saveUser(x); pushBal(x.sid, { by: 'admin' }); }
+          for (const x of Object.values(DB.users)) { if (cls && x.cls !== cls) continue; const b0 = x.bal; x.bal = take ? Math.max(0, x.bal - amt) : x.bal + amt; n++; store.saveUser(x); pushBal(x.sid, { by: 'admin', delta: x.bal - b0 }); }
           scheduleUsers(); scheduleRank();
           return ack(true, (cls ? cls + '반' : '전체') + ' ' + n + '명 ' + (take ? '회수' : '지급') + ': ' + amt.toLocaleString() + 'P씩');
         }
@@ -410,7 +420,7 @@ wss.on('connection', ws => {
           if (!(amt >= 0) || amt > 1e12) return ack(false, '금액을 확인하세요.');
           const before = tu.bal;
           tu.bal = m.op === 'add' ? tu.bal + amt : m.op === 'sub' ? Math.max(0, tu.bal - amt) : amt;
-          store.saveUser(tu); pushBal(tu.sid, { by: 'admin' }); scheduleUsers(); scheduleRank();
+          store.saveUser(tu); pushBal(tu.sid, { by: 'admin', delta: tu.bal - before }); scheduleUsers(); scheduleRank();
           return ack(true, `${tu.name}: ${before.toLocaleString()}P → ${tu.bal.toLocaleString()}P`);
         }
         if (m.op === 'pw') {

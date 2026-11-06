@@ -27,7 +27,9 @@ const META={
   oddeven:{name:'홀짝',desc:'주사위 두 개의 합이 홀수일까, 짝수일까.',pay:'적중 1.95배',rtp:97.5},
   baccarat:{name:'바카라',desc:'플레이어·뱅커·타이. 8덱 슈 사용.',pay:'P 2배 · B 1.95배 · T 9배',rtp:98.8},
   slot:{name:'슬롯머신',desc:'3릴, 다섯 가지 심볼.',pay:'777 = 500배',rtp:94.95},
-  crash:{name:'그래프',desc:'터지기 전에 캐시아웃하세요.',pay:'캐시아웃 배율만큼',rtp:97}
+  crash:{name:'그래프',desc:'터지기 전에 캐시아웃하세요.',pay:'캐시아웃 배율만큼',rtp:97},
+  blackjack:{name:'블랙잭',desc:'직접 플레이하거나, 플레이어·딜러 승부를 맞히세요.',pay:'승리 2배 · 블랙잭 2.5배',rtp:99.5},
+  roulette:{name:'룰렛',desc:'0부터 36까지 37칸 유럽식 룰렛.',pay:'숫자 36배 · 색 2배',rtp:97.3}
 };
 const GIDS=Object.keys(META);
 
@@ -107,13 +109,14 @@ function onServer(m){
     case 'autherr':{const el=m.where==='signup'?$('#suErr'):$('#liErr');el.textContent=m.msg;break;}
     case 'kicked':toast('계정이 삭제되었습니다');doLogout(true);break;
     case 'betok':case 'betno':if(SV.wait){SV.wait.res(m);SV.wait=null;}break;
+    case 'betaddok':case 'betaddno':if(SV.waitAdd){SV.waitAdd(m);SV.waitAdd=null;}if(m.t==='betaddok'){S.bal=m.bal;shownBal=S.bal;$('#balNum').textContent=fmt(S.bal);}else toast(m.msg);break;
     case 'bal':
       if(!S.me)break;
-      S.bal=m.bal;if(m.stats)S.stats=m.stats;if('loan' in m)S.me.loan=m.loan;if('loanCount' in m)S.me.loanCount=m.loanCount;if(m.h){S.hist.push(m.h);if(S.hist.length>300)S.hist.shift();}
+      S.bal=m.bal;if(m.stats)S.stats=m.stats;if('loan' in m)S.me.loan=m.loan;if('loanCount' in m)S.me.loanCount=m.loanCount;if('nextLoanAt' in m)S.me.nextLoanAt=m.nextLoanAt;if(m.h){S.hist.push(m.h);if(S.hist.length>300)S.hist.shift();}
       if(m.loanMsg)toast(m.loanMsg);
       if(view==='loan')renderLoan();
       if(!busy)updateBal();else shownBalPending=true;
-      if(m.by==='admin')toast('관리자가 포인트를 조정했습니다');
+      if(m.by==='admin'){if(m.delta>0)giftArrive(m.delta);else if(m.delta<0)toast('관리자가 '+fmt(-m.delta)+'를 회수했습니다');else if(!('delta' in m))toast('관리자가 포인트를 조정했습니다');}
       if(view==='stats')renderStats();
       break;
     case 'rank':RANK=m;if(view==='rank')renderRank();break;
@@ -138,6 +141,8 @@ function onCmd(d){
   else if(d.type==='clearforce'){force=null;pushPresence();}
   else if(d.type==='live'&&(d.want==='win'||d.want==='lose')){if(cur&&cur.liveOverride&&busy)cur.liveOverride(d.want);}
 }
+// blackjack double: ask the server to add to the stake of the round in progress
+function betAdd(amount){return new Promise(res=>{if(!svSend({t:'betadd',amount}))return res(false);const tm=setTimeout(()=>{SV.waitAdd=null;res(false);},6000);SV.waitAdd=m=>{clearTimeout(tm);res(m.t==='betaddok');};});}
 function betRequest(g,bet){
   return new Promise(res=>{
     if(!svSend({t:'bet',g,bet}))return res({t:'betno',msg:'서버에 연결되어 있지 않습니다.'});
@@ -249,8 +254,8 @@ function updateBal(){
   const broke=(S.bal<1||expired)&&!busy;
   $('#brokeMsg').hidden=!broke;$('#playBtn').hidden=broke&&!busy;
   if(broke){$('#brokeMsg b').textContent=expired?'대출 사용 기간이 끝났습니다':'포인트를 모두 잃었습니다';
-    const next=LOAN_TIERS[S.me.loanCount||0];
-    $('#brokeText').textContent=expired?'대출 탭에서 갚아야 다시 게임을 할 수 있습니다.':loan?'이미 받은 대출이 있어 더 빌릴 수 없습니다.':next?'무료 충전은 없습니다. '+((S.me.loanCount||0)+1)+'차 대출('+fmt(next.amount)+')을 받을 수 있습니다.':'대출도 3번 모두 받았습니다. 더 이상 빌릴 수 없습니다.';
+    const next=Date.now()>=(S.me.nextLoanAt||0)?LOAN_TIERS[Math.min(S.me.loanCount||0,2)]:null;
+    $('#brokeText').textContent=expired?'대출 탭에서 갚아야 다시 게임을 할 수 있습니다.':loan?'이미 받은 대출이 있어 더 빌릴 수 없습니다.':next?'무료 충전은 없습니다. '+((S.me.loanCount||0)+1)+'차 대출('+fmt(next.amount)+')을 받을 수 있습니다.':'대출은 하루에 한 번입니다. 대출 탭에서 다시 빌릴 수 있는 시각을 확인하세요.';
     $('#brokeLoan').textContent=expired||loan?'대출 탭으로 가기':next?'대출 받으러 가기':'대출 기록 보기';}
   if(S.bet>S.bal&&S.bal>=1&&!busy)setBet(S.bal);
 }
@@ -312,7 +317,7 @@ async function play(){
   try{r=await cur.play(bet,choice);}catch(e){console.error(e);r={pay:bet,manip:false,fairPay:bet,text:'오류로 원금 반환'};}
   const pay=Math.max(0,Math.floor(r.pay||0));
   svSend({t:'settle',pay,manip:!!r.manip,d:r.manip?pay-Math.floor(r.fairPay||0):0,winner:Number.isInteger(r.winner)?r.winner:undefined});
-  showResult(bet,pay,r.text);
+  showResult(r.bet||bet,pay,r.text);
   busy=false;playing=false;curBetInfo=null;liveText='';setPlayBtn();
   updateBal();pushPresence(); // the server answers with the new balance
   if(cur.after)cur.after();

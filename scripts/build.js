@@ -9,12 +9,14 @@ const html = `<title>하우스 엣지</title>
 <style>
 ${src('base.css')}
 ${src('games.css')}
+${src('games2.css')}
 </style>
 ${src('markup.html')}
 <script>
 (function(){
 ${src('core.js')}
 ${src('games.js')}
+${src('games2.js')}
 ${src('tail.js')}
 })();
 </script>

@@ -279,7 +279,7 @@ tr.me td{background:#1e1a12}
 .slider-row input[type=range]{flex:1 1 0;width:0;min-width:0;accent-color:var(--cyan)}
 .odds-grid{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 10px;align-items:center;font-size:12px}
 .odds-grid .cell{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-.admin-scope .odds-grid input[type=number]{width:62px}
+.admin-scope .odds-grid input[type=number]{width:72px}
 .abox + .abox{margin-top:12px}
 details.sub-more summary{cursor:pointer;font-size:13px;color:var(--sink);list-style:none;padding:4px 0}
 details.sub-more summary::-webkit-details-marker{display:none}
