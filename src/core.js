@@ -109,7 +109,7 @@ function onServer(m){
     case 'betok':case 'betno':if(SV.wait){SV.wait.res(m);SV.wait=null;}break;
     case 'bal':
       if(!S.me)break;
-      S.bal=m.bal;if(m.stats)S.stats=m.stats;if('loan' in m)S.me.loan=m.loan;if(m.h){S.hist.push(m.h);if(S.hist.length>300)S.hist.shift();}
+      S.bal=m.bal;if(m.stats)S.stats=m.stats;if('loan' in m)S.me.loan=m.loan;if('loanCount' in m)S.me.loanCount=m.loanCount;if(m.h){S.hist.push(m.h);if(S.hist.length>300)S.hist.shift();}
       if(m.loanMsg)toast(m.loanMsg);
       if(view==='loan')renderLoan();
       if(!busy)updateBal();else shownBalPending=true;
@@ -149,7 +149,8 @@ function betRequest(g,bet){
 
 /* loans: 10,000P, 20% simple interest per hour, usable for 24 hours */
 const LOAN_TERM=24*3600*1000;
-const debtNow=l=>Math.floor(l.principal*(1+0.2*Math.max(0,(Date.now()-l.at)/3600000)));
+const LOAN_TIERS=[{amount:10000,rate:.2},{amount:50000,rate:.4},{amount:100000,rate:.6}];
+const debtNow=l=>Math.floor(l.principal*(1+(l.rate||.2)*Math.max(0,(Date.now()-l.at)/3600000)));
 /* horse/snail shared stable from the server */
 function onStable(st){STABLE=st;for(const id of['horse','snail']){const g=GAMES[id];if(!g)continue;if(cur===g&&busy){g.pendingRefresh=true;continue;}if(cur===g&&view==='game')g.refresh();else g.field=null;}}
 /* 1:1 chat from the house: takes over the screen once the current round is over */
@@ -248,8 +249,9 @@ function updateBal(){
   const broke=(S.bal<1||expired)&&!busy;
   $('#brokeMsg').hidden=!broke;$('#playBtn').hidden=broke&&!busy;
   if(broke){$('#brokeMsg b').textContent=expired?'대출 사용 기간이 끝났습니다':'포인트를 모두 잃었습니다';
-    $('#brokeText').textContent=expired?'대출 탭에서 갚아야 다시 게임을 할 수 있습니다.':loan?'이미 받은 대출이 있어 더 빌릴 수 없습니다.':'무료 충전은 없습니다. 대출을 받을 수 있습니다.';
-    $('#brokeLoan').textContent=expired||loan?'대출 탭으로 가기':'대출 받으러 가기';}
+    const next=LOAN_TIERS[S.me.loanCount||0];
+    $('#brokeText').textContent=expired?'대출 탭에서 갚아야 다시 게임을 할 수 있습니다.':loan?'이미 받은 대출이 있어 더 빌릴 수 없습니다.':next?'무료 충전은 없습니다. '+((S.me.loanCount||0)+1)+'차 대출('+fmt(next.amount)+')을 받을 수 있습니다.':'대출도 3번 모두 받았습니다. 더 이상 빌릴 수 없습니다.';
+    $('#brokeLoan').textContent=expired||loan?'대출 탭으로 가기':next?'대출 받으러 가기':'대출 기록 보기';}
   if(S.bet>S.bal&&S.bal>=1&&!busy)setBet(S.bal);
 }
 function toast(msg){const d=document.createElement('div');d.textContent=msg;$('#toast').appendChild(d);setTimeout(()=>d.remove(),2400);}

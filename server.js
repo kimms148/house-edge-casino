@@ -84,7 +84,7 @@ function parseSid(sid) {
 function newStats() { const g = {}; for (const k of GAMES) g[k] = { n: 0, w: 0, net: 0, wag: 0 }; return { rounds: 0, wins: 0, net: 0, wag: 0, manip: 0, md: 0, games: g }; }
 function publicUser(u) {
   const ch = chatOf(u.sid);
-  return { sid: u.sid, name: u.name, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: u.loan || null, stats: u.stats, hist: u.hist.slice(-300), chat: ch && ch.open ? { open: true, msgs: ch.msgs } : null };
+  return { sid: u.sid, name: u.name, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: u.loan || null, loanCount: loanCount(u), stats: u.stats, hist: u.hist.slice(-300), chat: ch && ch.open ? { open: true, msgs: ch.msgs } : null };
 }
 function issueToken(payload) {
   const t = crypto.randomBytes(24).toString('base64url');
@@ -102,13 +102,16 @@ function resolveToken(t) {
   return null;
 }
 /* ---------------- settings, loans, stable, chat ---------------- */
-const LOAN_AMOUNT = 10000, LOAN_RATE = 0.20, LOAN_TERM = 24 * 3600 * 1000; // 시간당 20% 단리, 24시간 사용
+// 대출 단계: 1차 10,000P 시간당 20%, 2차 50,000P 40%, 3차 100,000P 60% (단리, 각각 24시간 사용). 3차 이후는 없음.
+const LOAN_TIERS = [{ amount: 10000, rate: 0.20 }, { amount: 50000, rate: 0.40 }, { amount: 100000, rate: 0.60 }];
+const LOAN_TERM = 24 * 3600 * 1000;
+const loanCount = u => (u.loans || []).length;
 const settings = () => Object.assign({ startBal: START }, DB.meta.settings || {});
 const userStart = u => u.start || START;
 function debtOf(u, now) {
   if (!u.loan) return 0;
   const hours = Math.max(0, ((now || Date.now()) - u.loan.at) / 3600000);
-  return Math.floor(u.loan.principal * (1 + LOAN_RATE * hours));
+  return Math.floor(u.loan.principal * (1 + (u.loan.rate || 0.2) * hours));
 }
 const loanExpired = u => !!u.loan && Date.now() - u.loan.at > LOAN_TERM;
 const worth = u => u.bal - debtOf(u);
@@ -164,7 +167,7 @@ const authed = () => [...conns].filter(c => c.admin || c.sid);
 
 function pushBal(sid, extra) {
   const u = DB.users[sid]; if (!u) return;
-  for (const c of userConns(sid)) send(c, Object.assign({ t: 'bal', bal: u.bal, stats: u.stats, loan: u.loan || null }, extra || {}));
+  for (const c of userConns(sid)) send(c, Object.assign({ t: 'bal', bal: u.bal, stats: u.stats, loan: u.loan || null, loanCount: loanCount(u) }, extra || {}));
 }
 
 // ranking: 반별 학생 순위 + 반 평균 수익률 순위
@@ -194,7 +197,7 @@ function usersMsg() {
   const online = {};
   for (const c of conns) if (c.sid) { const o = online[c.sid] || (online[c.sid] = { n: 0, presence: {} }); o.n++; if (c.presence && (c.presence.st === 'play' || !o.presence.game)) o.presence = c.presence; }
   const users = Object.values(DB.users).map(u => ({
-    sid: u.sid, name: u.name, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: u.loan ? { principal: u.loan.principal, at: u.loan.at, debt: debtOf(u), expired: loanExpired(u) } : null, chatOpen: !!(chatOf(u.sid) && chatOf(u.sid).open), stats: { rounds: u.stats.rounds, wins: u.stats.wins, net: u.stats.net, wag: u.stats.wag, manip: u.stats.manip, md: u.stats.md },
+    sid: u.sid, name: u.name, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: u.loan ? { principal: u.loan.principal, rate: u.loan.rate || 0.2, n: u.loan.n || 1, at: u.loan.at, debt: debtOf(u), expired: loanExpired(u) } : null, loanCount: loanCount(u), chatOpen: !!(chatOf(u.sid) && chatOf(u.sid).open), stats: { rounds: u.stats.rounds, wins: u.stats.wins, net: u.stats.net, wag: u.stats.wag, manip: u.stats.manip, md: u.stats.md },
     pending: u.pending ? { g: u.pending.g, bet: u.pending.bet } : null, online: online[u.sid] ? online[u.sid].n : 0, presence: online[u.sid] ? online[u.sid].presence : null,
     last: u.hist.length ? u.hist[u.hist.length - 1] : null, created: u.created,
     loanStats: (u.loans || []).reduce((a, l) => { a.n++; a.lent += l.principal; if (l.repaidAt) { a.repaid += l.principal; a.interest += (l.paid || l.principal) - l.principal; } if (l.forgivenAt) a.forgiven += l.principal; return a; }, { n: 0, lent: 0, repaid: 0, interest: 0, forgiven: 0 }),
@@ -332,9 +335,11 @@ wss.on('connection', ws => {
         if (!u) return;
         if (u.loan) return send(c, { t: 'loanerr', msg: '이미 갚지 않은 대출이 있습니다.' });
         if (u.bal >= 1 || u.pending) return send(c, { t: 'loanerr', msg: '포인트를 모두 잃었을 때만 대출을 받을 수 있습니다.' });
-        u.loan = { principal: LOAN_AMOUNT, at: Date.now() }; u.bal += LOAN_AMOUNT;
-        u.loans = (u.loans || []).concat([{ principal: LOAN_AMOUNT, at: u.loan.at }]).slice(-50);
-        store.saveUser(u); pushBal(u.sid, { loanMsg: '10,000P를 대출받았습니다. 24시간 안에 쓸 수 있고, 이자는 시간당 20%입니다.' }); scheduleUsers(); scheduleRank();
+        const tier = LOAN_TIERS[loanCount(u)];
+        if (!tier) return send(c, { t: 'loanerr', msg: '대출은 3번까지만 받을 수 있습니다. 더 이상 빌릴 수 없습니다.' });
+        u.loan = { principal: tier.amount, rate: tier.rate, at: Date.now(), n: loanCount(u) + 1 }; u.bal += tier.amount;
+        u.loans = (u.loans || []).concat([{ principal: tier.amount, rate: tier.rate, at: u.loan.at }]);
+        store.saveUser(u); pushBal(u.sid, { loanMsg: u.loan.n + '차 대출 ' + tier.amount.toLocaleString() + 'P를 받았습니다. 24시간 안에 쓸 수 있고, 이자는 시간당 ' + Math.round(tier.rate * 100) + '%입니다.' }); scheduleUsers(); scheduleRank();
         break;
       }
       case 'repay': {

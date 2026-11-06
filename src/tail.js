@@ -187,7 +187,8 @@ function makeRow(u){
   <td><div class="ctl"><div class="slider-row"><input type="range" min="-100" max="100" step="5" aria-label="개인 승률 조정"><output></output></div><div class="hint eff" style="color:var(--smute);font-size:11px"></div>
   <div class="abtns"><button type="button" class="abtn w" data-c="fw">다음 판 승리</button><button type="button" class="abtn l" data-c="fl">다음 판 패배</button><button type="button" class="abtn w" data-c="lw">이번 판 승리</button><button type="button" class="abtn l" data-c="ll">이번 판 패배</button></div></div></td>
   <td><div class="ctl" style="min-width:200px"><div class="abtns"><input type="number" min="0" step="1000" placeholder="금액" aria-label="지급·회수 금액" class="amt"><button type="button" class="abtn w" data-c="add">지급</button><button type="button" class="abtn l" data-c="sub">회수</button><button type="button" class="abtn" data-c="set">설정</button><button type="button" class="abtn" data-c="chat">메시지</button></div>
-  <details class="more"><summary>더보기</summary><div class="abtns" style="margin-top:5px"><input type="text" placeholder="새 비밀번호" aria-label="새 비밀번호" class="npw"><button type="button" class="abtn" data-c="pw">비밀번호 변경</button></div><div class="abtns" style="margin-top:5px"><button type="button" class="abtn" data-c="forgive">대출 없애기</button><button type="button" class="abtn l" data-c="del">계정 삭제</button></div></details></div></td>`;
+  <div class="abtns"><input type="text" placeholder="새 비밀번호" aria-label="새 비밀번호" class="npw" autocomplete="off"><button type="button" class="abtn" data-c="pw">비밀번호 변경</button></div>
+  <details class="more"><summary>더보기</summary><div class="abtns" style="margin-top:5px"><button type="button" class="abtn" data-c="forgive">대출 없애기</button><button type="button" class="abtn l" data-c="del">계정 삭제</button></div></details></div></td>`;
   const r={tr,sid,u,slider:tr.querySelector('input[type=range]'),out:tr.querySelector('output'),amt:tr.querySelector('.amt'),npw:tr.querySelector('.npw'),delArm:0};
   const v=((CFG.players||{})[sid]||{}).bias||0;r.slider.value=pct(v);r.out.textContent=biasText(v);
   r.slider.addEventListener('input',()=>{CFG.players[sid]=Object.assign({},CFG.players[sid]||{},{bias:r.slider.value/100});r.out.textContent=biasText(CFG.players[sid].bias);saveCfg();r.updateEff();});
@@ -204,7 +205,7 @@ function makeRow(u){
   r.update=(nu)=>{r.u=nu;const p=nu.presence||{};
     tr.querySelector('.pname b').innerHTML=`<span class="odot ${nu.online?'on':''}"></span>${esc(nu.name)}`;
     tr.querySelector('.pname small').textContent=`${nu.sid} · ${nu.grade}학년 ${nu.cls}반 ${nu.num}번`;
-    tr.querySelector('.bl').innerHTML=fmt(nu.bal)+(nu.loan?`<div class="hint" style="color:${nu.loan.expired?'#e08a80':'var(--smute)'}">대출 ${fmt(nu.loan.principal)} · 빚 ${fmt(nu.loan.debt)}${nu.loan.expired?' · 만기':''}</div>`:'');
+    tr.querySelector('.bl').innerHTML=fmt(nu.bal)+(nu.loan?`<div class="hint" style="color:${nu.loan.expired?'#e08a80':'var(--smute)'}">${nu.loan.n}차 대출 ${fmt(nu.loan.principal)} (${Math.round(nu.loan.rate*100)}%) · 빚 ${fmt(nu.loan.debt)}${nu.loan.expired?' · 만기':''}</div>`:nu.loanCount?`<div class="hint" style="color:var(--smute)">대출 ${nu.loanCount}번 받음</div>`:'');
     tr.querySelector('[data-c=chat]').textContent=nu.chatOpen?'대화 중':'메시지';
     tr.querySelector('[data-c=forgive]').hidden=!nu.loan;
     const debt=nu.loan?nu.loan.debt:0;const rate=(nu.bal-debt-(nu.start||START))/Math.max(1,nu.start||START)*100;const rt=tr.querySelector('.rt');rt.textContent=pfmt(rate);rt.className='n rt '+(rate>=0?'pos':'neg');
@@ -264,10 +265,12 @@ let loanTimer=null;
 function renderLoan(){
   const el=$('#loanCard');if(!el||!S.me)return;clearInterval(loanTimer);
   const l=S.me.loan;
-  const terms=`<ul class="loan-terms"><li>포인트가 0P일 때만 10,000P를 빌릴 수 있습니다.</li><li>이자는 <b>시간당 20%</b>입니다. 24시간이 지나면 빌린 돈의 5.8배를 갚아야 합니다.</li><li>빌린 뒤 <b>24시간 동안만</b> 게임에 쓸 수 있습니다. 그 뒤에는 갚기 전까지 게임을 할 수 없습니다.</li><li>이자는 갚을 때까지 계속 늘어납니다.</li></ul>`;
+  const cnt=S.me.loanCount||0,next=LOAN_TIERS[cnt];
+  const tierTbl=`<table class="paytable" style="max-width:420px"><tr><td>단계</td><td style="text-align:right;color:var(--mute)">빌리는 돈 · 시간당 이자 · 24시간 뒤 갚을 돈</td></tr>${LOAN_TIERS.map((t,i)=>`<tr style="${i<cnt?'opacity:.45':''}${i===cnt&&!l?';color:var(--brass2)':''}"><td>${i+1}차${i<cnt?' (사용함)':i===cnt&&!l?' ← 다음':''}</td><td>${fmt(t.amount)} · ${Math.round(t.rate*100)}% · ${fmt(t.amount*(1+t.rate*24))}</td></tr>`).join('')}</table>`;
+  const terms=`<ul class="loan-terms"><li>포인트가 0P이고 갚지 않은 대출이 없을 때만 빌릴 수 있습니다.</li><li>빌릴 때마다 금액과 이자가 커집니다. 대출은 <b>3번까지</b>입니다.</li><li>빌린 뒤 <b>24시간 동안만</b> 게임에 쓸 수 있습니다. 그 뒤에는 갚기 전까지 게임을 할 수 없습니다.</li><li>이자는 갚을 때까지 계속 늘어납니다.</li></ul>${tierTbl}`;
   if(!l){
-    const can=S.bal<1&&!busy;
-    el.innerHTML=`<div class="eyebrow">대출 없음</div>${terms}<div><button class="btn primary" type="button" id="loanGo" ${can?'':'disabled'}>10,000P 대출 받기</button></div><div class="hint">${can?'':'지금 보유 포인트는 '+fmt(S.bal)+'입니다. 포인트를 모두 잃었을 때만 대출을 받을 수 있습니다.'}</div>`;
+    const can=S.bal<1&&!busy&&!!next;
+    el.innerHTML=`<div class="eyebrow">대출 없음 · 지금까지 ${cnt}번 빌림</div>${terms}<div>${next?`<button class="btn primary" type="button" id="loanGo" ${can?'':'disabled'}>${cnt+1}차 대출 ${fmt(next.amount)} 받기 (시간당 ${Math.round(next.rate*100)}%)</button>`:'<b style="color:#e08a80">대출을 3번 모두 받아서 더 이상 빌릴 수 없습니다.</b>'}</div><div class="hint">${!next||can?'':'지금 보유 포인트는 '+fmt(S.bal)+'입니다. 포인트를 모두 잃었을 때만 대출을 받을 수 있습니다.'}</div>`;
     const b=$('#loanGo');if(b)b.onclick=()=>{if(!svSend({t:'loan'}))toast('서버에 연결되어 있지 않습니다');};
     return;
   }
@@ -275,10 +278,10 @@ function renderLoan(){
     const debt=debtNow(l),left=l.at+LOAN_TERM-Date.now(),exp=left<=0;
     const hrs=(Date.now()-l.at)/3600000;
     const hm=ms=>{const m=Math.max(0,Math.floor(ms/60000));return Math.floor(m/60)+'시간 '+(m%60)+'분';};
-    el.innerHTML=`<div class="eyebrow">${exp?'만기 지남 · 게임 불가':'대출 사용 중'}</div>
+    el.innerHTML=`<div class="eyebrow">${l.n||cnt}차 대출 · ${exp?'만기 지남 · 게임 불가':'사용 중'}</div>
       <div><div class="hint">지금 갚아야 할 금액</div><div class="loan-big">${fmt(debt)}</div></div>
       <div class="row"><span>빌린 돈</span><b>${fmt(l.principal)}</b></div>
-      <div class="row"><span>이자 (${hrs.toFixed(1)}시간 × 20%)</span><b>${fmt(debt-l.principal)}</b></div>
+      <div class="row"><span>이자 (${hrs.toFixed(1)}시간 × ${Math.round((l.rate||.2)*100)}%)</span><b>${fmt(debt-l.principal)}</b></div>
       <div class="row"><span>빌린 시각</span><b>${new Date(l.at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</b></div>
       <div class="row"><span>${exp?'사용 기간':'게임에 쓸 수 있는 남은 시간'}</span><b style="color:${exp?'#e08a80':'inherit'}">${exp?'끝남':hm(left)}</b></div>
       <div class="row"><span>보유 포인트</span><b>${fmt(S.bal)}</b></div>
@@ -339,21 +342,23 @@ let ccArm=0;$('#admChatClose').onclick=e=>{if(!admChat)return;if(Date.now()-ccAr
   const ua=navigator.userAgent;
   const os=/iphone|ipad|ipod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)?'ios':/android/i.test(ua)?'android':'desktop';
   if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).catch(()=>{});
-  let deferred=null,installed=false;const btn=$('#installBtn');
-  if(!standalone)btn.hidden=false;
+  let deferred=null,installed=false;const btn=$('#installBtn'),gbtn=$('#gateInstall');
+  if(!standalone){btn.hidden=false;gbtn.hidden=false;$('#gateInstallNote').hidden=false;}
   // Already installed on this device (Chrome/Edge)? Then the button explains how to open it instead.
-  const markInstalled=()=>{installed=true;btn.lastChild.textContent='앱으로 열기';$('#instDone').hidden=false;$('#instLead').hidden=true;$('#installModal .steps').hidden=true;};
+  const markInstalled=()=>{installed=true;btn.lastChild.textContent='앱으로 열기';gbtn.lastChild.textContent='앱이 이미 설치되어 있습니다 · 앱으로 열기';$('#gateInstallNote').textContent='설치한 앱을 열어서 회원가입하세요.';$('#instDone').hidden=false;$('#instLead').hidden=true;$('#installModal .steps').hidden=true;};
   if(navigator.getInstalledRelatedApps)navigator.getInstalledRelatedApps().then(l=>{if(l&&l.length)markInstalled();}).catch(()=>{});
-  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;if(!standalone)btn.hidden=false;});
+  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;if(!standalone){btn.hidden=false;gbtn.hidden=false;}});
   window.addEventListener('appinstalled',()=>{deferred=null;markInstalled();$('#installModal').hidden=true;toast('앱이 설치되었습니다. 작업 표시줄이나 홈 화면 아이콘으로 여세요');});
-  btn.onclick=async()=>{
+  btn.onclick=gbtn.onclick=async()=>{
     if(installed){$('#installModal').hidden=false;return;}
-    if(deferred){deferred.prompt();try{const r=await deferred.userChoice;if(r&&r.outcome==='accepted')btn.hidden=true;}catch(e){}deferred=null;return;}
+    if(deferred){deferred.prompt();try{const r=await deferred.userChoice;if(r&&r.outcome==='accepted')markInstalled();}catch(e){}deferred=null;return;}
     document.querySelectorAll('#installModal .step').forEach(s=>s.classList.toggle('here',s.dataset.os===os));
     const steps=$('#installModal .steps');const here=steps.querySelector('.here');if(here)steps.prepend(here);
     $('#installModal').hidden=false;
   };
   $('#installClose').onclick=()=>{$('#installModal').hidden=true;};
+  // First time someone opens the signup form in a browser tab: suggest installing the app first.
+  $('#segSignup').addEventListener('click',()=>{if(standalone||LS.get('he.installAsked',false))return;LS.set('he.installAsked',true);gbtn.click();});
 })();
 
 /* ---------------- boot ---------------- */
