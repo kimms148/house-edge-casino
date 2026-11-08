@@ -124,7 +124,7 @@ function onServer(m){
     case 'betaddok':case 'betaddno':if(SV.waitAdd){SV.waitAdd(m);SV.waitAdd=null;}if(m.t==='betaddok'){S.bal=m.bal;shownBal=S.bal;$('#balNum').textContent=fmt(S.bal);}else toast(m.msg);break;
     case 'bal':
       if(!S.me)break;
-      S.bal=m.bal;if(m.stats)S.stats=m.stats;if('loan' in m)S.me.loan=m.loan;if('loanCount' in m)S.me.loanCount=m.loanCount;if('nextLoanAt' in m)S.me.nextLoanAt=m.nextLoanAt;if(m.h){S.hist.push(m.h);if(S.hist.length>300)S.hist.shift();}
+      S.bal=m.bal;if(m.stats)S.stats=m.stats;if('loan' in m)S.me.loan=m.loan;if('lenders' in m)S.me.lenders=m.lenders;if(m.h){S.hist.push(m.h);if(S.hist.length>300)S.hist.shift();}
       if(m.loanMsg)toast(m.loanMsg);
       if(view==='loan')renderLoan();
       if(!busy)updateBal();else shownBalPending=true;
@@ -167,8 +167,13 @@ function betRequest(g,bet){
 
 /* loans: 10,000P, 20% simple interest per hour, usable for 24 hours */
 const LOAN_TERM=24*3600*1000;
-const LOAN_TIERS=[{amount:10000,rate:.2},{amount:50000,rate:.4},{amount:100000,rate:.6}];
+const LOAN_AMOUNTS=[10000,50000,100000];
 const debtNow=l=>Math.floor(l.principal*(1+(l.rate||.2)*Math.max(0,(Date.now()-l.at)/3600000)));
+const myLenders=()=>(S.me&&S.me.lenders)||[];
+const activeOf=()=>myLenders().filter(L=>L.active);
+const totalDebt=()=>activeOf().reduce((s,L)=>s+debtNow(L.active),0);
+const anyExpired=()=>activeOf().some(L=>Date.now()-L.active.at>LOAN_TERM);
+const openLender=()=>myLenders().find(L=>!L.active&&Date.now()>=(L.nextAt||0));
 /* horse/snail shared stable from the server */
 function onStable(st){STABLE=st;for(const id of['horse','snail']){const g=GAMES[id];if(!g)continue;if(cur===g&&busy){g.pendingRefresh=true;continue;}if(cur===g&&view==='game')g.refresh();else g.field=null;}}
 /* 1:1 chat from the house: takes over the screen once the current round is over */
@@ -261,15 +266,17 @@ function updateBal(){
   el.classList.remove('up','down');void el.offsetWidth;if(to>from)el.classList.add('up');else if(to<from)el.classList.add('down');
   const t0=performance.now(),dur=500;
   (function step(t){const k=Math.min(1,(t-t0)/dur);$('#balNum').textContent=fmt(from+(to-from)*(1-Math.pow(1-k,3)));if(k<1)requestAnimationFrame(step);})(t0);
-  const loan=S.me&&S.me.loan;const debt=loan?debtNow(loan):0;
+  const loan=!!S.me&&activeOf().length>0;const debt=loan?totalDebt():0;
   $('#debtTag').hidden=!loan;if(loan)$('#debtTag').textContent='빚 '+fmt(debt);
-  const expired=loan&&Date.now()-loan.at>LOAN_TERM;
+  const expired=loan&&anyExpired();
   const broke=(S.bal<1||expired)&&!busy;
   $('#brokeMsg').hidden=!broke;$('#playBtn').hidden=broke&&!busy;
   if(broke){$('#brokeMsg b').textContent=expired?'대출 사용 기간이 끝났습니다':'포인트를 모두 잃었습니다';
-    const next=Date.now()>=(S.me.nextLoanAt||0)?LOAN_TIERS[Math.min(S.me.loanCount||0,2)]:null;
-    $('#brokeText').textContent=expired?'대출 탭에서 갚아야 다시 게임을 할 수 있습니다.':loan?'이미 받은 대출이 있어 더 빌릴 수 없습니다.':next?'무료 충전은 없습니다. '+((S.me.loanCount||0)+1)+'차 대출('+fmt(next.amount)+')을 받을 수 있습니다.':'대출은 하루에 한 번입니다. 대출 탭에서 다시 빌릴 수 있는 시각을 확인하세요.';
-    $('#brokeLoan').textContent=expired||loan?'대출 탭으로 가기':next?'대출 받으러 가기':'대출 기록 보기';}
+    const next=openLender();
+    $('#brokeText').textContent=expired?'만기가 지난 대출이 있습니다. 대출 탭에서 갚아야 다시 게임을 할 수 있습니다.':next?'무료 충전은 없습니다. '+next.name+'에서 바로 빌릴 수 있습니다.':'지금 빌려줄 수 있는 대출소가 없습니다. 대출 탭에서 시각을 확인하세요.';
+    $('#brokeLoan').textContent=expired?'대출 탭으로 가기':next?'대출소 보러 가기':'대출 탭 보기';
+    const ad=$('#brokeAd');ad.hidden=!!expired||!next;if(next)ad.innerHTML=lenderBanner(next.k,true);}
+  {const lad=$('#lobbyAd');const nx=S.me&&S.bal<1&&!busy?openLender():null;lad.hidden=!nx;if(nx&&!lad.dataset.k){lad.dataset.k=nx.k;lad.innerHTML=lenderBanner(nx.k,true);}if(!nx)lad.dataset.k='';}
   if(S.bet>S.bal&&S.bal>=1&&!busy)setBet(S.bal);
 }
 function toast(msg){const d=document.createElement('div');d.textContent=msg;$('#toast').appendChild(d);setTimeout(()=>d.remove(),2400);}

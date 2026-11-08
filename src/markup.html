@@ -51,6 +51,7 @@
 <main>
   <section class="view" id="v-lobby" hidden>
     <div class="lobby-head"><h1>오늘의 테이블</h1></div>
+    <button type="button" class="ad-slot" id="lobbyAd" hidden aria-label="대출소 광고"></button>
     <div class="games" id="games"></div>
   </section>
 
@@ -77,7 +78,7 @@
         <div><div class="lbl" id="choiceLbl" style="margin-bottom:6px">선택</div><div class="choices" id="choices"></div></div>
         <div id="gExtra"></div>
         <button class="play" id="playBtn" type="button">베팅</button>
-        <div class="broke" id="brokeMsg" hidden><b>포인트를 모두 잃었습니다</b><span id="brokeText">무료 충전은 없습니다.</span><div style="margin-top:8px"><button class="btn" type="button" id="brokeLoan">대출 받으러 가기</button></div></div>
+        <div class="broke" id="brokeMsg" hidden><b>포인트를 모두 잃었습니다</b><span id="brokeText">무료 충전은 없습니다.</span><button type="button" class="ad-slot" id="brokeAd" hidden aria-label="대출소 광고" style="margin-top:8px"></button><div style="margin-top:8px"><button class="btn" type="button" id="brokeLoan">대출 받으러 가기</button></div></div>
         <div class="result" id="result"></div>
       </aside>
     </div>
@@ -103,8 +104,9 @@
   </section>
 
   <section class="view" id="v-loan" hidden>
-    <div class="view-head"><div><h2>대출</h2><div class="hint" style="margin-top:4px">포인트를 모두 잃었을 때 한 번에 10,000P까지 빌릴 수 있습니다.</div></div></div>
-    <div class="loan-card" id="loanCard"></div>
+    <div class="view-head"><div><h2>대출</h2><div class="hint" style="margin-top:4px">대출소 세 곳. 빌리는 금액은 같고 이자만 다릅니다. 각 대출소는 하루에 한 번, 포인트가 0P일 때만 빌려줍니다.</div></div><div class="loan-total" id="loanTotal"></div></div>
+    <div class="lenders" id="loanCard"></div>
+    <ul class="loan-terms" style="margin-top:14px;max-width:760px"><li>빌린 돈은 <b>24시간 동안만</b> 게임에 쓸 수 있습니다. 한 곳이라도 24시간이 지나면 그곳을 갚기 전까지 게임을 할 수 없습니다.</li><li>같은 대출소에서 빌릴 때마다 금액과 이자가 커집니다 (1만 → 5만 → 10만). 이자는 갚을 때까지 계속 늘어납니다.</li><li>한 곳에서 빌린 돈을 다 잃으면 다른 대출소에서 또 빌릴 수 있습니다. 이렇게 빚으로 빚을 막는 것을 '돌려막기'라고 합니다.</li></ul>
   </section>
 
   <section class="view" id="v-chat" hidden>

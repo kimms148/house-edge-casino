@@ -272,7 +272,7 @@ function makeRow(u){
     tr.querySelector('.bl').textContent=fmt(nu.bal);
     const debt=nu.loan?nu.loan.debt:0;const rate=(nu.bal-debt-(nu.start||START))/Math.max(1,nu.start||START)*100;const rt=tr.querySelector('.rt');rt.textContent=pfmt(rate);rt.className='pc-rate rt '+(rate>=0?'pos':'neg');
     const ln=tr.querySelector('.pc-loan');ln.className='pc-loan'+(nu.loan&&nu.loan.expired?' bad':'');
-    ln.textContent=nu.loan?`${nu.loan.n}차 대출 ${fmt(nu.loan.principal)} (${Math.round(nu.loan.rate*100)}%) · 빚 ${fmt(nu.loan.debt)}${nu.loan.expired?' · 만기':''}`:nu.loanCount?`대출 ${nu.loanCount}번 받음 · 지금은 없음`:'';ln.hidden=!ln.textContent;
+    ln.textContent=nu.loan?(nu.loan.list||[]).map(l=>`${l.name} ${l.n}번째 ${fmt(l.principal)}(${Math.round(l.rate*100)}%) 빚 ${fmt(l.debt)}${l.expired?' 만기':''}`).join(' · '):nu.loanCount?`대출 ${nu.loanCount}번 받음 · 지금은 없음`:'';ln.hidden=!ln.textContent;
     const g=META[nu.pending?nu.pending.g:p.game];const stEl=tr.querySelector('.pc-st');
     let stTxt,stCls='';
     if(nu.chatOpen){stTxt='대화 중';stCls='chat';}
@@ -375,39 +375,50 @@ function buildOps(){
 }
 function syncOps(){const el=$('#opStart');if(el&&el!==document.activeElement)el.value=SETTINGS.startBal;}
 
-/* ---------------- loan (player) ---------------- */
+/* ---------------- loan (player): three lenders ---------------- */
+const LENDER_ART={
+  gold:{en:'GOLD BRIDGE CAPITAL',copy:'다음 판이 당신을 기다립니다',fine:'업계 최저 금리 시간당 20%부터 · 3분 입금',mark:'⛩'},
+  moon:{en:'BLACKMOON CREDIT',copy:'심사 없이 3초 입금',fine:'다른 곳에서 거절당해도 OK · 시간당 30%부터',mark:'☾'},
+  red:{en:'REDLINE LOAN',copy:'어디서도 안 될 때, 여기선 됩니다',fine:'신용 무관 · 연체자 환영 · 시간당 40%부터',mark:'☎'}};
+const LENDER_NAME={gold:'골드브릿지 캐피탈',moon:'블랙문 크레딧',red:'레드라인 대부'};
+function lenderBanner(k,ad){const A=LENDER_ART[k];return`<div class="bn ${k}"><span class="bn-en">${A.en}</span><span class="bn-name">${LENDER_NAME[k]}</span><span class="bn-copy">${A.copy}</span><span class="bn-fine">${A.fine}</span><span class="bn-mark" aria-hidden="true">${A.mark}</span>${ad?'<span class="bn-cta">지금 바로 빌리기 →</span>':''}</div>`;}
 let loanTimer=null;
+const hm=ms=>{const m=Math.max(0,Math.floor(ms/60000));return Math.floor(m/60)+'시간 '+(m%60)+'분';};
+const whenTxt=t=>{const d=new Date(t);return(d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
 function renderLoan(){
   const el=$('#loanCard');if(!el||!S.me)return;clearInterval(loanTimer);
-  const l=S.me.loan;
-  const cnt=S.me.loanCount||0,ti=Math.min(cnt,2),next=LOAN_TIERS[ti],waitUntil=S.me.nextLoanAt||0,cooling=Date.now()<waitUntil;
-  const tierTbl=`<table class="paytable" style="max-width:420px"><tr><td>단계</td><td style="text-align:right;color:var(--mute)">빌리는 돈 · 시간당 이자 · 24시간 뒤 갚을 돈</td></tr>${LOAN_TIERS.map((t,i)=>`<tr style="${i<ti?'opacity:.45':''}${i===ti&&!l?';color:var(--brass2)':''}"><td>${i+1}차${i===2?' 이후':''}${i<ti?' (사용함)':i===ti&&!l?' ← 다음':''}</td><td>${fmt(t.amount)} · ${Math.round(t.rate*100)}% · ${fmt(t.amount*(1+t.rate*24))}</td></tr>`).join('')}</table>`;
-  const terms=`<ul class="loan-terms"><li>포인트가 0P이고 갚지 않은 대출이 없을 때만 빌릴 수 있습니다.</li><li>대출은 <b>하루(24시간)에 한 번</b>입니다. 그 전에 갚아 두면 하루가 지난 뒤 다시 빌릴 수 있습니다.</li><li>빌릴 때마다 금액과 이자가 커지고, 4번째부터는 3차 조건으로 빌립니다.</li><li>빌린 뒤 <b>24시간 동안만</b> 게임에 쓸 수 있습니다. 그 뒤에는 갚기 전까지 게임을 할 수 없습니다.</li><li>이자는 갚을 때까지 계속 늘어납니다.</li></ul>${tierTbl}`;
-  if(!l){
-    const can=S.bal<1&&!busy&&!cooling;const wd=new Date(waitUntil);const when=(wd.getMonth()+1)+'/'+wd.getDate()+' '+String(wd.getHours()).padStart(2,'0')+':'+String(wd.getMinutes()).padStart(2,'0');
-    el.innerHTML=`<div class="eyebrow">대출 없음 · 지금까지 ${cnt}번 빌림</div>${terms}<div><button class="btn primary" type="button" id="loanGo" ${can?'':'disabled'}>${cnt+1}번째 대출 ${fmt(next.amount)} 받기 (시간당 ${Math.round(next.rate*100)}%)</button></div><div class="hint">${cooling?'다음 대출은 '+when+' 이후에 받을 수 있습니다.':can?'':'지금 보유 포인트는 '+fmt(S.bal)+'입니다. 포인트를 모두 잃었을 때만 대출을 받을 수 있습니다.'}</div>`;
-    const b=$('#loanGo');if(b)b.onclick=()=>{if(!svSend({t:'loan'}))toast('서버에 연결되어 있지 않습니다');};
-    return;
-  }
   const paint=()=>{
-    const debt=debtNow(l),left=l.at+LOAN_TERM-Date.now(),exp=left<=0;
-    const hrs=(Date.now()-l.at)/3600000;
-    const hm=ms=>{const m=Math.max(0,Math.floor(ms/60000));return Math.floor(m/60)+'시간 '+(m%60)+'분';};
-    el.innerHTML=`<div class="eyebrow">${l.n||cnt}차 대출 · ${exp?'만기 지남 · 게임 불가':'사용 중'}</div>
-      <div><div class="hint">지금 갚아야 할 금액</div><div class="loan-big">${fmt(debt)}</div></div>
-      <div class="row"><span>빌린 돈</span><b>${fmt(l.principal)}</b></div>
-      <div class="row"><span>이자 (${hrs.toFixed(1)}시간 × ${Math.round((l.rate||.2)*100)}%)</span><b>${fmt(debt-l.principal)}</b></div>
-      <div class="row"><span>빌린 시각</span><b>${new Date(l.at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</b></div>
-      <div class="row"><span>${exp?'사용 기간':'게임에 쓸 수 있는 남은 시간'}</span><b style="color:${exp?'#e08a80':'inherit'}">${exp?'끝남':hm(left)}</b></div>
-      <div class="row"><span>보유 포인트</span><b>${fmt(S.bal)}</b></div>
-      <div><button class="btn primary" type="button" id="repayGo" ${S.bal>=debt&&!busy?'':'disabled'}>${fmt(debt)} 갚기</button></div>
-      <div class="hint">${S.bal>=debt?'':'갚으려면 '+fmt(debt-S.bal)+'가 더 필요합니다. 관리자에게 도움을 요청할 수 있습니다.'}</div>`;
-    const b=$('#repayGo');if(b)b.onclick=()=>{if(!svSend({t:'repay'}))toast('서버에 연결되어 있지 않습니다');};
+    const Ls=myLenders();const td=totalDebt();
+    $('#loanTotal').textContent=td?'빚 합계 '+fmt(td)+' ('+activeOf().length+'곳)':'';
+    el.innerHTML=Ls.map(L=>{
+      const a=L.active,cnt=L.count||0,ti=Math.min(cnt,2);
+      const tiers=`<div class="tiers">${LOAN_AMOUNTS.map((amt,i)=>`<span class="${!a&&i===ti?'next':i<ti||(a&&i<=Math.min(cnt-1,2)&&i<ti)?'used':''}">${i===2?'3차~':(i+1)+'차'}<br>${amt/10000}만 · ${Math.round(L.rates[i]*100)}%</span>`).join('')}</div>`;
+      let body;
+      if(a){const debt=debtNow(a),left=a.at+LOAN_TERM-Date.now(),exp=left<=0,hrs=(Date.now()-a.at)/3600000;
+        body=`<div class="eyebrow" style="color:${exp?'#e08a80':'var(--mute)'}">${a.n}번째 대출 · ${exp?'만기 지남 · 게임 불가':'사용 중'}</div>
+          <div><div class="hint">지금 갚아야 할 금액</div><div class="loan-big">${fmt(debt)}</div></div>
+          <div class="row"><span>빌린 돈</span><b>${fmt(a.principal)}</b></div>
+          <div class="row"><span>이자 (${hrs.toFixed(1)}시간 × ${Math.round(a.rate*100)}%)</span><b>${fmt(debt-a.principal)}</b></div>
+          <div class="row"><span>${exp?'사용 기간':'게임에 쓸 수 있는 남은 시간'}</span><b style="color:${exp?'#e08a80':'inherit'}">${exp?'끝남':hm(left)}</b></div>
+          <button class="btn primary" type="button" data-repay="${L.k}" ${S.bal>=debt&&!busy?'':'disabled'}>${fmt(debt)} 갚기</button>
+          <div class="hint">${S.bal>=debt?'':'갚으려면 '+fmt(debt-S.bal)+'가 더 필요합니다.'}</div>`;}
+      else{const cool=Date.now()<(L.nextAt||0),amt=LOAN_AMOUNTS[ti],rate=L.rates[ti],can=S.bal<1&&!busy&&!cool;
+        body=`<div class="eyebrow">${cnt}번 빌림 · 다음은 ${cnt+1}번째</div>
+          <div class="row"><span>빌릴 수 있는 돈</span><b>${fmt(amt)}</b></div>
+          <div class="row"><span>시간당 이자</span><b>${Math.round(rate*100)}%</b></div>
+          <div class="row"><span>24시간 뒤 갚을 돈</span><b style="color:#e08a80">${fmt(amt*(1+rate*24))}</b></div>
+          <button class="btn primary" type="button" data-loan="${L.k}" ${can?'':'disabled'}>${fmt(amt)} 빌리기</button>
+          <div class="hint">${cool?whenTxt(L.nextAt)+' 이후에 다시 빌릴 수 있습니다.':can?'':'포인트가 0P일 때만 빌릴 수 있습니다. (지금 '+fmt(S.bal)+')'}</div>`;}
+      return`<div class="lender">${lenderBanner(L.k)}<div class="lbody">${tiers}${body}</div></div>`;
+    }).join('');
   };
-  paint();loanTimer=setInterval(()=>{if(view!=='loan'){clearInterval(loanTimer);return;}paint();},1000);
+  paint();loanTimer=setInterval(()=>{if(view!=='loan'){clearInterval(loanTimer);return;}if(!el.contains(document.activeElement))paint();},1000);
 }
+$('#loanCard').addEventListener('click',e=>{const b=e.target.closest('[data-loan],[data-repay]');if(!b||b.disabled)return;
+  const m=b.dataset.loan?{t:'loan',k:b.dataset.loan}:{t:'repay',k:b.dataset.repay};if(!svSend(m))toast('서버에 연결되어 있지 않습니다');});
+['#lobbyAd','#brokeAd'].forEach(id=>$(id).addEventListener('click',()=>show('loan')));
 $('#brokeLoan').onclick=()=>show('loan');
-setInterval(()=>{if(S.me&&S.me.loan&&!busy)updateBal();},30000);
+setInterval(()=>{if(S.me&&activeOf().length&&!busy)updateBal();},30000);
 
 /* ---------------- 1:1 chat ---------------- */
 const tm=t=>{const d=new Date(t);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
