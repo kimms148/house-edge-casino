@@ -188,6 +188,12 @@
 </div>
 
 <div id="toast"></div>
+<div id="logModal" class="modal admin-scope" hidden style="border:0;border-radius:0;background:#000b"><div class="box" role="dialog" aria-modal="true" aria-labelledby="logT" style="max-width:860px;background:var(--steel);border-color:var(--sline)">
+  <div class="view-head" style="margin:0"><div><div class="eyebrow">STUDENT LOG</div><h2 id="logT">학생 로그</h2></div><button class="abtn" type="button" id="logClose" style="padding:6px 14px">닫기</button></div>
+  <div class="akpis" id="logKpis" style="margin:0"></div>
+  <div class="filters" style="margin:0"><select id="logFilter"><option value="">전체</option><option value="game">게임만</option><option value="money">돈 변동만 (지급·회수·대출)</option><option value="manip">조작된 판만</option></select><select id="logGame"><option value="">모든 게임</option></select><span class="hint" id="logCount" style="align-self:center;color:var(--smute)"></span></div>
+  <div class="tbl-wrap" style="max-height:min(56vh,520px);overflow:auto"><table class="t" style="min-width:0"><thead><tr><th>시각</th><th>내용</th><th class="n">베팅</th><th class="n">받은 돈</th><th class="n">변동</th><th class="n">잔액</th></tr></thead><tbody id="logBody"></tbody></table></div>
+</div></div>
 <div id="revealModal" class="modal" hidden></div>
 <div id="installModal" class="modal" hidden><div class="box" role="dialog" aria-modal="true" aria-labelledby="instT">
   <div class="eyebrow">홈 화면에 추가</div><h2 id="instT">앱으로 설치하기</h2>

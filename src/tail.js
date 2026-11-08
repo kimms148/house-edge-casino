@@ -215,7 +215,7 @@ function makeRow(u){
   <div class="pc-money"><b class="bl"></b><span class="pc-rate rt"></span><span class="pc-loan"></span></div>
   <div class="pc-live" hidden></div>
   <div class="pc-meta"></div>
-  <div class="abtns"><button type="button" class="abtn w" data-c="fw">다음 판 승</button><button type="button" class="abtn l" data-c="fl">다음 판 패</button><button type="button" class="abtn w" data-c="lw">이번 판 승</button><button type="button" class="abtn l" data-c="ll">이번 판 패</button><button type="button" class="abtn" data-c="chat">메시지</button><button type="button" class="abtn" data-c="loanreset">대출 초기화</button></div>
+  <div class="abtns"><button type="button" class="abtn w" data-c="fw">다음 판 승</button><button type="button" class="abtn l" data-c="fl">다음 판 패</button><button type="button" class="abtn w" data-c="lw">이번 판 승</button><button type="button" class="abtn l" data-c="ll">이번 판 패</button><button type="button" class="abtn" data-c="chat">메시지</button><button type="button" class="abtn" data-c="log">로그</button><button type="button" class="abtn" data-c="loanreset">대출 초기화</button></div>
   <div class="abtns"><input type="number" min="0" step="1000" placeholder="금액" aria-label="지급·회수 금액" class="amt"><button type="button" class="abtn w" data-c="add">지급</button><button type="button" class="abtn l" data-c="sub">회수</button><button type="button" class="abtn" data-c="set">설정</button></div>
   <details class="more"><summary>개인 확률 · 비밀번호 · 계정</summary>
     <div class="slider-row" style="margin-top:6px"><input type="range" min="-100" max="100" step="5" aria-label="개인 승률 조정"><output></output></div><div class="hint eff" style="color:var(--smute);font-size:11px"></div>
@@ -229,6 +229,7 @@ function makeRow(u){
     else if(c==='lw')sendCmd(sid,'live',{want:'win'});else if(c==='ll')sendCmd(sid,'live',{want:'lose'});
     else if(c==='add'||c==='sub'||c==='set'){const a=Math.floor(+r.amt.value);if(!(a>=0)||r.amt.value===''){toast('금액을 입력하세요');return;}svSend({t:'adm',op:c,sid,amount:a});r.amt.value='';}
     else if(c==='chat'){admChat=sid;show('chats');}
+    else if(c==='log'){openLog(sid);}
     else if(c==='forgive'){svSend({t:'adm',op:'forgive',sid});}
     else if(c==='loanreset'){if(Date.now()-(r.lrArm||0)>3000){r.lrArm=Date.now();b.textContent='한 번 더 누르면 초기화';return;}b.textContent='대출 초기화';svSend({t:'adm',op:'loanreset',sid});}
     else if(c==='pw'){const p=r.npw.value;if(p.length<4){toast('새 비밀번호는 4자 이상이어야 합니다');return;}svSend({t:'adm',op:'pw',sid,pw:p});r.npw.value='';}
@@ -264,9 +265,38 @@ function makeRow(u){
     r.updateEff();};
   return r;
 }
-function addFeed(e){feed.unshift(e);if(feed.length>80)feed.pop();
-  const el=$('#feed');el.innerHTML=feed.map(f=>{const d=new Date(f.t);const net=f.p-f.b;return`<div><span style="color:var(--smute)">${[d.getHours(),d.getMinutes(),d.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':')}</span><b>${f.cls}반 ${f.num}번 ${esc(f.name)}</b><span>${esc((META[f.g]||{}).name||f.g)}</span><span>베팅 ${fmt(f.b)}</span><span class="${net>=0?'pos':'neg'}">${sfmt(net)}</span>${f.m?'<span class="tg">조작됨</span>':''}</div>`;}).join('');}
+/* one student's log (admin) */
+let logSid=null,logData=null;
+function openLog(sid){logSid=sid;logData=null;$('#logBody').innerHTML='<tr><td colspan="6" class="empty-note">불러오는 중…</td></tr>';$('#logKpis').innerHTML='';
+  const u=(USERS||[]).find(x=>x.sid===sid);$('#logT').textContent=u?`${u.cls}반 ${u.num}번 ${u.name} 로그`:'학생 로그';
+  $('#logGame').innerHTML='<option value="">모든 게임</option>'+GIDS.map(g=>`<option value="${g}">${META[g].name}</option>`).join('');
+  $('#logModal').hidden=false;svSend({t:'adm',op:'userlog',sid});}
+function closeLog(){$('#logModal').hidden=true;logSid=null;svSend({t:'adm',op:'userlogclose'});}
+$('#logClose').onclick=closeLog;
+$('#logModal').addEventListener('click',e=>{if(e.target.id==='logModal')closeLog();});
+$('#logFilter').addEventListener('change',()=>logData&&renderLog(logData));
+$('#logGame').addEventListener('change',()=>logData&&renderLog(logData));
+function renderLog(m){
+  if(m.sid!==logSid)return;logData=m;const st=m.stats||{};
+  $('#logKpis').innerHTML=`<div class="akpi"><span>지금 잔액</span><b>${fmt(m.bal)}</b></div><div class="akpi"><span>판수 · 승률</span><b>${st.rounds||0} · ${st.rounds?Math.round(st.wins/st.rounds*100):0}%</b></div><div class="akpi"><span>총 베팅</span><b>${fmt(st.wag||0)}</b></div><div class="akpi"><span>게임 손익</span><b class="${(st.net||0)>=0?'pos':'neg'}">${sfmt(st.net||0)}</b></div><div class="akpi"><span>조작된 판</span><b>${st.manip||0}</b><small>${st.md?'조작으로 '+sfmt(st.md):''}</small></div>`;
+  const f=$('#logFilter').value,gf=$('#logGame').value;
+  let rows=(m.hist||[]).map(h=>({t:h.t,game:h.g,b:h.b,p:h.p,d:h.p-h.b,m:h.m,md:h.d}));
+  rows=rows.concat((m.events||[]).map(e=>({t:e.t,ev:e,d:e.d,bal:e.b})));
+  if(f==='game')rows=rows.filter(r=>r.game);if(f==='money')rows=rows.filter(r=>r.ev);if(f==='manip')rows=rows.filter(r=>r.m);
+  if(gf)rows=rows.filter(r=>r.game===gf);
+  rows.sort((a,b)=>b.t-a.t);
+  const when=t=>{const d=new Date(t);return (d.getMonth()+1)+'/'+d.getDate()+' '+[d.getHours(),d.getMinutes(),d.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':');};
+  $('#logCount').textContent=rows.length+'건 (게임 기록은 최근 300판까지)';
+  $('#logBody').innerHTML=rows.length?rows.map(r=>r.ev
+    ?`<tr><td>${when(r.t)}</td><td><span class="tag" style="color:${r.ev.k==='give'||r.ev.k==='loan'?'#74c79a':r.ev.k==='take'||r.ev.k==='repay'?'#e08a80':'var(--sink)'}">${({give:'지급',take:'회수',loan:'대출',repay:'상환',admin:'관리'})[r.ev.k]||r.ev.k}</span> ${esc(r.ev.x)}</td><td class="n">–</td><td class="n">–</td><td class="n ${r.d>0?'pos':r.d<0?'neg':''}">${r.d?sfmt(r.d):'–'}</td><td class="n">${fmt(r.bal)}</td></tr>`
+    :`<tr><td>${when(r.t)}</td><td>${esc((META[r.game]||{}).name||r.game)}${r.m?' <span class="tag" style="color:#d9a66b;border-color:#6a5530">조작됨'+(r.md?' '+sfmt(r.md):'')+'</span>':''}</td><td class="n">${fmt(r.b)}</td><td class="n">${fmt(r.p)}</td><td class="n ${r.d>0?'pos':r.d<0?'neg':''}">${sfmt(r.d)}</td><td class="n">–</td></tr>`).join('')
+    :'<tr><td colspan="6" class="empty-note">기록이 없습니다.</td></tr>';
+}
 
+function addFeed(e){feed.unshift(e);if(feed.length>80)feed.pop();
+  const el=$('#feed');el.innerHTML=feed.map(f=>{const d=new Date(f.t);const net=f.p-f.b;return`<div><span style="color:var(--smute)">${[d.getHours(),d.getMinutes(),d.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':')}</span><b><button type="button" class="abtn" data-log="${f.sid}" style="padding:0 6px">${f.cls}반 ${f.num}번 ${esc(f.name)}</button></b><span>${esc((META[f.g]||{}).name||f.g)}</span><span>베팅 ${fmt(f.b)}</span><span class="${net>=0?'pos':'neg'}">${sfmt(net)}</span>${f.m?'<span class="tg">조작됨</span>':''}</div>`;}).join('');}
+
+$('#feed').addEventListener('click',e=>{const b=e.target.closest('[data-log]');if(b)openLog(b.dataset.log);});
 /* inbox (admin) */
 $('#inboxFilter').addEventListener('change',renderInbox);
 $('#inboxReadAll').onclick=()=>svSend({t:'adm',op:'mailreadall'});

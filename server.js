@@ -217,6 +217,14 @@ const myMail = sid => mailList().filter(m => m.sid === sid).slice(0, 30).map(m =
 
 function feedEvent(u, h) { const m = { t: 'feed', e: { t: h.t, sid: u.sid, name: u.name, cls: u.cls, num: u.num, g: h.g, b: h.b, p: h.p, m: h.m || 0 } }; for (const c of admins()) send(c, m); }
 
+// 학생별 사건 기록 (관리자 지급·회수, 대출, 상환, 초기화, 비밀번호 변경 등). 게임 결과는 u.hist 에 따로 있다.
+function logEv(u, kind, text, delta) {
+  u.events = (u.events || []).concat([{ t: Date.now(), k: kind, x: text, d: delta || 0, b: u.bal }]);
+  if (u.events.length > 300) u.events = u.events.slice(-300);
+  pushLog(u.sid);
+}
+function userLogMsg(u) { return { t: 'userlog', sid: u.sid, hist: u.hist, events: u.events || [], stats: u.stats, bal: u.bal }; }
+function pushLog(sid) { const u = DB.users[sid]; if (!u) return; const m = userLogMsg(u); for (const c of admins()) if (c.watch === sid) send(c, m); }
 function record(u, g, bet, pay, manip, d) {
   const h = { g, b: bet, p: pay, t: Date.now() }; if (manip) { h.m = 1; h.d = Math.round(d || 0); }
   const st = u.stats, gs = st.games[g] || (st.games[g] = { n: 0, w: 0, net: 0, wag: 0 });
@@ -326,7 +334,7 @@ wss.on('connection', ws => {
         u.bal += pay; u.pending = null;
         const h = record(u, g, bet, pay, !!m.manip, +m.d || 0);
         if ((g === 'horse' || g === 'snail') && Number.isInteger(m.winner)) updateStable(g, m.winner);
-        store.saveUser(u); pushBal(u.sid, { h }); feedEvent(u, h); scheduleUsers(); scheduleRank();
+        store.saveUser(u); pushBal(u.sid, { h }); feedEvent(u, h); pushLog(u.sid); scheduleUsers(); scheduleRank();
         break;
       }
       case 'mail': {
@@ -348,6 +356,7 @@ wss.on('connection', ws => {
         if (Date.now() < nextLoanAt(u)) { const d = new Date(nextLoanAt(u)); return send(c, { t: 'loanerr', msg: '대출은 하루에 한 번입니다. ' + (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ' 이후에 다시 빌릴 수 있습니다.' }); }
         const tier = LOAN_TIERS[Math.min(loanCount(u), LOAN_TIERS.length - 1)];
         u.loan = { principal: tier.amount, rate: tier.rate, at: Date.now(), n: loanCount(u) + 1 }; u.bal += tier.amount;
+        logEv(u, 'loan', u.loan.n + '차 대출 (시간당 ' + Math.round(tier.rate * 100) + '%)', tier.amount);
         u.loans = (u.loans || []).concat([{ principal: tier.amount, rate: tier.rate, at: u.loan.at }]);
         store.saveUser(u); pushBal(u.sid, { loanMsg: u.loan.n + '차 대출 ' + tier.amount.toLocaleString() + 'P를 받았습니다. 24시간 안에 쓸 수 있고, 이자는 시간당 ' + Math.round(tier.rate * 100) + '%입니다.' }); scheduleUsers(); scheduleRank();
         break;
@@ -358,7 +367,7 @@ wss.on('connection', ws => {
         const d = debtOf(u);
         if (u.bal < d) return send(c, { t: 'loanerr', msg: '갚을 돈이 부족합니다. 필요한 금액 ' + d.toLocaleString() + 'P, 보유 ' + u.bal.toLocaleString() + 'P' });
         u.bal -= d; const last = (u.loans || [])[u.loans.length - 1]; if (last && !last.repaidAt) { last.repaidAt = Date.now(); last.paid = d; }
-        u.loan = null; store.saveUser(u); pushBal(u.sid, { loanMsg: '대출금과 이자 ' + d.toLocaleString() + 'P를 갚았습니다.' }); scheduleUsers(); scheduleRank();
+        u.loan = null; logEv(u, 'repay', '대출 상환 (원금 ' + (last ? last.principal : 0).toLocaleString() + 'P + 이자)', -d); store.saveUser(u); pushBal(u.sid, { loanMsg: '대출금과 이자 ' + d.toLocaleString() + 'P를 갚았습니다.' }); scheduleUsers(); scheduleRank();
         break;
       }
       case 'chat': {
@@ -380,6 +389,8 @@ wss.on('connection', ws => {
         if (!c.admin) return;
         const tu = DB.users[String(m.sid || '')];
         const ack = (ok, msg) => send(c, { t: 'admack', ok, msg });
+        if (m.op === 'userlog') { const lu = DB.users[String(m.sid || '')]; c.watch = lu ? lu.sid : null; if (lu) send(c, userLogMsg(lu)); return; }
+        if (m.op === 'userlogclose') { c.watch = null; return; }
         if (m.op === 'mailreadall') {
           const touched = new Set();
           for (const mm of Object.values(DB.mail)) if (!mm.read) { mm.read = true; store.saveMail(mm); touched.add(mm.sid); }
@@ -402,7 +413,7 @@ wss.on('connection', ws => {
           const amt = Math.floor(+m.amount); const cls = +m.cls || 0; const take = !!m.take;
           if (!(amt > 0) || amt > 1e9) return ack(false, '금액을 확인하세요.');
           let n = 0;
-          for (const x of Object.values(DB.users)) { if (cls && x.cls !== cls) continue; const b0 = x.bal; x.bal = take ? Math.max(0, x.bal - amt) : x.bal + amt; n++; store.saveUser(x); pushBal(x.sid, { by: 'admin', delta: x.bal - b0 }); }
+          for (const x of Object.values(DB.users)) { if (cls && x.cls !== cls) continue; const b0 = x.bal; x.bal = take ? Math.max(0, x.bal - amt) : x.bal + amt; n++; logEv(x, take ? 'take' : 'give', (cls ? cls + '반' : '전체') + ' ' + (take ? '회수' : '지급'), x.bal - b0); store.saveUser(x); pushBal(x.sid, { by: 'admin', delta: x.bal - b0 }); }
           scheduleUsers(); scheduleRank();
           return ack(true, (cls ? cls + '반' : '전체') + ' ' + n + '명 ' + (take ? '회수' : '지급') + ': ' + amt.toLocaleString() + 'P씩');
         }
@@ -424,22 +435,23 @@ wss.on('connection', ws => {
         if (m.op === 'loanreset') {
           const cur = tu.loans || [];
           if (tu.loan) { const lastL = cur[cur.length - 1]; if (lastL && !lastL.repaidAt) lastL.forgivenAt = Date.now(); }
-          tu.loansArchived = (tu.loansArchived || []).concat(cur).slice(-200); tu.loans = []; tu.loan = null;
+          tu.loansArchived = (tu.loansArchived || []).concat(cur).slice(-200); tu.loans = []; tu.loan = null; logEv(tu, 'admin', '관리자가 대출 초기화', 0);
           store.saveUser(tu); pushBal(tu.sid, { by: 'admin', loanMsg: '관리자가 대출 기록을 초기화했습니다. 다음 대출은 1차 조건으로 바로 받을 수 있습니다.' }); scheduleUsers(); scheduleRank();
           return ack(true, tu.name + ' 학생의 대출을 초기화했습니다. (빚 없음, 다음 대출 1차부터)');
         }
-        if (m.op === 'forgive') { if (!tu.loan) return ack(false, '대출이 없습니다.'); const lastL = (tu.loans || [])[tu.loans.length - 1]; if (lastL && !lastL.repaidAt) lastL.forgivenAt = Date.now(); tu.loan = null; store.saveUser(tu); pushBal(tu.sid, { by: 'admin' }); scheduleUsers(); scheduleRank(); return ack(true, tu.name + ' 학생의 대출을 없앴습니다.'); }
+        if (m.op === 'forgive') { if (!tu.loan) return ack(false, '대출이 없습니다.'); const lastL = (tu.loans || [])[tu.loans.length - 1]; if (lastL && !lastL.repaidAt) lastL.forgivenAt = Date.now(); tu.loan = null; logEv(tu, 'admin', '관리자가 대출 없앰', 0); store.saveUser(tu); pushBal(tu.sid, { by: 'admin' }); scheduleUsers(); scheduleRank(); return ack(true, tu.name + ' 학생의 대출을 없앴습니다.'); }
         const amt = Math.floor(+m.amount);
         if (m.op === 'add' || m.op === 'sub' || m.op === 'set') {
           if (!(amt >= 0) || amt > 1e12) return ack(false, '금액을 확인하세요.');
           const before = tu.bal;
           tu.bal = m.op === 'add' ? tu.bal + amt : m.op === 'sub' ? Math.max(0, tu.bal - amt) : amt;
+          logEv(tu, m.op === 'add' ? 'give' : m.op === 'sub' ? 'take' : 'admin', m.op === 'add' ? '관리자 지급' : m.op === 'sub' ? '관리자 회수' : '관리자가 포인트 설정', tu.bal - before);
           store.saveUser(tu); pushBal(tu.sid, { by: 'admin', delta: tu.bal - before }); scheduleUsers(); scheduleRank();
           return ack(true, `${tu.name}: ${before.toLocaleString()}P → ${tu.bal.toLocaleString()}P`);
         }
         if (m.op === 'pw') {
           const pw = String(m.pw || ''); if (pw.length < 4) return ack(false, '새 비밀번호는 4자 이상이어야 합니다.');
-          tu.salt = crypto.randomBytes(16).toString('hex'); tu.hash = hashPw(pw, tu.salt); tu.sessions = [];
+          tu.salt = crypto.randomBytes(16).toString('hex'); tu.hash = hashPw(pw, tu.salt); tu.sessions = []; logEv(tu, 'admin', '관리자가 비밀번호 변경', 0);
           for (const [h, p] of tokens) if (p.sid === tu.sid) tokens.delete(h);
           store.saveUser(tu); return ack(true, `${tu.name} 비밀번호를 바꿨습니다.`);
         }

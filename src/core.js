@@ -127,6 +127,7 @@ function onServer(m){
     case 'users':if(S.admin){USERS=m.users;renderAdmin();if(view==='chats')renderChats();}break;
     case 'mail':if(S.admin){INBOX=m.list;renderInbox();}break;
     case 'feed':if(S.admin)addFeed(m.e);break;
+    case 'userlog':if(S.admin)renderLog(m);break;
     case 'admack':toast(m.msg||(m.ok?'완료':'실패'));break;
     case 'loanerr':toast(m.msg);break;
     case 'stable':onStable(m.stable);break;
