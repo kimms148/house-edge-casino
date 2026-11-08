@@ -1713,7 +1713,7 @@ function makeRow(u){
   <div class="pc-money"><b class="bl"></b><span class="pc-rate rt"></span><span class="pc-loan"></span></div>
   <div class="pc-live" hidden></div>
   <div class="pc-meta"></div>
-  <div class="abtns"><button type="button" class="abtn w" data-c="fw">다음 판 승</button><button type="button" class="abtn l" data-c="fl">다음 판 패</button><button type="button" class="abtn w" data-c="lw">이번 판 승</button><button type="button" class="abtn l" data-c="ll">이번 판 패</button><button type="button" class="abtn" data-c="chat">메시지</button></div>
+  <div class="abtns"><button type="button" class="abtn w" data-c="fw">다음 판 승</button><button type="button" class="abtn l" data-c="fl">다음 판 패</button><button type="button" class="abtn w" data-c="lw">이번 판 승</button><button type="button" class="abtn l" data-c="ll">이번 판 패</button><button type="button" class="abtn" data-c="chat">메시지</button><button type="button" class="abtn" data-c="loanreset">대출 초기화</button></div>
   <div class="abtns"><input type="number" min="0" step="1000" placeholder="금액" aria-label="지급·회수 금액" class="amt"><button type="button" class="abtn w" data-c="add">지급</button><button type="button" class="abtn l" data-c="sub">회수</button><button type="button" class="abtn" data-c="set">설정</button></div>
   <details class="more"><summary>개인 확률 · 비밀번호 · 계정</summary>
     <div class="slider-row" style="margin-top:6px"><input type="range" min="-100" max="100" step="5" aria-label="개인 승률 조정"><output></output></div><div class="hint eff" style="color:var(--smute);font-size:11px"></div>
@@ -1728,6 +1728,7 @@ function makeRow(u){
     else if(c==='add'||c==='sub'||c==='set'){const a=Math.floor(+r.amt.value);if(!(a>=0)||r.amt.value===''){toast('금액을 입력하세요');return;}svSend({t:'adm',op:c,sid,amount:a});r.amt.value='';}
     else if(c==='chat'){admChat=sid;show('chats');}
     else if(c==='forgive'){svSend({t:'adm',op:'forgive',sid});}
+    else if(c==='loanreset'){if(Date.now()-(r.lrArm||0)>3000){r.lrArm=Date.now();b.textContent='한 번 더 누르면 초기화';return;}b.textContent='대출 초기화';svSend({t:'adm',op:'loanreset',sid});}
     else if(c==='pw'){const p=r.npw.value;if(p.length<4){toast('새 비밀번호는 4자 이상이어야 합니다');return;}svSend({t:'adm',op:'pw',sid,pw:p});r.npw.value='';}
     else if(c==='del'){if(Date.now()-r.delArm>3000){r.delArm=Date.now();b.textContent='한 번 더 누르면 삭제';return;}svSend({t:'adm',op:'del',sid});}
   });
@@ -1753,6 +1754,7 @@ function makeRow(u){
     tr.classList.toggle('playing',!!nu.pending);tr.classList.toggle('broke',!nu.pending&&nu.bal<1);tr.classList.toggle('offline',!nu.online);
     tr.querySelector('[data-c=chat]').textContent=nu.chatOpen?'대화 중':'메시지';
     tr.querySelector('[data-c=forgive]').hidden=!nu.loan;
+    const lr=tr.querySelector('[data-c=loanreset]');lr.hidden=!(nu.loan||nu.loanCount);lr.title='지금 대출과 빚을 없애고, 대출 단계(1차부터)와 하루 대기 시간을 처음으로 돌립니다';
     const canLive=!!nu.pending&&nu.online&&['horse','snail','crash'].includes(nu.pending.g);
     tr.querySelectorAll('[data-c=lw],[data-c=ll]').forEach(b=>{b.disabled=!canLive;b.title=canLive?'':'경마·달팽이·그래프 게임이 진행 중일 때만 쓸 수 있습니다';});
     tr.querySelectorAll('[data-c=fw],[data-c=fl]').forEach(b=>{b.disabled=!nu.online;b.title=nu.online?'':'접속 중일 때만 쓸 수 있습니다';});

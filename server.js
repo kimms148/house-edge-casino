@@ -202,7 +202,7 @@ function usersMsg() {
     sid: u.sid, name: u.name, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: u.loan ? { principal: u.loan.principal, rate: u.loan.rate || 0.2, n: u.loan.n || 1, at: u.loan.at, debt: debtOf(u), expired: loanExpired(u) } : null, loanCount: loanCount(u), chatOpen: !!(chatOf(u.sid) && chatOf(u.sid).open), stats: { rounds: u.stats.rounds, wins: u.stats.wins, net: u.stats.net, wag: u.stats.wag, manip: u.stats.manip, md: u.stats.md },
     pending: u.pending ? { g: u.pending.g, bet: u.pending.bet } : null, online: online[u.sid] ? online[u.sid].n : 0, presence: online[u.sid] ? online[u.sid].presence : null,
     last: u.hist.length ? u.hist[u.hist.length - 1] : null, created: u.created,
-    loanStats: (u.loans || []).reduce((a, l) => { a.n++; a.lent += l.principal; if (l.repaidAt) { a.repaid += l.principal; a.interest += (l.paid || l.principal) - l.principal; } if (l.forgivenAt) a.forgiven += l.principal; return a; }, { n: 0, lent: 0, repaid: 0, interest: 0, forgiven: 0 }),
+    loanStats: (u.loansArchived || []).concat(u.loans || []).reduce((a, l) => { a.n++; a.lent += l.principal; if (l.repaidAt) { a.repaid += l.principal; a.interest += (l.paid || l.principal) - l.principal; } if (l.forgivenAt) a.forgiven += l.principal; return a; }, { n: 0, lent: 0, repaid: 0, interest: 0, forgiven: 0 }),
   })).sort((a, b) => b.online - a.online || a.cls - b.cls || a.num - b.num);
   return { t: 'users', users };
 }
@@ -419,6 +419,14 @@ wss.on('connection', ws => {
           const ch = chatOf(tu.sid); if (!ch) return; ch.open = false; ch.unread = 0;
           ch.msgs.push({ from: 'system', body: '관리자가 대화를 끝냈습니다.', t: Date.now() });
           saveChat(tu.sid, ch); pushChat(tu.sid); scheduleUsers(); return ack(true, tu.name + ' 학생과의 대화를 끝냈습니다.');
+        }
+        // 대출 초기화: 지금 대출을 없애고, 단계(1차부터)와 하루 대기 시간도 처음으로 돌린다. 기록은 관리자 통계용으로 따로 보관.
+        if (m.op === 'loanreset') {
+          const cur = tu.loans || [];
+          if (tu.loan) { const lastL = cur[cur.length - 1]; if (lastL && !lastL.repaidAt) lastL.forgivenAt = Date.now(); }
+          tu.loansArchived = (tu.loansArchived || []).concat(cur).slice(-200); tu.loans = []; tu.loan = null;
+          store.saveUser(tu); pushBal(tu.sid, { by: 'admin', loanMsg: '관리자가 대출 기록을 초기화했습니다. 다음 대출은 1차 조건으로 바로 받을 수 있습니다.' }); scheduleUsers(); scheduleRank();
+          return ack(true, tu.name + ' 학생의 대출을 초기화했습니다. (빚 없음, 다음 대출 1차부터)');
         }
         if (m.op === 'forgive') { if (!tu.loan) return ack(false, '대출이 없습니다.'); const lastL = (tu.loans || [])[tu.loans.length - 1]; if (lastL && !lastL.repaidAt) lastL.forgivenAt = Date.now(); tu.loan = null; store.saveUser(tu); pushBal(tu.sid, { by: 'admin' }); scheduleUsers(); scheduleRank(); return ack(true, tu.name + ' 학생의 대출을 없앴습니다.'); }
         const amt = Math.floor(+m.amount);
