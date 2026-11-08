@@ -59,6 +59,7 @@
       <button class="back" id="backBtn" type="button">← 로비</button>
       <h2 id="gTitle">게임</h2>
       <span class="rule" id="gRule"></span>
+      <button class="back tut-open" id="tutBtn" type="button">게임 방법 보기</button>
     </div>
     <div class="game-grid">
       <div class="stage" id="stage"></div>
@@ -188,6 +189,13 @@
 </div>
 
 <div id="toast"></div>
+<div id="tutModal" class="modal tut" hidden><div class="box" role="dialog" aria-modal="true" aria-labelledby="tutT">
+  <div class="tut-nav" style="justify-content:space-between"><div><div class="eyebrow">게임 방법 · <span id="tutStep"></span></div><h2 id="tutT" style="font-size:20px">게임 방법</h2></div><button class="btn" type="button" id="tutReplay">↺ 다시 재생</button></div>
+  <div class="tut-scene" id="tutScene"></div>
+  <p class="tut-text" id="tutText"></p>
+  <div class="tut-nav"><button class="btn" type="button" id="tutPrev">← 이전</button><div class="tut-dots" id="tutDots"></div><button class="btn" type="button" id="tutNext">다음 →</button></div>
+  <div class="tut-foot"><label><input type="checkbox" id="tutSkip">이 게임 설명 다시 보지 않기</label><button class="btn primary" type="button" id="tutClose">시작하기</button></div>
+</div></div>
 <div id="logModal" class="modal admin-scope" hidden style="border:0;border-radius:0;background:#000b"><div class="box" role="dialog" aria-modal="true" aria-labelledby="logT" style="max-width:860px;background:var(--steel);border-color:var(--sline)">
   <div class="view-head" style="margin:0"><div><div class="eyebrow">STUDENT LOG</div><h2 id="logT">학생 로그</h2></div><button class="abtn" type="button" id="logClose" style="padding:6px 14px">닫기</button></div>
   <div class="akpis" id="logKpis" style="margin:0"></div>

@@ -16,8 +16,11 @@ GAMES.blackjack={id:'blackjack',mode:'play',shoe:[],choiceLabel:'누가 이길�
   newShoe(){const n=Math.max(1,Math.min(8,Math.floor(bjCfg().decks)||6));const s=[];for(let k=0;k<n;k++)for(let su=0;su<4;su++)for(let r=1;r<=13;r++)s.push({r,s:su});this.shoe=shuffle(s);this.decks=n;},
   ensure(){const n=Math.max(1,Math.min(8,Math.floor(bjCfg().decks)||6));if(this.shoe.length<52*n*0.25||this.decks!==n)this.newShoe();},
   // draw one card; with some chance look at two and keep the one that helps (or hurts) this hand
-  draw(sh,hand,good,bad,st){
+  draw(sh,hand,good,bad,st,isPlayer){
     let c=sh.pop();
+    // near-miss: when the player busts, make it bust by exactly 22 if such a card is close in the shoe
+    if(isPlayer&&nm('blackjack')&&bjScore(hand.concat([c]))<0&&bjVal(hand).t<=21){const need=22-bjVal(hand).t;
+      for(let i=sh.length-1;i>=Math.max(0,sh.length-12);i--){const v=sh[i].r===1?1:Math.min(10,sh[i].r);if(v===need){const alt=sh.splice(i,1)[0];sh.unshift(c);c=alt;break;}}}
     const g=rnd()<good,b=!g&&rnd()<bad;
     if(g||b){const c2=sh.pop();const s1=bjScore(hand.concat([c])),s2=bjScore(hand.concat([c2]));
       const take2=g?s2>s1:s2<s1;if(take2){sh.unshift(c);c=c2;st.manip=true;}else sh.unshift(c2);}
@@ -45,9 +48,9 @@ GAMES.blackjack={id:'blackjack',mode:'play',shoe:[],choiceLabel:'누가 이길�
   async playSelf(bet){
     const c=bjCfg(),e=this.edges(bias('blackjack')),st={manip:false},sh=this.shoe;
     const P=[],D=[];const pc=$('#bjPc'),dc=$('#bjDc'),msg=$('#bjMsg');pc.innerHTML=dc.innerHTML='';msg.textContent='';
-    P.push(this.draw(sh,P,e.pGood,e.pBad,st));await this.show(pc,P[0]);this.paint('bjP',P);
+    P.push(this.draw(sh,P,e.pGood,e.pBad,st,true));await this.show(pc,P[0]);this.paint('bjP',P);
     D.push(this.draw(sh,D,e.dGood,e.dBad,st));await this.show(dc,D[0]);this.paint('bjD',D);
-    P.push(this.draw(sh,P,e.pGood,e.pBad,st));await this.show(pc,P[1]);this.paint('bjP',P);
+    P.push(this.draw(sh,P,e.pGood,e.pBad,st,true));await this.show(pc,P[1]);this.paint('bjP',P);
     D.push(this.draw(sh,D,e.dGood,e.dBad,st));const hole=await this.show(dc,D[1],true);$('#bjD').textContent=String(bjVal([D[0]]).t)+' + ?';
     let total=bet;const reveal=()=>{hole.classList.add('open');this.paint('bjD',D);};
     const pv=bjVal(P),dv=bjVal(D);
@@ -63,8 +66,8 @@ GAMES.blackjack={id:'blackjack',mode:'play',shoe:[],choiceLabel:'누가 이길�
       const a=await new Promise(res=>{act.onclick=ev=>{const b=ev.target.closest('[data-a]');if(b&&!b.disabled)res(b.dataset.a);};});
       act.hidden=true;msg.textContent='';
       if(a==='stand')break;
-      if(a==='double'){const ok=await betAdd(bet);if(!ok){first=false;continue;}total+=bet;P.push(this.draw(sh,P,e.pGood,e.pBad,st));await this.show(pc,P[P.length-1]);this.paint('bjP',P);break;}
-      P.push(this.draw(sh,P,e.pGood,e.pBad,st));await this.show(pc,P[P.length-1]);this.paint('bjP',P);first=false;
+      if(a==='double'){const ok=await betAdd(bet);if(!ok){first=false;continue;}total+=bet;P.push(this.draw(sh,P,e.pGood,e.pBad,st,true));await this.show(pc,P[P.length-1]);this.paint('bjP',P);break;}
+      P.push(this.draw(sh,P,e.pGood,e.pBad,st,true));await this.show(pc,P[P.length-1]);this.paint('bjP',P);first=false;
     }
     act.hidden=true;
     const p=bjVal(P).t;
@@ -82,7 +85,7 @@ GAMES.blackjack={id:'blackjack',mode:'play',shoe:[],choiceLabel:'누가 이길�
       P.push(this.draw(sh,P,0,e.pBad,st));D.push(this.draw(sh,D,e.dGood,0,st));P.push(this.draw(sh,P,0,e.pBad,st));D.push(this.draw(sh,D,e.dGood,0,st));
       let res;const pv=bjVal(P),dv=bjVal(D);
       if(pv.bj||dv.bj)res=pv.bj&&dv.bj?'T':pv.bj?'P':'D';
-      else{while(bjVal(P).t<17)P.push(this.draw(sh,P,0,e.pBad,st));
+      else{while(bjVal(P).t<17)P.push(this.draw(sh,P,0,e.pBad,st,true));
         if(bjVal(P).t>21)res='D';else{this.dealerPlays(sh,D,{dGood:e.dGood,dBad:0},st);const p=bjVal(P).t,d=bjVal(D).t;res=d>21||p>d?'P':d>p?'D':'T';}}
       return{P,D,sh,res,manip:st.manip};};
     const payOf=o=>o.res==='T'?(pick===2?Math.floor(bet*c.betT):bet):(pick===(o.res==='P'?0:1)?Math.floor(bet*(o.res==='P'?c.betP:c.betD)):0);
@@ -138,10 +141,15 @@ GAMES.roulette={id:'roulette',angle:0,choiceLabel:'베팅 종류',
   },
   async play(bet,pick){
     const bt=RBETS[pick],x=this.num();
-    const gen=()=>{const p=CFG.roul&&CFG.roul[bt.k];
+    const rc=myRounds('roulette'),sr=schedRule('roulette',rc.total,rc.per);
+    const gen=()=>{const p=sr&&isFinite(sr.v)?Math.max(0,Math.min(1,sr.v/100)):CFG.roul&&CFG.roul[bt.k];
       if(typeof p==='number'&&p>=0&&p<=1){const want=rnd()<p;const pool=[...Array(37).keys()].filter(n=>!!bt.win(n,x)===want);return pool.length?pool[Math.floor(rnd()*pool.length)]:Math.floor(rnd()*37);}
       return Math.floor(rnd()*37);};
-    const r=resolve('roulette',bet,gen,n=>bt.win(n,x)?bet*bt.pay:0);const n=r.o;
+    const r=resolve('roulette',bet,gen,n=>bt.win(n,x)?bet*bt.pay:0);let n=r.o;
+    // near-miss: a losing ball stops right next to what the player wanted
+    if(nm('roulette')&&!bt.win(n,x)&&rnd()<.75){const i=RW.indexOf(x);
+      const near={num:[RW[(i+1)%37],RW[(i+36)%37]],low:[19],high:[18],d1:[13],d2:[12,25],d3:[24],red:[0],black:[0],odd:[0],even:[0]}[bt.k]||[];
+      const ok=near.filter(v=>!bt.win(v,x));if(ok.length)n=ok[Math.floor(rnd()*ok.length)];}
     if(bt.k==='num'&&curBetInfo)curBetInfo.pick='숫자 '+x;
     const seg=Math.PI*2/37,idx=RW.indexOf(n);
     const start=this.angle,target=-idx*seg;let delta=((target-start)%(Math.PI*2)+Math.PI*2)%(Math.PI*2);const total=delta+Math.PI*2*4;

@@ -1,0 +1,65 @@
+/* how-to-play walkthrough */
+.tut .box{max-width:560px}
+.tut-scene{position:relative;min-height:190px;border-radius:8px;background:var(--felt);border:1px solid var(--line);display:grid;place-items:center;align-content:center;gap:12px;padding:16px;overflow:hidden}
+.tut-scene.in{animation:tutIn .45s ease}
+@keyframes tutIn{from{opacity:0;transform:translateY(8px)}}
+.tut-text{font-size:16px;line-height:1.6;min-height:52px}
+.tut-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tut-dots{display:flex;gap:6px}
+.tut-dots button{width:9px;height:9px;border-radius:50%;border:0;background:var(--line2);padding:0}
+.tut-dots button.on{background:var(--brass2)}
+.tut-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.tut-foot label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--mute)}
+.trow{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
+.trow.big{font-size:44px;gap:18px}
+.trow.big b{font-size:18px;color:var(--brass2)}
+.tp{border:1px solid #ffffff33;border-radius:6px;padding:6px 12px;font-size:14px;color:#e8e2d8;background:#0006}
+.tp.on{border-color:var(--brass2);color:var(--brass2);background:#241d12;animation:tpPick 1.2s ease}
+@keyframes tpPick{0%{transform:scale(1)}30%{transform:scale(1.12)}100%{transform:scale(1)}}
+.tbet{font-family:var(--f-num);font-size:13px;color:#e8e2d8;background:#0008;border-radius:4px;padding:3px 10px}
+.tres{font-weight:700;font-size:18px;animation:popIn .5s cubic-bezier(.2,1.5,.4,1)}
+.tres.win{color:var(--brass2)} .tres.lose{color:#e08a80}
+.tcoin{width:80px;height:80px;border-radius:50%;background:var(--brass);box-shadow:inset 0 0 0 6px #8a6a32;display:grid;place-items:center;font-size:30px;font-weight:700;color:#3c2c12}
+.tcoin.back{background:#b9b1a1;box-shadow:inset 0 0 0 6px #8a8272}
+.tcoin.spin{animation:tCoin 1.2s linear infinite}
+@keyframes tCoin{0%{transform:translateY(0) rotateX(0)}50%{transform:translateY(-34px) rotateX(540deg)}100%{transform:translateY(0) rotateX(1080deg)}}
+.shake{display:inline-block;animation:tShake .45s ease-in-out infinite}
+@keyframes tShake{50%{transform:translateY(-12px)}}
+.tlist{display:grid;gap:6px;width:min(320px,100%)}
+.tlist div{border:1px solid #ffffff22;border-radius:6px;padding:6px 10px;font-size:14px;color:#e8e2d8;display:flex;justify-content:space-between;gap:8px;background:#0005}
+.tlist div.on{border-color:var(--brass2);background:#241d12}
+.tlist small{color:var(--brass2);font-family:var(--f-num)}
+.tformula{font-family:var(--f-num);font-size:20px;color:#e8e2d8}
+.tformula b{color:var(--brass2)}
+.trace{width:min(360px,100%);display:grid;gap:8px}
+.tlane{position:relative;height:30px;border-bottom:1px dashed #ffffff22;background:linear-gradient(90deg,transparent calc(100% - 10px),#ffffffaa calc(100% - 10px))}
+.trun{position:absolute;left:0;top:0;font-size:24px;transform:scaleX(-1);animation:tRun 3s ease-in-out forwards}
+.trun.r1,.trun.s1{animation-duration:3.3s}.trun.r2,.trun.s2{animation-duration:2.8s}
+.trace.snail .trun{animation-timing-function:steps(9,end)}
+@keyframes tRun{to{left:calc(100% - 34px)}}
+.tdie{display:inline-block;color:#e4ded2}
+.tdie.roll{animation:tRoll .3s linear infinite}
+@keyframes tRoll{50%{transform:rotate(180deg) translateY(-8px)}100%{transform:rotate(360deg)}}
+.tcard{display:inline-grid;place-items:center;width:42px;height:58px;border-radius:5px;background:#e4ded2;color:#16110f;font-family:var(--f-num);font-weight:500;font-size:16px;line-height:1;animation:popIn .4s}
+.tcard i{font-style:normal;font-size:18px}
+.tcard.red{color:#9d2a20}
+.tcard.back{background:repeating-linear-gradient(45deg,#8e1f1a 0 6px,#6c1512 6px 12px);border:2px solid #e4ded2}
+.tarrow{color:var(--brass2);font-size:15px;margin-left:6px}
+.tsc{font-family:var(--f-num);font-size:15px;color:#e8e2d8;background:#0008;border-radius:4px;padding:4px 10px}
+.treels{display:flex;gap:6px;background:#0a0b0c;padding:6px;border-radius:6px;border:1px solid var(--brass)}
+.treels span{width:56px;height:64px;background:#dcd6ca;border-radius:4px;display:grid;place-items:center;font-size:32px;font-weight:700;color:#9d2a20}
+.treels span.spin{animation:tReel .25s linear infinite}
+@keyframes tReel{0%{transform:translateY(-12px);opacity:.6}100%{transform:translateY(12px);opacity:.6}}
+.tcrash{width:min(360px,100%);display:grid;justify-items:center;gap:6px}
+.tcrash svg{width:100%;height:auto}
+.tline{fill:none;stroke:var(--brass2);stroke-width:3;stroke-dasharray:260;stroke-dashoffset:260;animation:tDraw 2.6s ease-in forwards}
+@keyframes tDraw{to{stroke-dashoffset:0}}
+.tmult{font-family:var(--f-num);font-size:24px;color:#e8e2d8}
+.tmult.win{color:var(--win)} .tmult.lose{color:#e08a80}
+.tmult.boom{animation:shake .5s}
+.twheel{width:130px;height:130px;border-radius:50%;background:repeating-conic-gradient(#9d2a20 0 9.73deg,#16181a 9.73deg 19.46deg);border:6px solid #3a2a18;box-shadow:inset 0 0 0 34px #1c1e21}
+.twheel.spin{animation:tSpin 2.4s cubic-bezier(.2,.7,.3,1) infinite}
+@keyframes tSpin{to{transform:rotate(720deg)}}
+.tball{display:inline-grid;place-items:center;width:64px;height:64px;border-radius:50%;font-family:var(--f-num);font-size:26px;color:#e4ded2}
+.tball.red{background:#9d2a20} .tball.green{background:#2f6b45}
+.game-head .tut-open{margin-left:auto}

@@ -95,12 +95,12 @@ function openReveal(){
   m.innerHTML=`<div class="box" role="dialog" aria-modal="true" aria-labelledby="rvT" style="border-color:#4a1d19"><div class="eyebrow">공개</div><h2 id="rvT" style="color:#e08a80">이 카지노는 조작되어 있었습니다</h2>
   <p>플레이하는 동안 관리자는 실시간으로 당신의 포인트를 보고, 확률을 바꾸고, 진행 중인 판의 결과를 뒤집을 수 있었습니다. 화면에는 아무 표시도 나타나지 않았습니다.</p>
   <div class="big"><div class="kpi"><span>플레이한 판</span><b>${st.rounds}</b></div><div class="kpi"><span>결과가 바뀐 판</span><b class="neg">${st.manip}</b></div><div class="kpi"><span>조작으로 달라진 포인트</span><b class="${st.md>=0?'pos':'neg'}">${sfmt(st.md)}</b></div><div class="kpi"><span>실제 게임 손익</span><b class="${st.net>=0?'pos':'neg'}">${sfmt(st.net)}</b></div><div class="kpi"><span>공정했다면 기대 손익</span><b>${sfmt(fairExp)}</b></div><div class="kpi"><span>남은 포인트</span><b>${fmt(S.bal)}</b></div></div>
-  ${CFG.lure&&CFG.lure.on?`<p>처음 ${CFG.lure.rounds}판은 이기기 쉽게 설정되어 있었습니다. 초반의 승리는 계속 하게 만들기 위한 미끼였습니다.</p>`:''}
+  ${(CFG.sched||[]).length?`<p>판수에 따라 확률이 바뀌도록 설정되어 있었습니다. ${(CFG.sched||[]).map(r=>(r.g==='all'?'모든 게임':META[r.g].name)+' 처음 '+r.n+'판 '+r.a+(DIRECT[r.g]?'%':'% 조정')+' → 이후 '+r.b+(DIRECT[r.g]?'%':'% 조정')).join(', ')}. 처음에 잘 되던 것은 계속 하게 만들기 위한 미끼였습니다.</p>`:''}
   <div class="help"><b>조작이 없어도 하우스가 이깁니다.</b> 모든 게임의 환급률은 100% 미만이라 오래 할수록 잃습니다. 불법 온라인 도박 사이트는 여기에 더해 결과 조작, 출금 거부, 개인정보 유출 위험까지 있습니다. 상담: 한국도박문제예방치유원 <b>1336</b></div>
   <div><button class="btn" type="button" id="rvClose">닫기</button></div></div>`;
   m.hidden=false;$('#rvClose').onclick=()=>m.hidden=true;
 }
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#revealModal').hidden=true;$('#installModal').hidden=true;}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#revealModal').hidden=true;$('#installModal').hidden=true;if(!$('#tutModal').hidden)closeTut();}});
 
 /* ---------------- admin console ---------------- */
 const rows=new Map();const feed=[];
@@ -120,6 +120,7 @@ function buildRigPanel(){
       <label for="od_rpsWin">가위바위보</label><span class="cell">승 <input type="number" id="od_rpsWin" min="0" max="100" step="1" placeholder="33">% 무 <input type="number" id="od_rpsDraw" min="0" max="100" step="1" placeholder="33">%</span>
       <label for="od_oddeven">홀짝 적중</label><span class="cell"><input type="number" id="od_oddeven" min="0" max="100" step="1" placeholder="50">%</span>
       <label for="od_crash">그래프 상한</label><span class="cell"><input type="number" id="od_crash" min="1.01" step="0.1" placeholder="없음">x</span>
+      <label for="od_cmin">그래프 최소 캐시아웃</label><span class="cell"><input type="number" id="od_cmin" min="1" step="0.05" placeholder="1.10">x</span>
     </div>
     <div class="sub" style="margin-top:4px">비워 두면 원래 확률(동전·홀짝 50%, 가위바위보 승 33%·무 33%, 상한 없음)을 씁니다. 그래프는 상한 배율에서 반드시 터집니다.</div>
     <div class="abtns" style="margin-top:6px"><button type="button" class="abtn" id="oddsReset">확률 원래대로</button><button type="button" class="abtn" id="stableReset">말·달팽이 전적 초기화</button></div>
@@ -138,18 +139,29 @@ function buildRigPanel(){
   <div class="sub" style="margin-top:4px">비워 두면 공식 확률입니다. 학생 화면에는 항상 공식 확률이 표시됩니다.</div>
   <div class="abtns" style="margin-top:6px"><button type="button" class="abtn" id="roReset">룰렛 확률 원래대로</button></div></details>
   <details class="sub-more"><summary>게임별 추가 조작 (결과 재추첨)</summary>${GIDS.map(g=>`<div class="slider-row"><label for="rg_${g}" style="width:84px;font-size:12px">${META[g].name}</label><input type="range" id="rg_${g}" min="-100" max="100" step="5"><output id="rg_${g}V"></output></div>`).join('')}</details>
-  <div class="toggle"><span><label for="rgLure">미끼 모드</label><div class="sub">처음 몇 판은 승률을 올려 줍니다.</div></span><input type="checkbox" id="rgLure"></div>
-  <div class="slider-row"><label for="rgLureN" style="font-size:12px;width:84px">대상 판수</label><input type="number" id="rgLureN" min="1" max="200" style="width:64px"><label for="rgLureB" style="font-size:12px">보정</label><input type="range" id="rgLureB" min="0" max="100" step="5"><output id="rgLureBV"></output></div>
-  <div class="toggle"><span><label for="rgNear">니어미스 연출</label><div class="sub">슬롯에서 진 판을 7·7·(아깝게 빗나감)으로 보여 줍니다.</div></span><input type="checkbox" id="rgNear"></div>
+  <div class="toggle" style="display:block"><label>판수별 확률</label><div class="sub">학생마다 판수를 세서, 정한 판수까지는 앞 값을, 그다음부터는 뒤 값을 씁니다. 동전·홀짝·가위바위보·룰렛은 <b>승리 확률 %</b>, 나머지 게임과 '전체'는 <b>승률 조정 %</b>(−100~+100, 위 슬라이더와 같은 뜻)입니다.</div>
+    <div id="schedList" style="display:grid;gap:6px;margin-top:6px"></div>
+    <div class="abtns" style="margin-top:6px"><button type="button" class="abtn" id="schedAdd">규칙 추가</button></div></div>
+  <div class="toggle" style="display:block"><label>니어미스 연출</label><div class="sub">진 판을 '아깝게 놓친 것처럼' 보여 줍니다. 결과(승패·금액)는 바뀌지 않습니다.</div>
+    <div class="pause-grid" style="margin-top:6px">
+      <label title="진 판을 7·7·(빗나감)으로"><input type="checkbox" class="nmc" data-g="slot">슬롯 (7·7·빗나감)</label>
+      <label title="고른 숫자 바로 옆 칸에 멈춤"><input type="checkbox" class="nmc" data-g="roulette">룰렛 (바로 옆 칸)</label>
+      <label title="고른 말이 코 차이로 2등"><input type="checkbox" class="nmc" data-g="horse">경마 (코 차이 2등)</label>
+      <label title="고른 달팽이가 간발의 차로 2등"><input type="checkbox" class="nmc" data-g="snail">달팽이 (간발의 차)</label>
+      <label title="버스트할 때 딱 22로"><input type="checkbox" class="nmc" data-g="blackjack">블랙잭 (22로 버스트)</label>
+    </div></div>
   <div class="toggle"><span><label for="rgReveal">폭로 모드</label><div class="sub">모든 학생에게 조작 사실과 개인별 피해를 공개합니다.</div></span><input type="checkbox" id="rgReveal"></div>
   <div class="abtns" style="margin-top:6px"><button type="button" class="abtn l" id="allLose">전원 다음 판 패배</button><button type="button" class="abtn w" id="allWin">전원 다음 판 승리</button><button type="button" class="abtn" id="rigReset">조작 모두 초기화</button></div>`;
   const bind=(id,fn)=>$(id).addEventListener('input',fn);
   bind('#rgGlobal',e=>{CFG.global=e.target.value/100;$('#rgGlobalV').textContent=biasText(CFG.global);saveCfg();refreshEff();});
   GIDS.forEach(g=>bind('#rg_'+g,e=>{CFG.games[g]=e.target.value/100;$('#rg_'+g+'V').textContent=biasText(CFG.games[g]);saveCfg();refreshEff();}));
-  $('#rgLure').addEventListener('change',e=>{CFG.lure.on=e.target.checked;saveCfg();refreshEff();});
-  $('#rgLureN').addEventListener('change',e=>{CFG.lure.rounds=Math.max(1,Math.floor(+e.target.value||10));saveCfg();refreshEff();});
-  bind('#rgLureB',e=>{CFG.lure.boost=e.target.value/100;$('#rgLureBV').textContent=biasText(CFG.lure.boost);saveCfg();refreshEff();});
-  $('#rgNear').addEventListener('change',e=>{CFG.nearMiss=e.target.checked;saveCfg();});
+  // old single "lure" switch becomes a schedule rule
+  if(CFG.lure&&CFG.lure.on&&!(CFG.sched&&CFG.sched.length)){CFG.sched=[{g:'all',n:CFG.lure.rounds,a:Math.round(CFG.lure.boost*100),b:0}];CFG.lure.on=false;saveCfg();}
+  $('#schedAdd').onclick=()=>{CFG.sched=(CFG.sched||[]).concat([{g:'coin',n:10,a:70,b:30}]);saveCfg();paintSched();refreshEff();};
+  $('#schedList').addEventListener('change',readSched);
+  $('#schedList').addEventListener('click',e=>{const b=e.target.closest('[data-del]');if(!b)return;CFG.sched.splice(+b.dataset.del,1);saveCfg();paintSched();refreshEff();});
+  document.querySelectorAll('.nmc').forEach(cb=>cb.addEventListener('change',()=>{const o={};document.querySelectorAll('.nmc').forEach(x=>{if(x.checked)o[x.dataset.g]=true;});CFG.nearMiss=o;saveCfg();}));
+  paintSched();
   $('#rgReveal').addEventListener('change',e=>{CFG.reveal=e.target.checked;saveCfg();toast(CFG.reveal?'모든 학생에게 공개합니다':'공개를 껐습니다');});
   const oddsIds={coin:'od_coin',rpsWin:'od_rpsWin',rpsDraw:'od_rpsDraw',oddeven:'od_oddeven'};
   for(const k in oddsIds)$('#'+oddsIds[k]).addEventListener('change',e=>{CFG.odds=Object.assign({},CFG.odds||{});const v=e.target.value.trim();
@@ -166,7 +178,8 @@ function buildRigPanel(){
   $('#bjReset').onclick=()=>{CFG.bj={};saveCfg();syncRigPanel();toast('블랙잭 조건을 원래대로 돌렸습니다');};
   RBETS.forEach(b=>$('#ro_'+b.k).addEventListener('change',e=>{CFG.roul=Object.assign({},CFG.roul||{});const v=e.target.value.trim();if(v==='')delete CFG.roul[b.k];else{CFG.roul[b.k]=Math.max(0,Math.min(100,+v))/100;}saveCfg();}));
   $('#roReset').onclick=()=>{CFG.roul={};saveCfg();syncRigPanel();toast('룰렛 확률을 원래대로 돌렸습니다');};
-  $('#oddsReset').onclick=()=>{CFG.odds={};CFG.crashCap=0;saveCfg();syncRigPanel();toast('게임 확률을 원래대로 돌렸습니다');};
+  $('#od_cmin').addEventListener('change',e=>{const v=parseFloat(e.target.value);CFG.crashMin=v>=1?Math.round(v*100)/100:undefined;saveCfg();toast('그래프는 이제 '+(CFG.crashMin||1.1).toFixed(2)+'x부터 캐시아웃할 수 있습니다');});
+  $('#oddsReset').onclick=()=>{CFG.odds={};CFG.crashCap=0;CFG.crashMin=undefined;saveCfg();syncRigPanel();toast('게임 확률을 원래대로 돌렸습니다');};
   let srArm=0;$('#stableReset').onclick=e=>{if(Date.now()-srArm>3000){srArm=Date.now();e.target.textContent='한 번 더 누르면 초기화';return;}e.target.textContent='말·달팽이 전적 초기화';svSend({t:'adm',op:'stablereset'});};
   buildOps();
   $('#allLose').onclick=()=>sendCmd('all','force',{want:'lose'});
@@ -174,11 +187,26 @@ function buildRigPanel(){
   $('#rigReset').onclick=()=>{const keep=CFG.reveal,keepP=CFG.paused,keepO=CFG.odds,keepC=CFG.crashCap;CFG=JSON.parse(JSON.stringify(DEF_CFG));CFG.reveal=keep;CFG.paused=keepP;CFG.odds=keepO;CFG.crashCap=keepC;saveCfg();syncRigPanel();refreshEff();sendCmd('all','clearforce');};
   syncRigPanel();
 }
+const unitOf=g=>DIRECT[g]?'% 승리 확률':'% 승률 조정';
+function paintSched(){const el=$('#schedList');if(!el)return;const list=CFG.sched||[];
+  el.innerHTML=list.length?list.map((r,i)=>`<div class="abtns" data-i="${i}" style="background:var(--steel);border:1px solid var(--sline);border-radius:6px;padding:6px">
+    <select data-k="g" style="background:var(--steel2);border:1px solid var(--sline);color:var(--sink);border-radius:4px;font-size:12px;padding:2px 4px"><option value="all">전체 게임</option>${GIDS.map(g=>`<option value="${g}" ${r.g===g?'selected':''}>${META[g].name}</option>`).join('')}</select>
+    <span style="font-size:12px">처음</span><input type="number" data-k="n" min="0" max="10000" value="${r.n}" style="width:56px"><span style="font-size:12px">판까지</span>
+    <input type="number" data-k="a" value="${r.a}" style="width:56px"><span style="font-size:12px">→ 그 뒤</span><input type="number" data-k="b" value="${r.b}" style="width:56px">
+    <span class="sub">${unitOf(r.g)}</span><button type="button" class="abtn l" data-del="${i}" aria-label="규칙 삭제">삭제</button></div>`).join('')
+    :'<div class="sub">규칙이 없습니다. 예: 동전 처음 10판까지 70% → 그 뒤 30%</div>';
+  list.forEach((r,i)=>{const s=el.querySelector(`[data-i="${i}"] select`);if(s)s.value=r.g;});}
+function readSched(){const rows=[...document.querySelectorAll('#schedList [data-i]')];
+  CFG.sched=rows.map(row=>{const v=k=>row.querySelector(`[data-k="${k}"]`).value;const g=v('g');const lim=DIRECT[g]?[0,100]:[-100,100];const c=x=>Math.max(lim[0],Math.min(lim[1],Math.round(+x||0)));return{g,n:Math.max(0,Math.floor(+v('n')||0)),a:c(v('a')),b:c(v('b'))};});
+  saveCfg();paintSched();refreshEff();}
 function syncRigPanel(){
   if(!$('#rgGlobal'))return;const act=document.activeElement;
   const setR=(id,v)=>{const el=$(id);if(el&&el!==act)el.value=pct(v);const o=$(id+'V');if(o)o.textContent=biasText(v);};
-  setR('#rgGlobal',CFG.global);GIDS.forEach(g=>setR('#rg_'+g,CFG.games[g]||0));setR('#rgLureB',CFG.lure.boost);
-  $('#rgLure').checked=!!CFG.lure.on;if($('#rgLureN')!==act)$('#rgLureN').value=CFG.lure.rounds;$('#rgNear').checked=!!CFG.nearMiss;$('#rgReveal').checked=!!CFG.reveal;
+  setR('#rgGlobal',CFG.global);GIDS.forEach(g=>setR('#rg_'+g,CFG.games[g]||0));
+  $('#rgReveal').checked=!!CFG.reveal;
+  document.querySelectorAll('.nmc').forEach(x=>{x.checked=nm(x.dataset.g);});
+  if(!$('#schedList').contains(act))paintSched();
+  if($('#od_cmin')!==act)$('#od_cmin').value=+CFG.crashMin>=1?CFG.crashMin:'';
   const od=CFG.odds||{};for(const [k,id] of [['coin','od_coin'],['rpsWin','od_rpsWin'],['rpsDraw','od_rpsDraw'],['oddeven','od_oddeven']]){const el=$('#'+id);if(el&&el!==act)el.value=typeof od[k]==='number'?Math.round(od[k]*1000)/10:'';}
   if($('#od_crash')!==act)$('#od_crash').value=CFG.crashCap>=1.01?CFG.crashCap:'';
   const bj=Object.assign({},BJ_DEF,CFG.bj||{});const sv=(id,v)=>{const el=$('#'+id);if(el&&el!==act)el.value=v;};
@@ -235,7 +263,7 @@ function makeRow(u){
     else if(c==='pw'){const p=r.npw.value;if(p.length<4){toast('새 비밀번호는 4자 이상이어야 합니다');return;}svSend({t:'adm',op:'pw',sid,pw:p});r.npw.value='';}
     else if(c==='del'){if(Date.now()-r.delArm>3000){r.delArm=Date.now();b.textContent='한 번 더 누르면 삭제';return;}svSend({t:'adm',op:'del',sid});}
   });
-  r.updateEff=()=>{const p=r.u.presence||{};const g=GIDS.includes(p.game)?p.game:null;const e=biasFor(g||'_',sid,r.u.stats.rounds);tr.querySelector('.eff').textContent=(g?META[g].name+' ':'')+'실제 적용 '+biasText(e)+(p.force?` · 대기: 다음 판 ${p.force==='win'?'승리':'패배'}`:'');
+  r.updateEff=()=>{const p=r.u.presence||{};const g=GIDS.includes(p.game)?p.game:null;const e=biasFor(g||'_',sid,r.u.stats.rounds,r.u.stats.rounds);tr.querySelector('.eff').textContent=(g?META[g].name+' ':'')+'실제 적용 '+biasText(e)+(p.force?` · 대기: 다음 판 ${p.force==='win'?'승리':'패배'}`:'');
     const pm=tr.querySelector('.pc-meta');const s=r.u.stats;pm.textContent=`${s.rounds}판 · 승률 ${s.rounds?Math.round(s.wins/s.rounds*100):0}% · 조작 ${s.manip}판${s.md?' ('+sfmt(s.md)+')':''}${Math.round(e*100)?' · 확률 '+biasText(e):''}${p.force?' · 다음 판 '+(p.force==='win'?'승리':'패배')+' 대기':''}`;};
   r.update=(nu)=>{r.u=nu;const p=nu.presence||{};
     tr.querySelector('.odot').className='odot'+(nu.online?' on':'');

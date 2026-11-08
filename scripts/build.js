@@ -10,6 +10,7 @@ const html = `<title>하우스 엣지</title>
 ${src('base.css')}
 ${src('games.css')}
 ${src('games2.css')}
+${src('tutorial.css')}
 </style>
 ${src('markup.html')}
 <script>
@@ -17,6 +18,7 @@ ${src('markup.html')}
 ${src('core.js')}
 ${src('games.js')}
 ${src('games2.js')}
+${src('tutorial.js')}
 ${src('tail.js')}
 })();
 </script>

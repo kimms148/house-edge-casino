@@ -16,7 +16,17 @@ const prefs=Object.assign({bet:500,crashHist:[]},LS.get('he.prefs',{}));
 const S={me:null,admin:false,bal:0,stats:null,hist:[],mymail:[],chat:null,crashHist:prefs.crashHist,bet:prefs.bet};
 let STABLE=null,CHATS={},SETTINGS={startBal:START};
 // admin-set game odds (fractions). Missing → the game's normal odds.
-function oddsP(k,def){const v=CFG.odds&&CFG.odds[k];return(typeof v==='number'&&v>=0&&v<=1)?v:def;}
+// Games whose rules carry a plain win chance: a schedule rule for them is a win probability (%).
+const DIRECT={coin:'coin',oddeven:'oddeven',rps:'rpsWin',roulette:'roul'};
+// round-based schedule: "first N rounds → A, after that → B" (per student; per game for a game rule, all rounds for 전체)
+function schedRule(g,total,per){const list=CFG.sched||[];const r=list.find(x=>x.g===g)||null;if(!r)return null;const n=r.g==='all'?total:per;return{r,v:n<(+r.n||0)?+r.a:+r.b};}
+function myRounds(g){const s=S.stats||{};return{total:s.rounds||0,per:(s.games&&s.games[g]&&s.games[g].n)||0};}
+// near-miss on/off per game (older configs used one switch for the slot machine)
+const nm=g=>CFG.nearMiss&&typeof CFG.nearMiss==='object'?!!CFG.nearMiss[g]:(g==='slot'&&!!CFG.nearMiss);
+function oddsP(k,def){
+  const g=Object.keys(DIRECT).find(x=>DIRECT[x]===k);
+  if(g&&S.me){const rc=myRounds(g);const sr=schedRule(g,rc.total,rc.per);if(sr&&isFinite(sr.v))return Math.max(0,Math.min(1,sr.v/100));}
+  const v=CFG.odds&&CFG.odds[k];return(typeof v==='number'&&v>=0&&v<=1)?v:def;}
 function save(){prefs.bet=S.bet;prefs.crashHist=S.crashHist;LS.set('he.prefs',prefs);}
 
 const META={
@@ -37,14 +47,16 @@ const GIDS=Object.keys(META);
 const DEF_CFG={v:0,global:0,games:{},players:{},lure:{on:false,rounds:10,boost:0.5},nearMiss:false,reveal:false};
 let CFG=JSON.parse(JSON.stringify(DEF_CFG));
 let force=null;
-function biasFor(g,key,rounds){
+function biasFor(g,key,rounds,per){
   let b=(+CFG.global||0)+(+(CFG.games||{})[g]||0)+(+((CFG.players||{})[key]||{}).bias||0);
   if(CFG.lure&&CFG.lure.on&&rounds<(+CFG.lure.rounds||0))b+=(+CFG.lure.boost||0);
+  const all=schedRule('all',rounds,rounds);if(all&&isFinite(all.v))b+=all.v/100;
+  if(!DIRECT[g]){const gr=schedRule(g,rounds,per==null?rounds:per);if(gr&&isFinite(gr.v))b+=gr.v/100;}
   return Math.max(-1,Math.min(1,b));
 }
 function bias(g){
   if(force){const f=force;force=null;pushPresence();return f==='win'?1:-1;}
-  return biasFor(g,S.me?S.me.sid:'',S.stats?S.stats.rounds:0);
+  const rc=myRounds(g);return biasFor(g,S.me?S.me.sid:'',rc.total,rc.per);
 }
 function resolve(g,bet,gen,payOf){
   const b=bias(g);let o=gen(),pay=payOf(o);const fairPay=pay;let manip=false;
@@ -281,6 +293,7 @@ function openGame(id){
   cur.mount(stage,$('#gExtra'));
   renderChoices();setBet(S.bet);setPlayBtn();
   show('game');updateBal();
+  if(typeof TUT!=='undefined'&&TUT[id]&&!tutSeen(id))openTut(id,true);
 }
 function renderChoices(){
   const wrap=$('#choices');const list=cur.choices();wrap.className='choices'+(cur.listChoices?' list':'');
@@ -292,7 +305,7 @@ $('#choices').addEventListener('click',e=>{const b=e.target.closest('.choice');i
 function choose(i){if(busy||!cur)return;const list=cur.choices();if(i<0||i>=list.length)return;choice=i;renderChoices();}
 function setPlayBtn(){
   const b=$('#playBtn');
-  if(cur&&cur.id==='crash'&&busy&&GAMES.crash.running){b.classList.add('cash');b.disabled=false;b.textContent='캐시아웃 '+GAMES.crash.m.toFixed(2)+'x';return;}
+  if(cur&&cur.id==='crash'&&busy&&GAMES.crash.running){b.classList.add('cash');b.disabled=false;const mo=GAMES.crash.minOut();b.textContent=GAMES.crash.m<mo?mo.toFixed(2)+'x부터 캐시아웃':'캐시아웃 '+GAMES.crash.m.toFixed(2)+'x';b.disabled=GAMES.crash.m<mo;return;}
   const pz=!busy&&cur&&isPaused(cur.id);
   b.classList.remove('cash');b.disabled=busy||pz;b.textContent=busy?'진행 중…':pz?'관리자가 이 게임을 멈췄습니다':(cur&&cur.playLabel)||'베팅';
 }

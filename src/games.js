@@ -35,7 +35,8 @@ function startRace(o){
   // o: {n, winner, base, spread, kind, runners:[el], lanes:[el], names, onLead}
   const n=o.n,T=new Array(n),x=new Array(n).fill(0),f=new Array(n).fill(1),stopU=new Array(n).fill(0),burstU=new Array(n).fill(0),fin=new Array(n).fill(-1);
   let winner=o.winner;
-  const plan=()=>{const tw=o.base+rnd()*o.spread*.3;for(let i=0;i<n;i++)T[i]=i===winner?tw:tw+.15+rnd()*o.spread;};
+  const plan=()=>{const tw=o.base+rnd()*o.spread*.3;for(let i=0;i<n;i++)T[i]=i===winner?tw:tw+.15+rnd()*o.spread;
+    if(o.close!=null&&o.close!==winner)T[o.close]=tw+.04+rnd()*.07;};// near-miss: the picked runner loses by a nose
   plan();
   let t=0,last=performance.now(),firstFin=-1,resolveDone,leadTimer=0;
   const done=new Promise(r=>resolveDone=r);
@@ -96,7 +97,7 @@ function raceGame(cfg){
       const comm=$('#comm');
       for(const c of['3','2','1','출발!']){comm.textContent=c;await wait(450);}
       let manip=r.manip;
-      const race=startRace({n:F.length,winner:r.o,base:cfg.base,spread:cfg.spread,kind:cfg.id,runners,lanes,
+      const race=startRace({n:F.length,winner:r.o,close:nm(cfg.id)&&r.o!==pick?pick:null,base:cfg.base,spread:cfg.spread,kind:cfg.id,runners,lanes,
         onLead:li=>{comm.textContent='선두: '+(li+1)+'번 '+F[li].name;liveText='선두 '+(li+1)+'번 '+F[li].name+' / 선택 '+(pick+1)+'번';pushPresence();},
         onFinish:w=>{stage.querySelector('.photo').classList.add('flash');lanes[w].classList.add('winner');comm.textContent='우승: '+(w+1)+'번 '+F[w].name;}});
       this.liveOverride=(want)=>{
@@ -214,9 +215,8 @@ GAMES.slot={id:'slot',vis:null,playLabel:'스핀',
   async play(bet){
     const r=resolve('slot',bet,()=>[pickSym(),pickSym(),pickSym()],o=>slotPay(o,bet));
     const o=r.o;const mach=$('#mach');mach.classList.remove('won');mach.classList.add('spin');
-    const near=CFG.nearMiss&&r.pay===0&&o[0]===4&&o[1]===4; // already 7-7-x
     let nearMiss=false;
-    if(CFG.nearMiss&&r.pay<bet&&rnd()<.6){o[0]=4;o[1]=4;if(o[2]===4)o[2]=3;nearMiss=true;}
+    if(nm('slot')&&r.pay<bet&&rnd()<.6){o[0]=4;o[1]=4;if(o[2]===4)o[2]=3;nearMiss=true;}
     const final=o.map(v=>v);
     const vis=[0,1,2].map(i=>[nearMiss&&i===2?4:pickSym(),final[i],pickSym()]);
     const sz=$('#reel0').clientWidth;const proms=[];
@@ -246,7 +246,7 @@ GAMES.crash={id:'crash',running:false,m:1,playLabel:'베팅하고 시작',
   choices:()=>[],
   mount(st,extra){
     st.innerHTML=`<div class="crash"><canvas id="cv"></canvas><div class="mult" id="cm">1.00x</div></div>`;
-    extra.innerHTML=`<div><label class="lbl" for="autoCo" style="font-size:12px;color:var(--mute)">자동 캐시아웃 배율 (비우면 끔)</label><div class="amt-row" style="margin-top:4px"><input id="autoCo" type="number" min="1.01" step="0.01" placeholder="예: 2.00"><span class="num">x</span></div></div><div><div style="font-size:12px;color:var(--mute);margin:8px 0 4px">최근 10판 터진 배율</div><div class="crash-hist" id="chist"></div></div>`;
+    extra.innerHTML=`<div><label class="lbl" for="autoCo" style="font-size:12px;color:var(--mute)">자동 캐시아웃 배율 (비우면 끔) · ${this.minOut().toFixed(2)}x부터 캐시아웃 가능</label><div class="amt-row" style="margin-top:4px"><input id="autoCo" type="number" min="1.01" step="0.01" placeholder="예: 2.00"><span class="num">x</span></div></div><div><div style="font-size:12px;color:var(--mute);margin:8px 0 4px">최근 10판 터진 배율</div><div class="crash-hist" id="chist"></div></div>`;
     const a=LS.get('he.auto','');$('#autoCo').value=a;$('#autoCo').addEventListener('change',e=>LS.set('he.auto',e.target.value));
     this.hist();requestAnimationFrame(()=>this.draw(0,1,false));
   },
@@ -271,10 +271,11 @@ GAMES.crash={id:'crash',running:false,m:1,playLabel:'베팅하고 시작',
     if(parts)for(const p of parts){g.globalAlpha=Math.max(0,p.l);g.fillStyle=p.c;g.beginPath();g.arc(p.x,p.y,p.r,0,7);g.fill();}
     g.globalAlpha=1;this.tip={x:X(t),y:Y(m)};
   },
-  cashout(){if(this.running&&!this.out){this.out=this.m;}},
+  minOut(){const v=+CFG.crashMin;return v>=1?v:1.1;},
+  cashout(){if(this.running&&!this.out){if(this.m<this.minOut()){toast(this.minOut().toFixed(2)+'x부터 캐시아웃할 수 있습니다');return;}this.out=this.m;}},
   async play(bet){
     let U=rnd();let crash=0.97/(1-U);crash=crash<1?1:Math.floor(crash*100)/100;const cap=+CFG.crashCap||0;if(cap>=1.01)crash=Math.min(crash,cap);const fair=crash;
-    const auto=parseFloat(($('#autoCo')||{}).value)||0;const b=bias('crash');let manip=false;
+    let auto=parseFloat(($('#autoCo')||{}).value)||0;if(auto&&auto<this.minOut())auto=this.minOut();const b=bias('crash');let manip=false;
     if(b<0&&rnd()<-b){const c=auto>1.01?Math.max(1,Math.floor((auto-0.01-rnd()*.4)*100)/100):Math.floor((1+rnd()*.3)*100)/100;if(c<crash){crash=c;manip=true;}}
     else if(b>0&&rnd()<b){const c=auto>1.01?Math.floor((auto+0.05+rnd()*1.5)*100)/100:Math.floor((2+rnd()*4)*100)/100;if(c>crash){crash=c;manip=true;}}
     this.crash=crash;this.out=0;this.m=1;this.running=true;
