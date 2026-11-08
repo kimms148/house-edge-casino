@@ -210,7 +210,7 @@ GAMES.slot={id:'slot',vis:null,playLabel:'스핀',
   mount(st,extra){
     if(!this.vis)this.vis=[0,1,2].map(()=>[pickSym(),pickSym(),pickSym()]);
     st.innerHTML=`<div class="slot-scene"><div><div class="machine" id="mach"><div class="lights">${'<i></i>'.repeat(9)}</div><div class="reels">${[0,1,2].map(i=>`<div class="reel" id="reel${i}"><div class="strip">${this.vis[i].map(s=>`<div class="sym">${SVG[SYM[s]]}</div>`).join('')}</div></div>`).join('')}</div><div class="machine-label">LUCKY 7</div></div></div></div>`;
-    extra.innerHTML=`<table class="paytable"><tr><td>7 7 7</td><td>500x</td></tr><tr><td>별 별 별</td><td>70x</td></tr><tr><td>종 종 종</td><td>25x</td></tr><tr><td>레몬 레몬 레몬</td><td>10x</td></tr><tr><td>체리 체리 체리</td><td>5x</td></tr><tr><td>체리 2개</td><td>0.5x</td></tr></table><div class="hint" style="margin-top:6px">심볼 확률: 체리 40% · 레몬 25% · 종 18% · 별 12% · 7 5% → 이론 환급률 94.95%</div>`;
+    extra.innerHTML=`<table class="paytable"><tr><td>7 7 7</td><td>500x</td></tr><tr><td>별 별 별</td><td>70x</td></tr><tr><td>종 종 종</td><td>25x</td></tr><tr><td>레몬 레몬 레몬</td><td>10x</td></tr><tr><td>체리 체리 체리</td><td>5x</td></tr><tr><td>체리 2개</td><td>0.5x</td></tr></table><div class="hint" style="margin-top:6px">심볼 확률: 체리 40% · 레몬 25% · 종 18% · 별 12% · 7 5%</div>`;
   },
   async play(bet){
     const r=resolve('slot',bet,()=>[pickSym(),pickSym(),pickSym()],o=>slotPay(o,bet));

@@ -12,7 +12,7 @@ const ART={
   roulette:`<svg width="86" height="86" viewBox="0 0 100 100" aria-hidden="true">${Array.from({length:18},(_,i)=>{const a0=i*20*Math.PI/180,a1=(i+1)*20*Math.PI/180;return `<path d="M50 50 L${50+46*Math.cos(a0)} ${50+46*Math.sin(a0)} A46 46 0 0 1 ${50+46*Math.cos(a1)} ${50+46*Math.sin(a1)} Z" fill="${i===0?'#2f6b45':i%2?'#9d2a20':'#16181a'}" stroke="#8a6a32" stroke-width=".6"/>`;}).join('')}<circle cx="50" cy="50" r="26" fill="#1c1e21" stroke="#8a6a32"/><circle cx="50" cy="50" r="7" fill="#a8823f"/><circle cx="74" cy="22" r="4" fill="#eeeae2"/></svg>`,
   crash:`<svg width="140" height="76" viewBox="0 0 150 80"><path d="M5 75 Q 90 72 140 10" stroke="#c9a560" stroke-width="3" fill="none"/><circle cx="140" cy="10" r="5" fill="#d9d3c8"/><text x="10" y="30" font-family="DM Mono, monospace" font-size="18" fill="#d9d3c8">2.41x</text></svg>`
 };
-$('#games').innerHTML=GIDS.map((id,i)=>`<button type="button" class="gcard" data-g="${id}"><div class="gart">${ART[id]}<span class="gkey">${String(i+1).padStart(2,'0')}</span></div><div class="gbody"><h3>${META[id].name}</h3><p>${META[id].desc}</p><div class="gmeta"><span>${META[id].pay}</span><span>RTP ${META[id].rtp}%</span></div></div></button>`).join('');
+$('#games').innerHTML=GIDS.map((id,i)=>`<button type="button" class="gcard" data-g="${id}"><div class="gart">${ART[id]}<span class="gkey">${String(i+1).padStart(2,'0')}</span></div><div class="gbody"><h3>${META[id].name}</h3><p>${META[id].desc}</p><div class="gmeta"><span>${META[id].pay}</span></div></div></button>`).join('');
 document.querySelectorAll('.mini-dice .die').forEach((d,i)=>setDie(d,i?5:2));
 $('#games').addEventListener('click',e=>{const c=e.target.closest('.gcard');if(c)openGame(c.dataset.g);});
 function paintPaused(){
@@ -44,7 +44,7 @@ $('#classTabs').addEventListener('click',e=>{const b=e.target.closest('[data-c]'
 function renderStats(){
   if(!S.stats)return;const st=S.stats;
   $('#statKpis').innerHTML=`<div class="kpi"><span>총 판수</span><b>${st.rounds.toLocaleString()}</b></div><div class="kpi"><span>승률</span><b>${st.rounds?(st.wins/st.rounds*100).toFixed(1):'0.0'}%</b></div><div class="kpi"><span>총 베팅액</span><b>${fmt(st.wag)}</b></div><div class="kpi"><span>게임 누적 손익</span><b class="${st.net>=0?'pos':'neg'}">${sfmt(st.net)}</b></div><div class="kpi"><span>보유 포인트</span><b>${fmt(S.bal)}</b></div>`;
-  $('#statTbl').innerHTML=`<thead><tr><th>게임</th><th class="n">판 수</th><th class="n">승률</th><th class="n">베팅액</th><th class="n">누적 손익</th><th class="n">실제 환급률</th></tr></thead><tbody>${GIDS.map(g=>{const r=(st.games&&st.games[g])||{n:0,w:0,net:0,wag:0};return`<tr><td>${META[g].name}</td><td class="n">${r.n}</td><td class="n">${r.n?(r.w/r.n*100).toFixed(1)+'%':'–'}</td><td class="n">${fmt(r.wag)}</td><td class="n ${r.net>=0?'pos':'neg'}">${sfmt(r.net)}</td><td class="n">${r.wag?((r.wag+r.net)/r.wag*100).toFixed(1)+'%':'–'}</td></tr>`;}).join('')}</tbody>`;
+  $('#statTbl').innerHTML=`<thead><tr><th>게임</th><th class="n">판 수</th><th class="n">승률</th><th class="n">베팅액</th><th class="n">누적 손익</th></tr></thead><tbody>${GIDS.map(g=>{const r=(st.games&&st.games[g])||{n:0,w:0,net:0,wag:0};return`<tr><td>${META[g].name}</td><td class="n">${r.n}</td><td class="n">${r.n?(r.w/r.n*100).toFixed(1)+'%':'–'}</td><td class="n">${fmt(r.wag)}</td><td class="n ${r.net>=0?'pos':'neg'}">${sfmt(r.net)}</td></tr>`;}).join('')}</tbody>`;
   const sel=$('#chartSel');const v=sel.value||'all';sel.innerHTML=`<option value="all">전체</option>`+GIDS.map(g=>`<option value="${g}">${META[g].name}</option>`).join('');sel.value=v;
   drawChart();
 }
@@ -96,6 +96,7 @@ function openReveal(){
   <p>플레이하는 동안 관리자는 실시간으로 당신의 포인트를 보고, 확률을 바꾸고, 진행 중인 판의 결과를 뒤집을 수 있었습니다. 화면에는 아무 표시도 나타나지 않았습니다.</p>
   <div class="big"><div class="kpi"><span>플레이한 판</span><b>${st.rounds}</b></div><div class="kpi"><span>결과가 바뀐 판</span><b class="neg">${st.manip}</b></div><div class="kpi"><span>조작으로 달라진 포인트</span><b class="${st.md>=0?'pos':'neg'}">${sfmt(st.md)}</b></div><div class="kpi"><span>실제 게임 손익</span><b class="${st.net>=0?'pos':'neg'}">${sfmt(st.net)}</b></div><div class="kpi"><span>공정했다면 기대 손익</span><b>${sfmt(fairExp)}</b></div><div class="kpi"><span>남은 포인트</span><b>${fmt(S.bal)}</b></div></div>
   ${(CFG.sched||[]).length?`<p>판수에 따라 확률이 바뀌도록 설정되어 있었습니다. ${(CFG.sched||[]).map(r=>(r.g==='all'?'모든 게임':META[r.g].name)+' 처음 '+r.n+'판 '+r.a+(DIRECT[r.g]?'%':'% 조정')+' → 이후 '+r.b+(DIRECT[r.g]?'%':'% 조정')).join(', ')}. 처음에 잘 되던 것은 계속 하게 만들기 위한 미끼였습니다.</p>`:''}
+  ${(CFG.balr||[]).length?`<p>가진 포인트에 따라 확률이 바뀌도록 설정되어 있었습니다. ${CFG.balr.map(r=>(r.g==='all'?'모든 게임':META[r.g].name)+' '+fmt(r.x)+(r.op==='lt'?' 미만 ':' 이상 ')+r.v+(DIRECT[r.g]?'%':'% 조정')).join(', ')}.</p>`:''}
   <div class="help"><b>조작이 없어도 하우스가 이깁니다.</b> 모든 게임의 환급률은 100% 미만이라 오래 할수록 잃습니다. 불법 온라인 도박 사이트는 여기에 더해 결과 조작, 출금 거부, 개인정보 유출 위험까지 있습니다. 상담: 한국도박문제예방치유원 <b>1336</b></div>
   <div><button class="btn" type="button" id="rvClose">닫기</button></div></div>`;
   m.hidden=false;$('#rvClose').onclick=()=>m.hidden=true;
@@ -142,6 +143,9 @@ function buildRigPanel(){
   <div class="toggle" style="display:block"><label>판수별 확률</label><div class="sub">학생마다 판수를 세서, 정한 판수까지는 앞 값을, 그다음부터는 뒤 값을 씁니다. 동전·홀짝·가위바위보·룰렛은 <b>승리 확률 %</b>, 나머지 게임과 '전체'는 <b>승률 조정 %</b>(−100~+100, 위 슬라이더와 같은 뜻)입니다.</div>
     <div id="schedList" style="display:grid;gap:6px;margin-top:6px"></div>
     <div class="abtns" style="margin-top:6px"><button type="button" class="abtn" id="schedAdd">규칙 추가</button></div></div>
+  <div class="toggle" style="display:block"><label>보유 포인트별 확률</label><div class="sub">학생이 베팅할 때 가진 포인트에 따라 확률을 바꿉니다. 예: 50,000P 이상이면 동전 승리 확률 30%. 같은 게임에 규칙이 여러 개 맞으면 기준선이 학생 포인트에 가장 가까운 규칙을 씁니다. 판수별 확률보다 먼저 적용됩니다. 단위는 판수별 확률과 같습니다.</div>
+    <div id="balrList" style="display:grid;gap:6px;margin-top:6px"></div>
+    <div class="abtns" style="margin-top:6px"><button type="button" class="abtn" id="balrAdd">규칙 추가</button></div></div>
   <div class="toggle" style="display:block"><label>니어미스 연출</label><div class="sub">진 판을 '아깝게 놓친 것처럼' 보여 줍니다. 결과(승패·금액)는 바뀌지 않습니다.</div>
     <div class="pause-grid" style="margin-top:6px">
       <label title="진 판을 7·7·(빗나감)으로"><input type="checkbox" class="nmc" data-g="slot">슬롯 (7·7·빗나감)</label>
@@ -159,9 +163,12 @@ function buildRigPanel(){
   if(CFG.lure&&CFG.lure.on&&!(CFG.sched&&CFG.sched.length)){CFG.sched=[{g:'all',n:CFG.lure.rounds,a:Math.round(CFG.lure.boost*100),b:0}];CFG.lure.on=false;saveCfg();}
   $('#schedAdd').onclick=()=>{CFG.sched=(CFG.sched||[]).concat([{g:'coin',n:10,a:70,b:30}]);saveCfg();paintSched();refreshEff();};
   $('#schedList').addEventListener('change',readSched);
+  $('#balrAdd').onclick=()=>{CFG.balr=(CFG.balr||[]).concat([{g:'coin',op:'ge',x:50000,v:30}]);saveCfg();paintBalr();refreshEff();};
+  $('#balrList').addEventListener('change',readBalr);
+  $('#balrList').addEventListener('click',e=>{const b=e.target.closest('[data-del]');if(!b)return;CFG.balr.splice(+b.dataset.del,1);saveCfg();paintBalr();refreshEff();});
   $('#schedList').addEventListener('click',e=>{const b=e.target.closest('[data-del]');if(!b)return;CFG.sched.splice(+b.dataset.del,1);saveCfg();paintSched();refreshEff();});
   document.querySelectorAll('.nmc').forEach(cb=>cb.addEventListener('change',()=>{const o={};document.querySelectorAll('.nmc').forEach(x=>{if(x.checked)o[x.dataset.g]=true;});CFG.nearMiss=o;saveCfg();}));
-  paintSched();
+  paintSched();paintBalr();
   $('#rgReveal').addEventListener('change',e=>{CFG.reveal=e.target.checked;saveCfg();toast(CFG.reveal?'모든 학생에게 공개합니다':'공개를 껐습니다');});
   const oddsIds={coin:'od_coin',rpsWin:'od_rpsWin',rpsDraw:'od_rpsDraw',oddeven:'od_oddeven'};
   for(const k in oddsIds)$('#'+oddsIds[k]).addEventListener('change',e=>{CFG.odds=Object.assign({},CFG.odds||{});const v=e.target.value.trim();
@@ -196,6 +203,17 @@ function paintSched(){const el=$('#schedList');if(!el)return;const list=CFG.sche
     <span class="sub">${unitOf(r.g)}</span><button type="button" class="abtn l" data-del="${i}" aria-label="규칙 삭제">삭제</button></div>`).join('')
     :'<div class="sub">규칙이 없습니다. 예: 동전 처음 10판까지 70% → 그 뒤 30%</div>';
   list.forEach((r,i)=>{const s=el.querySelector(`[data-i="${i}"] select`);if(s)s.value=r.g;});}
+function paintBalr(){const el=$('#balrList');if(!el)return;const list=CFG.balr||[];const sel='background:var(--steel2);border:1px solid var(--sline);color:var(--sink);border-radius:4px;font-size:12px;padding:2px 4px';
+  el.innerHTML=list.length?list.map((r,i)=>`<div class="abtns" data-i="${i}" style="background:var(--steel);border:1px solid var(--sline);border-radius:6px;padding:6px">
+    <select data-k="g" style="${sel}"><option value="all">전체 게임</option>${GIDS.map(g=>`<option value="${g}">${META[g].name}</option>`).join('')}</select>
+    <span style="font-size:12px">보유</span><input type="number" data-k="x" min="0" step="1000" value="${r.x}" style="width:84px"><span style="font-size:12px">P</span>
+    <select data-k="op" style="${sel}"><option value="ge">이상이면</option><option value="lt">미만이면</option></select>
+    <input type="number" data-k="v" value="${r.v}" style="width:56px"><span class="sub">${unitOf(r.g)}</span><button type="button" class="abtn l" data-del="${i}" aria-label="규칙 삭제">삭제</button></div>`).join('')
+    :'<div class="sub">규칙이 없습니다. 예: 동전 · 보유 50,000P 이상이면 30%</div>';
+  list.forEach((r,i)=>{const row=el.querySelector(`[data-i="${i}"]`);if(!row)return;row.querySelector('[data-k="g"]').value=r.g;row.querySelector('[data-k="op"]').value=r.op==='lt'?'lt':'ge';});}
+function readBalr(){const rows=[...document.querySelectorAll('#balrList [data-i]')];
+  CFG.balr=rows.map(row=>{const v=k=>row.querySelector(`[data-k="${k}"]`).value;const g=v('g');const lim=DIRECT[g]?[0,100]:[-100,100];return{g,op:v('op')==='lt'?'lt':'ge',x:Math.max(0,Math.floor(+v('x')||0)),v:Math.max(lim[0],Math.min(lim[1],Math.round(+v('v')||0)))};});
+  saveCfg();paintBalr();refreshEff();}
 function readSched(){const rows=[...document.querySelectorAll('#schedList [data-i]')];
   CFG.sched=rows.map(row=>{const v=k=>row.querySelector(`[data-k="${k}"]`).value;const g=v('g');const lim=DIRECT[g]?[0,100]:[-100,100];const c=x=>Math.max(lim[0],Math.min(lim[1],Math.round(+x||0)));return{g,n:Math.max(0,Math.floor(+v('n')||0)),a:c(v('a')),b:c(v('b'))};});
   saveCfg();paintSched();refreshEff();}
@@ -206,6 +224,7 @@ function syncRigPanel(){
   $('#rgReveal').checked=!!CFG.reveal;
   document.querySelectorAll('.nmc').forEach(x=>{x.checked=nm(x.dataset.g);});
   if(!$('#schedList').contains(act))paintSched();
+  if(!$('#balrList').contains(act))paintBalr();
   if($('#od_cmin')!==act)$('#od_cmin').value=+CFG.crashMin>=1?CFG.crashMin:'';
   const od=CFG.odds||{};for(const [k,id] of [['coin','od_coin'],['rpsWin','od_rpsWin'],['rpsDraw','od_rpsDraw'],['oddeven','od_oddeven']]){const el=$('#'+id);if(el&&el!==act)el.value=typeof od[k]==='number'?Math.round(od[k]*1000)/10:'';}
   if($('#od_crash')!==act)$('#od_crash').value=CFG.crashCap>=1.01?CFG.crashCap:'';
@@ -263,7 +282,7 @@ function makeRow(u){
     else if(c==='pw'){const p=r.npw.value;if(p.length<4){toast('새 비밀번호는 4자 이상이어야 합니다');return;}svSend({t:'adm',op:'pw',sid,pw:p});r.npw.value='';}
     else if(c==='del'){if(Date.now()-r.delArm>3000){r.delArm=Date.now();b.textContent='한 번 더 누르면 삭제';return;}svSend({t:'adm',op:'del',sid});}
   });
-  r.updateEff=()=>{const p=r.u.presence||{};const g=GIDS.includes(p.game)?p.game:null;const e=biasFor(g||'_',sid,r.u.stats.rounds,r.u.stats.rounds);tr.querySelector('.eff').textContent=(g?META[g].name+' ':'')+'실제 적용 '+biasText(e)+(p.force?` · 대기: 다음 판 ${p.force==='win'?'승리':'패배'}`:'');
+  r.updateEff=()=>{const p=r.u.presence||{};const g=GIDS.includes(p.game)?p.game:null;const e=biasFor(g||'_',sid,r.u.stats.rounds,r.u.stats.rounds,r.u.bal+((r.u.pending&&r.u.pending.bet)||0));tr.querySelector('.eff').textContent=(g?META[g].name+' ':'')+'실제 적용 '+biasText(e)+(p.force?` · 대기: 다음 판 ${p.force==='win'?'승리':'패배'}`:'');
     const pm=tr.querySelector('.pc-meta');const s=r.u.stats;pm.textContent=`${s.rounds}판 · 승률 ${s.rounds?Math.round(s.wins/s.rounds*100):0}% · 조작 ${s.manip}판${s.md?' ('+sfmt(s.md)+')':''}${Math.round(e*100)?' · 확률 '+biasText(e):''}${p.force?' · 다음 판 '+(p.force==='win'?'승리':'패배')+' 대기':''}`;};
   r.update=(nu)=>{r.u=nu;const p=nu.presence||{};
     tr.querySelector('.odot').className='odot'+(nu.online?' on':'');

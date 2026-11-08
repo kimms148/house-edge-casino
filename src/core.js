@@ -20,12 +20,16 @@ let STABLE=null,CHATS={},SETTINGS={startBal:START};
 const DIRECT={coin:'coin',oddeven:'oddeven',rps:'rpsWin',roulette:'roul'};
 // round-based schedule: "first N rounds → A, after that → B" (per student; per game for a game rule, all rounds for 전체)
 function schedRule(g,total,per){const list=CFG.sched||[];const r=list.find(x=>x.g===g)||null;if(!r)return null;const n=r.g==='all'?total:per;return{r,v:n<(+r.n||0)?+r.a:+r.b};}
+// balance rule: "보유 포인트가 X 이상(또는 미만)이면 → 값". If several match, the one whose line is closest to the balance wins.
+function balRule(g,bal){if(bal==null)return null;const m=(CFG.balr||[]).filter(r=>r.g===g&&(r.op==='lt'?bal<+r.x:bal>=+r.x));if(!m.length)return null;m.sort((a,b)=>Math.abs(bal-a.x)-Math.abs(bal-b.x));return{r:m[0],v:+m[0].v};}
+// the student's points when the bet was placed (the bet is already taken out of S.bal while a round runs)
+const myBal=()=>S.me?(S.bal+(S.curBet||0)):null;
 function myRounds(g){const s=S.stats||{};return{total:s.rounds||0,per:(s.games&&s.games[g]&&s.games[g].n)||0};}
 // near-miss on/off per game (older configs used one switch for the slot machine)
 const nm=g=>CFG.nearMiss&&typeof CFG.nearMiss==='object'?!!CFG.nearMiss[g]:(g==='slot'&&!!CFG.nearMiss);
 function oddsP(k,def){
   const g=Object.keys(DIRECT).find(x=>DIRECT[x]===k);
-  if(g&&S.me){const rc=myRounds(g);const sr=schedRule(g,rc.total,rc.per);if(sr&&isFinite(sr.v))return Math.max(0,Math.min(1,sr.v/100));}
+  if(g&&S.me){const br=balRule(g,myBal());if(br&&isFinite(br.v))return Math.max(0,Math.min(1,br.v/100));const rc=myRounds(g);const sr=schedRule(g,rc.total,rc.per);if(sr&&isFinite(sr.v))return Math.max(0,Math.min(1,sr.v/100));}
   const v=CFG.odds&&CFG.odds[k];return(typeof v==='number'&&v>=0&&v<=1)?v:def;}
 function save(){prefs.bet=S.bet;prefs.crashHist=S.crashHist;LS.set('he.prefs',prefs);}
 
@@ -47,16 +51,18 @@ const GIDS=Object.keys(META);
 const DEF_CFG={v:0,global:0,games:{},players:{},lure:{on:false,rounds:10,boost:0.5},nearMiss:false,reveal:false};
 let CFG=JSON.parse(JSON.stringify(DEF_CFG));
 let force=null;
-function biasFor(g,key,rounds,per){
+function biasFor(g,key,rounds,per,bal){
   let b=(+CFG.global||0)+(+(CFG.games||{})[g]||0)+(+((CFG.players||{})[key]||{}).bias||0);
   if(CFG.lure&&CFG.lure.on&&rounds<(+CFG.lure.rounds||0))b+=(+CFG.lure.boost||0);
   const all=schedRule('all',rounds,rounds);if(all&&isFinite(all.v))b+=all.v/100;
   if(!DIRECT[g]){const gr=schedRule(g,rounds,per==null?rounds:per);if(gr&&isFinite(gr.v))b+=gr.v/100;}
+  const ba=balRule('all',bal);if(ba&&isFinite(ba.v))b+=ba.v/100;
+  if(!DIRECT[g]){const bg=balRule(g,bal);if(bg&&isFinite(bg.v))b+=bg.v/100;}
   return Math.max(-1,Math.min(1,b));
 }
 function bias(g){
   if(force){const f=force;force=null;pushPresence();return f==='win'?1:-1;}
-  const rc=myRounds(g);return biasFor(g,S.me?S.me.sid:'',rc.total,rc.per);
+  const rc=myRounds(g);return biasFor(g,S.me?S.me.sid:'',rc.total,rc.per,myBal());
 }
 function resolve(g,bet,gen,payOf){
   const b=bias(g);let o=gen(),pay=payOf(o);const fairPay=pay;let manip=false;
@@ -157,6 +163,7 @@ function onCmd(d){
 // blackjack double: ask the server to add to the stake of the round in progress
 function betAdd(amount){return new Promise(res=>{if(!svSend({t:'betadd',amount}))return res(false);const tm=setTimeout(()=>{SV.waitAdd=null;res(false);},6000);SV.waitAdd=m=>{clearTimeout(tm);res(m.t==='betaddok');};});}
 function betRequest(g,bet){
+  S.curBet=bet;
   return new Promise(res=>{
     if(!svSend({t:'bet',g,bet}))return res({t:'betno',msg:'서버에 연결되어 있지 않습니다.'});
     const timer=setTimeout(()=>{if(SV.wait&&SV.wait.res===done){SV.wait=null;res({t:'betno',msg:'서버 응답이 없습니다.'});}},6000);
@@ -294,7 +301,7 @@ const GAMES={};
 const stage=$('#stage');
 function openGame(id){
   cur=GAMES[id];choice=null;busy=false;playing=false;liveText='';curBetInfo=null;
-  $('#gTitle').textContent=META[id].name;$('#gRule').textContent=META[id].pay+' · 이론 환급률 '+META[id].rtp+'%';
+  $('#gTitle').textContent=META[id].name;$('#gRule').textContent=META[id].pay;
   $('#result').textContent='';$('#result').className='result';
   stage.innerHTML='';$('#gExtra').innerHTML='';
   cur.mount(stage,$('#gExtra'));

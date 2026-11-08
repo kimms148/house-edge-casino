@@ -119,7 +119,7 @@ GAMES.roulette={id:'roulette',angle:0,choiceLabel:'베팅 종류',
     extra.innerHTML=`<div class="amt-row"><label class="lbl" for="rNum" style="white-space:nowrap">숫자 하나에 걸 숫자</label><input id="rNum" type="number" min="0" max="36" value="${LS.get('he.rnum',17)}" style="font-size:15px;padding:6px 8px"></div>
       <table class="paytable" style="margin-top:8px"><tr><td>공식 당첨 확률</td><td style="color:var(--mute)">배당 (원금 포함)</td></tr>
       <tr><td>숫자 하나 (0 포함) 1/37 = 2.70%</td><td>36배</td></tr><tr><td>빨강·검정·홀·짝·1~18·19~36 18/37 = 48.65%</td><td>2배</td></tr><tr><td>1~12·13~24·25~36 12/37 = 32.43%</td><td>3배</td></tr></table>
-      <div class="hint" style="margin-top:6px">0이 나오면 숫자 하나에 0을 건 경우만 이깁니다. 그래서 이론 환급률은 97.3%입니다.</div>`;
+      <div class="hint" style="margin-top:6px">0이 나오면 숫자 하나에 0을 건 경우만 이깁니다.</div>`;
     $('#rNum').addEventListener('change',e=>{const v=Math.max(0,Math.min(36,Math.floor(+e.target.value)||0));e.target.value=v;LS.set('he.rnum',v);});
     this.draw(this.angle,null,null);this.hist();
   },
@@ -142,7 +142,8 @@ GAMES.roulette={id:'roulette',angle:0,choiceLabel:'베팅 종류',
   async play(bet,pick){
     const bt=RBETS[pick],x=this.num();
     const rc=myRounds('roulette'),sr=schedRule('roulette',rc.total,rc.per);
-    const gen=()=>{const p=sr&&isFinite(sr.v)?Math.max(0,Math.min(1,sr.v/100)):CFG.roul&&CFG.roul[bt.k];
+    const br=balRule('roulette',myBal()),bsr=br&&isFinite(br.v)?br:sr;
+    const gen=()=>{const p=bsr&&isFinite(bsr.v)?Math.max(0,Math.min(1,bsr.v/100)):sr&&isFinite(sr.v)?Math.max(0,Math.min(1,sr.v/100)):CFG.roul&&CFG.roul[bt.k];
       if(typeof p==='number'&&p>=0&&p<=1){const want=rnd()<p;const pool=[...Array(37).keys()].filter(n=>!!bt.win(n,x)===want);return pool.length?pool[Math.floor(rnd()*pool.length)]:Math.floor(rnd()*37);}
       return Math.floor(rnd()*37);};
     const r=resolve('roulette',bet,gen,n=>bt.win(n,x)?bet*bt.pay:0);let n=r.o;

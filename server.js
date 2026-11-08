@@ -508,6 +508,7 @@ setInterval(() => {
   DB.users = DB.users || {}; DB.mail = DB.mail || {}; DB.meta = DB.meta || {};
   if (!DB.meta.stable || !DB.meta.stable.horse) { DB.meta.stable = freshStable(); store.saveMeta('stable', DB.meta.stable); }
   for (const u of Object.values(DB.users)) { if (u.loan) { u.loanBy = Object.assign({}, u.loanBy, { gold: u.loan }); u.loan = null; }
+    for (const l of Object.values(u.loanBy || {})) if (l) { if (!l.rate) l.rate = 0.2; if (!l.n) l.n = 1; }
     u.pending = null; u.stats = Object.assign(newStats(), u.stats || {}); u.hist = u.hist || []; }
   server.listen(PORT, () => console.log(`house-edge listening on :${PORT} (storage: ${store.kind}, users: ${Object.keys(DB.users).length})`));
 })().catch(e => { console.error(e); process.exit(1); });
