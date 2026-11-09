@@ -116,7 +116,8 @@ const LOAN_TERM = 24 * 3600 * 1000;
 const lenderOf = l => l.lender || 'gold';
 const loanCount = (u, k) => (u.loans || []).filter(l => !k || lenderOf(l) === k).length;
 const lastLoanAt = (u, k) => { const l = (u.loans || []).filter(x => lenderOf(x) === (k || 'gold')).pop(); return l ? l.at : 0; };
-const nextLoanAt = (u, k) => lastLoanAt(u, k) ? lastLoanAt(u, k) + LOAN_TERM : 0;
+// 다음 단계 대출까지 기다리는 시간 없음: 갚았거나 빚이 없으면 0P일 때 바로 다음 단계를 빌릴 수 있다.
+const nextLoanAt = () => 0;
 const activeLoans = u => Object.entries(u.loanBy || {}).filter(([, l]) => l).map(([k, l]) => Object.assign({ k }, l));
 const debtOne = (l, now) => Math.floor(l.principal * (1 + (l.rate || 0.2) * Math.max(0, ((now || Date.now()) - l.at) / 3600000)));
 // per-lender state the student's loan tab draws from
@@ -452,7 +453,7 @@ wss.on('connection', ws => {
           ch.msgs.push({ from: 'system', body: '관리자가 대화를 끝냈습니다.', t: Date.now() });
           saveChat(tu.sid, ch); pushChat(tu.sid); scheduleUsers(); return ack(true, tu.name + ' 학생과의 대화를 끝냈습니다.');
         }
-        // 대출 초기화: 지금 대출을 없애고, 단계(1차부터)와 하루 대기 시간도 처음으로 돌린다. 기록은 관리자 통계용으로 따로 보관.
+        // 대출 초기화: 지금 대출을 없애고, 단계(1차부터)를 처음으로 돌린다. 기록은 관리자 통계용으로 따로 보관.
         if (m.op === 'loanreset') {
           const cur = tu.loans || [];
           for (const l of cur) if (!l.repaidAt && !l.forgivenAt && activeLoans(tu).some(a => a.at === l.at)) l.forgivenAt = Date.now();

@@ -304,7 +304,7 @@ function makeRow(u){
     tr.classList.toggle('playing',!!nu.pending);tr.classList.toggle('broke',!nu.pending&&nu.bal<1);tr.classList.toggle('offline',!nu.online);
     tr.querySelector('[data-c=chat]').textContent=nu.chatOpen?'대화 중':'메시지';
     tr.querySelector('[data-c=forgive]').hidden=!nu.loan;
-    const lr=tr.querySelector('[data-c=loanreset]');lr.hidden=!(nu.loan||nu.loanCount);lr.title='지금 대출과 빚을 없애고, 대출 단계(1차부터)와 하루 대기 시간을 처음으로 돌립니다';
+    const lr=tr.querySelector('[data-c=loanreset]');lr.hidden=!(nu.loan||nu.loanCount);lr.title='지금 대출과 빚을 없애고, 대출 단계(1차부터)를 처음으로 돌립니다';
     const canLive=!!nu.pending&&nu.online&&['horse','snail','crash'].includes(nu.pending.g);
     tr.querySelectorAll('[data-c=lw],[data-c=ll]').forEach(b=>{b.disabled=!canLive;b.title=canLive?'':'경마·달팽이·그래프 게임이 진행 중일 때만 쓸 수 있습니다';});
     tr.querySelectorAll('[data-c=fw],[data-c=fl]').forEach(b=>{b.disabled=!nu.online;b.title=nu.online?'':'접속 중일 때만 쓸 수 있습니다';});
