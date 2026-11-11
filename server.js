@@ -99,7 +99,7 @@ const byInv = code => Object.values(DB.users).find(x => x.inv && x.inv === code 
 function newStats() { const g = {}; for (const k of GAMES) g[k] = { n: 0, w: 0, net: 0, wag: 0 }; return { rounds: 0, wins: 0, net: 0, wag: 0, manip: 0, md: 0, games: g }; }
 function publicUser(u) {
   const ch = chatOf(u.sid);
-  return { sid: u.sid, name: u.name, nick: u.nick || '', inv: invOf(u), invites: u.invites || 0, inviteReward: settings().inviteReward, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: loanSummary(u), lenders: lenderState(u), stats: u.stats, hist: u.hist.slice(-300), chat: ch && ch.open ? { open: true, msgs: ch.msgs } : null };
+  return { sid: u.sid, name: u.name, nick: u.nick || '', inv: invOf(u), invites: u.invites || 0, inviteReward: settings().inviteReward, credit: creditInfo(u), garnish: settings().garnish, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: loanSummary(u), lenders: lenderState(u), stats: u.stats, hist: u.hist.slice(-300), chat: ch && ch.open ? { open: true, msgs: ch.msgs } : null };
 }
 function issueToken(payload) {
   const t = crypto.randomBytes(24).toString('base64url');
@@ -121,9 +121,9 @@ function resolveToken(t) {
 // 대출소 세 곳. 빌리는 금액은 같고(1차 1만, 2차 5만, 3차 이후 10만), 이자율만 다르다. 각 대출소는 따로 센다.
 const LOAN_AMOUNTS = [10000, 50000, 100000];
 const LENDERS = [
-  { k: 'gold', name: '골드브릿지 캐피탈', rates: [0.20, 0.40, 0.60] },
-  { k: 'moon', name: '블랙문 크레딧', rates: [0.30, 0.50, 0.70] },
-  { k: 'red', name: '레드라인 대부', rates: [0.40, 0.60, 0.80] },
+  { k: 'gold', name: '골드브릿지 캐피탈', rates: [0.20, 0.40, 0.60], min: 50 },
+  { k: 'moon', name: '블랙문 크레딧', rates: [0.30, 0.50, 0.70], min: 25 },
+  { k: 'red', name: '레드라인 대부', rates: [0.40, 0.60, 0.80], min: 0 },
 ];
 const LENDER = Object.fromEntries(LENDERS.map(L => [L.k, L]));
 const LOAN_TIERS = LOAN_AMOUNTS.map((amount, i) => ({ amount, rate: LENDERS[0].rates[i] }));
@@ -134,11 +134,38 @@ const lastLoanAt = (u, k) => { const l = (u.loans || []).filter(x => lenderOf(x)
 // 다음 단계 대출까지 기다리는 시간 없음: 갚았거나 빚이 없으면 0P일 때 바로 다음 단계를 빌릴 수 있다.
 const nextLoanAt = () => 0;
 const activeLoans = u => Object.entries(u.loanBy || {}).filter(([, l]) => l).map(([k, l]) => Object.assign({ k }, l));
-const debtOne = (l, now) => Math.floor(l.principal * (1 + (l.rate || 0.2) * Math.max(0, ((now || Date.now()) - l.at) / 3600000)));
+// 빚 = 원금 + 이자 − 자동 상환으로 이미 낸 돈
+const debtOne = (l, now) => Math.max(0, Math.floor(l.principal * (1 + (l.rate || 0.2) * Math.max(0, ((now || Date.now()) - l.at) / 3600000))) - (l.paid || 0));
+// 신용 점수 0~100 (처음 50). 제때 갚으면 오르고, 연체하거나 돌려막으면 내려간다.
+const creditOf = u => typeof u.credit === 'number' ? u.credit : 50;
+const gradeOf = s => s >= 75 ? 'A' : s >= 50 ? 'B' : s >= 25 ? 'C' : 'D';
+const creditInfo = u => ({ score: creditOf(u), grade: gradeOf(creditOf(u)) });
+function addCredit(u, d, why) { const b = creditOf(u); u.credit = Math.max(0, Math.min(100, b + d)); if (u.credit !== b) logEv(u, 'admin', '신용 점수 ' + b + ' → ' + u.credit + ' (' + why + ')', 0); }
+// A등급은 한도 1.5배
+const limitMult = u => creditOf(u) >= 75 ? 1.5 : 1;
+// 24시간을 넘긴 대출은 한 번씩 연체로 기록한다
+function checkLate(u) { let ch = false; for (const [k, l] of Object.entries(u.loanBy || {})) if (l && !l.late && Date.now() - l.at > LOAN_TERM) { l.late = true; addCredit(u, -25, LENDER[k].name + ' 연체'); ch = true; } if (ch) store.saveUser(u); return ch; }
+// 대출 하나를 닫는다 (직접 상환 또는 자동 상환으로 다 갚음)
+function closeLoan(u, k, extraPaid) {
+  const ln = u.loanBy[k]; const rec = (u.loans || []).filter(x => lenderOf(x) === k && x.at === ln.at).pop();
+  if (rec) { rec.repaidAt = Date.now(); rec.paid = (ln.paid || 0) + (extraPaid || 0); }
+  addCredit(u, ln.late ? 5 : 15, LENDER[k].name + (ln.late ? ' 연체 후 상환' : ' 기한 안에 상환')); u.loanBy[k] = null;
+}
+// 자동 상환: 빚이 있으면 딴 돈(순이익)의 일부가 대출소로 빠져나간다. 연체된 곳, 이자가 높은 곳부터.
+function garnish(u, profit) {
+  const pct = settings().garnish; if (!(pct > 0) || !(profit > 0)) return null;
+  let left = Math.floor(profit * pct / 100), took = 0; const names = [], closed = [];
+  const order = activeLoans(u).sort((a, b) => (!!b.late - !!a.late) || b.rate - a.rate);
+  for (const a of order) { if (left < 1) break; const ln = u.loanBy[a.k], d = debtOne(ln); const t = Math.min(left, d); if (t < 1) continue;
+    ln.paid = (ln.paid || 0) + t; left -= t; took += t; names.push(LENDER[a.k].name); if (debtOne(ln) <= 0) { closeLoan(u, a.k, 0); closed.push(LENDER[a.k].name); } }
+  if (!took) return null;
+  u.bal -= took; logEv(u, 'repay', '자동 상환 (딴 돈의 ' + pct + '%) → ' + names.join(', '), -took);
+  return { amount: took, pct, names, closed };
+}
 // per-lender state the student's loan tab draws from
 function lenderState(u) {
   return LENDERS.map(L => { const a = (u.loanBy || {})[L.k]; const cnt = loanCount(u, L.k);
-    return { k: L.k, name: L.name, rates: L.rates, count: cnt, nextAt: nextLoanAt(u, L.k), active: a ? Object.assign({}, a, { debt: debtOne(a), expired: Date.now() - a.at > LOAN_TERM }) : null }; });
+    return { k: L.k, name: L.name, rates: L.rates, count: cnt, nextAt: nextLoanAt(u, L.k), min: L.min, minGrade: gradeOf(L.min), locked: creditOf(u) < L.min, amount: Math.floor(LOAN_AMOUNTS[Math.min(cnt, LOAN_AMOUNTS.length - 1)] * limitMult(u)), active: a ? Object.assign({}, a, { debt: debtOne(a), expired: Date.now() - a.at > LOAN_TERM }) : null }; });
 }
 // one summary for screens that only need totals
 function loanSummary(u) {
@@ -146,7 +173,7 @@ function loanSummary(u) {
   return { principal: act.reduce((s, l) => s + l.principal, 0), debt: act.reduce((s, l) => s + debtOne(l), 0), expired: act.some(l => Date.now() - l.at > LOAN_TERM), count: act.length,
     list: act.map(l => ({ k: l.k, name: LENDER[l.k].name, n: l.n, principal: l.principal, rate: l.rate, debt: debtOne(l), expired: Date.now() - l.at > LOAN_TERM })) };
 }
-const settings = () => Object.assign({ startBal: START, inviteReward: 1000 }, DB.meta.settings || {});
+const settings = () => Object.assign({ startBal: START, inviteReward: 1000, garnish: 30 }, DB.meta.settings || {});
 const userStart = u => u.start || START;
 function debtOf(u, now) { return activeLoans(u).reduce((s, l) => s + debtOne(l, now), 0); }
 const loanExpired = u => activeLoans(u).some(l => Date.now() - l.at > LOAN_TERM);
@@ -203,7 +230,7 @@ const authed = () => [...conns].filter(c => c.admin || c.sid);
 
 function pushBal(sid, extra) {
   const u = DB.users[sid]; if (!u) return;
-  for (const c of userConns(sid)) send(c, Object.assign({ t: 'bal', bal: u.bal, stats: u.stats, loan: loanSummary(u), lenders: lenderState(u) }, extra || {}));
+  for (const c of userConns(sid)) send(c, Object.assign({ t: 'bal', bal: u.bal, stats: u.stats, loan: loanSummary(u), lenders: lenderState(u), credit: creditInfo(u) }, extra || {}));
 }
 
 // ranking: 반별 학생 순위 + 반 평균 수익률 순위
@@ -233,7 +260,7 @@ function usersMsg() {
   const online = {};
   for (const c of conns) if (c.sid) { const o = online[c.sid] || (online[c.sid] = { n: 0, presence: {} }); o.n++; if (c.presence && (c.presence.st === 'play' || !o.presence.game)) o.presence = c.presence; }
   const users = approvedUsers().map(u => ({
-    sid: u.sid, name: u.name, nick: u.nick || '', invites: u.invites || 0, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: loanSummary(u), loanCount: loanCount(u), chatOpen: !!(chatOf(u.sid) && chatOf(u.sid).open), stats: { rounds: u.stats.rounds, wins: u.stats.wins, net: u.stats.net, wag: u.stats.wag, manip: u.stats.manip, md: u.stats.md },
+    sid: u.sid, name: u.name, nick: u.nick || '', invites: u.invites || 0, credit: creditInfo(u), grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: loanSummary(u), loanCount: loanCount(u), chatOpen: !!(chatOf(u.sid) && chatOf(u.sid).open), stats: { rounds: u.stats.rounds, wins: u.stats.wins, net: u.stats.net, wag: u.stats.wag, manip: u.stats.manip, md: u.stats.md },
     pending: u.pending ? { g: u.pending.g, bet: u.pending.bet } : null, online: online[u.sid] ? online[u.sid].n : 0, presence: online[u.sid] ? online[u.sid].presence : null,
     last: u.hist.length ? u.hist[u.hist.length - 1] : null, created: u.created,
     loanStats: (u.loansArchived || []).concat(u.loans || []).reduce((a, l) => { a.n++; a.lent += l.principal; if (l.repaidAt) { a.repaid += l.principal; a.interest += (l.paid || l.principal) - l.principal; } if (l.forgivenAt) a.forgiven += l.principal; return a; }, { n: 0, lent: 0, repaid: 0, interest: 0, forgiven: 0 }),
@@ -282,6 +309,21 @@ function approve(nu) {
   }
   store.saveUser(nu);
   for (const o of conns) if (o.waitSid === nu.sid) { o.waitSid = null; send(o, { t: 'approved', sid: nu.sid }); }
+}
+
+function finishRound(u, pay, manip, d, winner) {
+  const { g, bet } = u.pending;
+  u.bal += pay; u.pending = null;
+  const h = record(u, g, bet, pay, manip, d);
+  if ((g === 'horse' || g === 'snail') && Number.isInteger(winner)) updateStable(g, winner);
+  checkLate(u); const garn = garnish(u, pay - bet);
+  store.saveUser(u); pushBal(u.sid, garn ? { h, garn } : { h }); feedEvent(u, h); pushLog(u.sid); scheduleUsers(); scheduleRank();
+}
+function abandonRound(u) {
+  const p = u.pending;
+  if (p.commit) return finishRound(u, p.commit.pay, p.commit.manip, p.commit.d, p.commit.winner);
+  u.bal += p.bet; u.pending = null; logEv(u, 'admin', '판 도중에 나감: 베팅 ' + p.bet.toLocaleString() + 'P 돌려줌', p.bet);
+  store.saveUser(u); pushBal(u.sid, {}); pushLog(u.sid); scheduleUsers(); scheduleRank();
 }
 
 function login(c, payload) {
@@ -386,10 +428,14 @@ wss.on('connection', ws => {
         const { g, bet } = u.pending;
         let pay = Math.max(0, Math.floor(+m.pay || 0));
         pay = Math.min(pay, Math.floor(bet * MAX_MULT[g]));
-        u.bal += pay; u.pending = null;
-        const h = record(u, g, bet, pay, !!m.manip, +m.d || 0);
-        if ((g === 'horse' || g === 'snail') && Number.isInteger(m.winner)) updateStable(g, m.winner);
-        store.saveUser(u); pushBal(u.sid, { h }); feedEvent(u, h); pushLog(u.sid); scheduleUsers(); scheduleRank();
+        finishRound(u, pay, !!m.manip, +m.d || 0, m.winner);
+        break;
+      }
+      // 결과가 시작할 때 정해지는 게임은 결과를 미리 맡겨 둔다. 판 도중에 나가면 이 결과대로 정산한다.
+      case 'commit': {
+        if (!u || !u.pending || u.pending.conn !== c.id) return;
+        const { g, bet } = u.pending;
+        u.pending.commit = { pay: Math.min(Math.max(0, Math.floor(+m.pay || 0)), Math.floor(bet * MAX_MULT[g])), manip: !!m.manip, d: +m.d || 0, winner: Number.isInteger(m.winner) ? m.winner : undefined };
         break;
       }
       case 'mail': {
@@ -419,10 +465,13 @@ wss.on('connection', ws => {
         const L = LENDER[String(m.k || 'gold')]; if (!L) return;
         u.loanBy = u.loanBy || {};
         if (u.loanBy[L.k]) return send(c, { t: 'loanerr', msg: L.name + '에 갚지 않은 대출이 있습니다.' });
+        checkLate(u);
+        if (creditOf(u) < L.min) return send(c, { t: 'loanerr', msg: L.name + '은(는) 신용 등급 ' + gradeOf(L.min) + ' 이상에게만 빌려줍니다. (지금 ' + gradeOf(creditOf(u)) + '등급, ' + creditOf(u) + '점)' });
         if (u.bal >= 1 || u.pending) return send(c, { t: 'loanerr', msg: '포인트를 모두 잃었을 때만 대출을 받을 수 있습니다.' });
         if (Date.now() < nextLoanAt(u, L.k)) { const d = new Date(nextLoanAt(u, L.k)); return send(c, { t: 'loanerr', msg: L.name + '은(는) 하루에 한 번만 빌려줍니다. ' + (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ' 이후에 다시 빌릴 수 있습니다.' }); }
-        const ti = Math.min(loanCount(u, L.k), LOAN_AMOUNTS.length - 1), amount = LOAN_AMOUNTS[ti], rate = L.rates[ti];
+        const ti = Math.min(loanCount(u, L.k), LOAN_AMOUNTS.length - 1), amount = Math.floor(LOAN_AMOUNTS[ti] * limitMult(u)), rate = L.rates[ti];
         const n = loanCount(u, L.k) + 1, at = Date.now();
+        if (activeLoans(u).length) addCredit(u, -5, '빚이 있는데 또 대출');
         u.loanBy[L.k] = { principal: amount, rate, at, n }; u.bal += amount;
         u.loans = (u.loans || []).concat([{ lender: L.k, principal: amount, rate, at }]);
         logEv(u, 'loan', L.name + ' ' + n + '번째 대출 (시간당 ' + Math.round(rate * 100) + '%)', amount);
@@ -434,8 +483,7 @@ wss.on('connection', ws => {
         if (u.pending) return send(c, { t: 'loanerr', msg: '판이 끝난 뒤에 갚을 수 있습니다.' });
         const ln = u.loanBy[L.k], d = debtOne(ln);
         if (u.bal < d) return send(c, { t: 'loanerr', msg: L.name + '에 갚을 돈이 부족합니다. 필요한 금액 ' + d.toLocaleString() + 'P, 보유 ' + u.bal.toLocaleString() + 'P' });
-        u.bal -= d; const last = (u.loans || []).filter(x => lenderOf(x) === L.k && x.at === ln.at).pop(); if (last) { last.repaidAt = Date.now(); last.paid = d; }
-        u.loanBy[L.k] = null; logEv(u, 'repay', L.name + ' 상환 (원금 ' + ln.principal.toLocaleString() + 'P + 이자)', -d); store.saveUser(u); pushBal(u.sid, { loanMsg: L.name + '에 대출금과 이자 ' + d.toLocaleString() + 'P를 갚았습니다.' }); scheduleUsers(); scheduleRank();
+        checkLate(u); u.bal -= d; closeLoan(u, L.k, d); logEv(u, 'repay', L.name + ' 상환 (원금 ' + ln.principal.toLocaleString() + 'P + 이자)', -d); store.saveUser(u); pushBal(u.sid, { loanMsg: L.name + '에 대출금과 이자 ' + d.toLocaleString() + 'P를 갚았습니다.' }); scheduleUsers(); scheduleRank();
         break;
       }
       case 'chat': {
@@ -475,6 +523,7 @@ wss.on('connection', ws => {
           const set = {}; let msg = '';
           if ('startBal' in m) { const sb = Math.floor(+m.startBal); if (!(sb >= 0 && sb <= 1e9)) return ack(false, '가입 지급 포인트를 확인하세요.'); set.startBal = sb; msg = '이제 새로 가입하는 학생은 ' + sb.toLocaleString() + 'P로 시작합니다.'; }
           if ('inviteReward' in m) { const ir = Math.floor(+m.inviteReward); if (!(ir >= 0 && ir <= 1e9)) return ack(false, '초대 보상을 확인하세요.'); set.inviteReward = ir; msg = '친구 초대 보상은 이제 ' + ir.toLocaleString() + 'P입니다.'; for (const o of authed()) if (o.sid) send(o, { t: 'invinfo', inviteReward: ir }); }
+          if ('garnish' in m) { const gp = Math.floor(+m.garnish); if (!(gp >= 0 && gp <= 100)) return ack(false, '자동 상환 비율은 0~100%입니다.'); set.garnish = gp; msg = gp ? '빚이 있는 학생은 이제 딴 돈의 ' + gp + '%가 자동으로 상환됩니다.' : '자동 상환을 껐습니다.'; }
           DB.meta.settings = Object.assign({}, DB.meta.settings || {}, set); store.saveMeta('settings', DB.meta.settings);
           for (const o of admins()) send(o, { t: 'settings', settings: settings() });
           return ack(true, msg || '저장했습니다.');
@@ -507,7 +556,7 @@ wss.on('connection', ws => {
         if (m.op === 'loanreset') {
           const cur = tu.loans || [];
           for (const l of cur) if (!l.repaidAt && !l.forgivenAt && activeLoans(tu).some(a => a.at === l.at)) l.forgivenAt = Date.now();
-          tu.loansArchived = (tu.loansArchived || []).concat(cur).slice(-200); tu.loans = []; tu.loanBy = {}; tu.loan = null; logEv(tu, 'admin', '관리자가 대출 초기화', 0);
+          tu.loansArchived = (tu.loansArchived || []).concat(cur).slice(-200); tu.loans = []; tu.loanBy = {}; tu.loan = null; tu.credit = 50; logEv(tu, 'admin', '관리자가 대출 초기화 (신용 점수 50)', 0);
           store.saveUser(tu); pushBal(tu.sid, { by: 'admin', loanMsg: '관리자가 대출 기록을 초기화했습니다. 다음 대출은 1차 조건으로 바로 받을 수 있습니다.' }); scheduleUsers(); scheduleRank();
           return ack(true, tu.name + ' 학생의 대출을 초기화했습니다. (빚 없음, 다음 대출 1차부터)');
         }
@@ -539,17 +588,14 @@ wss.on('connection', ws => {
   });
   ws.on('close', () => {
     conns.delete(c);
-    // 진행 중이던 판의 창을 닫으면 그 판은 진 것으로 처리
+    // 진행 중이던 판의 창을 닫으면: 결과가 이미 정해진 판은 그 결과대로, 아니면 베팅을 돌려준다
     const u = c.sid && DB.users[c.sid];
-    if (u && u.pending && u.pending.conn === c.id) {
-      const { g, bet } = u.pending; u.pending = null;
-      const h = record(u, g, bet, 0, false, 0); store.saveUser(u); feedEvent(u, h); scheduleRank();
-    }
+    if (u && u.pending && u.pending.conn === c.id) abandonRound(u);
     scheduleUsers();
   });
 });
 
-setInterval(() => { if (Object.values(DB.users).some(u => activeLoans(u).length)) { scheduleUsers(); scheduleRank(); } }, 60000);
+setInterval(() => { let any = false; for (const u of Object.values(DB.users)) if (activeLoans(u).length) { any = true; if (checkLate(u)) pushBal(u.sid, {}); } if (any) { scheduleUsers(); scheduleRank(); } }, 60000);
 setInterval(() => {
   for (const c of conns) { if (!c.alive) { c.ws.terminate(); continue; } c.alive = false; try { c.ws.ping(); } catch (e) {} }
 }, 25000);
@@ -560,7 +606,7 @@ setInterval(() => {
   if (!DB.meta.stable || !DB.meta.stable.horse) { DB.meta.stable = freshStable(); store.saveMeta('stable', DB.meta.stable); }
   for (const u of Object.values(DB.users)) { if (u.loan) { u.loanBy = Object.assign({}, u.loanBy, { gold: u.loan }); u.loan = null; }
     for (const l of Object.values(u.loanBy || {})) if (l) { if (!l.rate) l.rate = 0.2; if (!l.n) l.n = 1; }
-    u.pending = null; u.stats = Object.assign(newStats(), u.stats || {}); u.hist = u.hist || []; }
+    u.stats = Object.assign(newStats(), u.stats || {}); u.hist = u.hist || []; if (u.pending) abandonRound(u); }
   server.listen(PORT, () => console.log(`house-edge listening on :${PORT} (storage: ${store.kind}, users: ${Object.keys(DB.users).length})`));
 })().catch(e => { console.error(e); process.exit(1); });
 

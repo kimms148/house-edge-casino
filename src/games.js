@@ -92,6 +92,7 @@ function raceGame(cfg){
     async play(bet,pick){
       const F=this.field;const payOf=w=>w===pick?Math.floor(bet*F[w].odds):0;
       const r=resolve(cfg.id,bet,()=>{let u=rnd();for(let i=0;i<F.length;i++){u-=F[i].p;if(u<=0)return i;}return F.length-1;},payOf);
+      commitRound(r.pay,r.manip,r.fairPay,r.o);
       const lanes=[...stage.querySelectorAll('.lane')],runners=lanes.map(l=>l.querySelector('.runner'));
       lanes.forEach((l,i)=>l.classList.toggle('mine',i===pick));
       const comm=$('#comm');
@@ -104,7 +105,7 @@ function raceGame(cfg){
         const lead=race.leader;let nw;
         if(want==='lose'){if(race.winner===pick||true){const others=F.map((_,i)=>i).filter(i=>i!==pick);nw=others.includes(lead)?lead:others[Math.floor(rnd()*others.length)];}}
         else nw=pick;
-        if(race.setWinner(nw))manip=true;
+        if(race.setWinner(nw)){manip=true;commitRound(payOf(nw),payOf(nw)!==r.fairPay,r.fairPay,nw);}
       };
       const w=await race.done;this.liveOverride=null;
       banner((w+1)+'번 우승',w===pick?'win':'lose');

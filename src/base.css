@@ -75,6 +75,11 @@ main{max-width:1180px;margin:0 auto;padding-block:22px 60px;padding-left:max(16p
 
 /* lobby */
 .lobby-head{margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.credit-bar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:12px 0 4px;padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--bg2);font-size:13px}
+.credit-bar .cg{font-family:var(--f-num);font-size:26px;font-weight:700;color:var(--brass2);line-height:1}
+.credit-bar .cg.C,.credit-bar .cg.D{color:#e08a80}
+.credit-bar .meter{flex:1 1 140px;height:6px;border-radius:3px;background:#ffffff14;overflow:hidden;min-width:120px}
+.credit-bar .meter i{display:block;height:100%;background:var(--brass)}
 .lobby-acts{display:flex;gap:8px;flex-wrap:wrap}
 .invite-btn{border-color:var(--brass);color:var(--brass2)}
 .inv-link{display:flex;gap:8px}.inv-link input{flex:1 1 0;min-width:0;background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:8px 10px;font-size:13px}

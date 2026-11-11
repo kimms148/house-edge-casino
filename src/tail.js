@@ -306,7 +306,7 @@ function makeRow(u){
     tr.querySelector('.bl').textContent=fmt(nu.bal);
     const debt=nu.loan?nu.loan.debt:0;const rate=(nu.bal-debt-(nu.start||START))/Math.max(1,nu.start||START)*100;const rt=tr.querySelector('.rt');rt.textContent=pfmt(rate);rt.className='pc-rate rt '+(rate>=0?'pos':'neg');
     const ln=tr.querySelector('.pc-loan');ln.className='pc-loan'+(nu.loan&&nu.loan.expired?' bad':'');
-    ln.textContent=nu.loan?(nu.loan.list||[]).map(l=>`${l.name} ${l.n}번째 ${fmt(l.principal)}(${Math.round(l.rate*100)}%) 빚 ${fmt(l.debt)}${l.expired?' 만기':''}`).join(' · '):nu.loanCount?`대출 ${nu.loanCount}번 받음 · 지금은 없음`:'';ln.hidden=!ln.textContent;
+    ln.textContent=nu.loan?(nu.loan.list||[]).map(l=>`${l.name} ${l.n}번째 ${fmt(l.principal)}(${Math.round(l.rate*100)}%) 빚 ${fmt(l.debt)}${l.expired?' 만기':''}`).join(' · '):nu.loanCount?`대출 ${nu.loanCount}번 받음 · 지금은 없음`:'';if(ln.textContent&&nu.credit)ln.textContent+=' · 신용 '+nu.credit.grade+'('+nu.credit.score+')';ln.hidden=!ln.textContent;
     const g=META[nu.pending?nu.pending.g:p.game];const stEl=tr.querySelector('.pc-st');
     let stTxt,stCls='';
     if(nu.chatOpen){stTxt='대화 중';stCls='chat';}
@@ -398,6 +398,7 @@ function buildOps(){
   <div style="border-top:1px solid var(--sline);padding-top:10px"></div>
   <div><label for="opStart">가입 시 지급 포인트</label><div class="abtns" style="margin-top:4px"><input type="number" id="opStart" min="0" step="1000"><button type="button" class="abtn" id="opStartSave">저장</button></div><div class="sub">이미 가입한 학생에게는 영향이 없습니다. 수익률은 각자 가입할 때 받은 포인트를 기준으로 계산합니다.</div></div>
   <div><label for="opInv">친구 초대 보상</label><div class="abtns" style="margin-top:4px"><input type="number" id="opInv" min="0" step="500"><button type="button" class="abtn" id="opInvSave">저장</button></div><div class="sub">초대 링크로 가입한 친구를 승인하면 링크 주인에게 이만큼 지급합니다. 0이면 보상 없이 횟수만 셉니다.</div></div>
+  <div><label for="opGarn">대출 자동 상환 비율 (%)</label><div class="abtns" style="margin-top:4px"><input type="number" id="opGarn" min="0" max="100" step="5"><button type="button" class="abtn" id="opGarnSave">저장</button></div><div class="sub">빚이 있는 학생이 게임에서 이기면 딴 돈(순이익)의 이만큼이 자동으로 대출소에 갑니다. 0이면 끕니다.</div></div>
   <div class="toggle" style="display:block"><label for="opAllAmt">한꺼번에 지급 · 회수</label><div class="abtns" style="margin-top:4px"><select id="opAllCls" style="background:var(--steel);border:1px solid var(--sline);color:var(--sink);border-radius:4px;padding:3px 6px;font-size:12px"><option value="0">전체</option>${[1,2,3,4,5,6,7].map(k=>`<option value="${k}">${k}반</option>`).join('')}</select><input type="number" id="opAllAmt" min="1" step="1000" placeholder="금액"><button type="button" class="abtn w" id="opAllGive">지급</button><button type="button" class="abtn l" id="opAllTake">회수</button></div></div>`;
   const setP=()=>{CFG.paused={all:$('#pzAll').checked,games:{}};GIDS.forEach(g=>{if($('#pz_'+g).checked)CFG.paused.games[g]=true;});saveCfg();paintPaused();};
   $('#pzAll').addEventListener('change',()=>{setP();toast($('#pzAll').checked?'모든 게임을 멈췄습니다':'모든 게임을 다시 열었습니다');});
@@ -405,11 +406,12 @@ function buildOps(){
   paintPaused();
   $('#opStartSave').onclick=()=>{const v=Math.floor(+$('#opStart').value);if(!(v>=0)||$('#opStart').value===''){toast('포인트를 입력하세요');return;}svSend({t:'adm',op:'settings',startBal:v});};
   $('#opInvSave').onclick=()=>{const v=Math.floor(+$('#opInv').value);if(!(v>=0)||$('#opInv').value===''){toast('포인트를 입력하세요');return;}svSend({t:'adm',op:'settings',inviteReward:v});};
+  $('#opGarnSave').onclick=()=>{const v=Math.floor(+$('#opGarn').value);if(!(v>=0&&v<=100)||$('#opGarn').value===''){toast('0~100 사이로 입력하세요');return;}svSend({t:'adm',op:'settings',garnish:v});};
   const all=take=>{const a=Math.floor(+$('#opAllAmt').value);if(!(a>0)){toast('금액을 입력하세요');return;}svSend({t:'adm',op:'giveall',amount:a,cls:+$('#opAllCls').value,take});$('#opAllAmt').value='';};
   $('#opAllGive').onclick=()=>all(false);$('#opAllTake').onclick=()=>all(true);
   syncOps();
 }
-function syncOps(){const el=$('#opStart');if(el&&el!==document.activeElement)el.value=SETTINGS.startBal;const iv=$('#opInv');if(iv&&iv!==document.activeElement)iv.value=SETTINGS.inviteReward==null?1000:SETTINGS.inviteReward;}
+function syncOps(){const el=$('#opStart');if(el&&el!==document.activeElement)el.value=SETTINGS.startBal;const gn=$('#opGarn');if(gn&&gn!==document.activeElement)gn.value=SETTINGS.garnish==null?30:SETTINGS.garnish;const iv=$('#opInv');if(iv&&iv!==document.activeElement)iv.value=SETTINGS.inviteReward==null?1000:SETTINGS.inviteReward;}
 
 /* ---------------- loan (player): three lenders ---------------- */
 const LENDER_ART={
@@ -426,6 +428,8 @@ function renderLoan(){
   const paint=()=>{
     const Ls=myLenders();const td=totalDebt();
     $('#loanTotal').textContent=td?'빚 합계 '+fmt(td)+' ('+activeOf().length+'곳)':'';
+    const cr=S.me.credit||{score:50,grade:'B'},gp=S.me.garnish==null?30:S.me.garnish;
+    $('#creditBar').innerHTML=`<span>신용 등급</span><span class="cg ${cr.grade}">${cr.grade}</span><span>${cr.score}점 / 100</span><span class="meter"><i style="width:${cr.score}%"></i></span><span class="hint">${td&&gp?'빚이 있는 동안 딴 돈의 '+gp+'%가 자동 상환됩니다':cr.grade==='A'?'A등급: 대출 한도 1.5배':'기한 안에 갚으면 등급이 오릅니다'}</span>`;
     el.innerHTML=Ls.map(L=>{
       const a=L.active,cnt=L.count||0,ti=Math.min(cnt,2);
       const tiers=`<div class="tiers">${LOAN_AMOUNTS.map((amt,i)=>`<span class="${!a&&i===ti?'next':i<ti||(a&&i<=Math.min(cnt-1,2)&&i<ti)?'used':''}">${i===2?'3차~':(i+1)+'차'}<br>${amt/10000}만 · ${Math.round(L.rates[i]*100)}%</span>`).join('')}</div>`;
@@ -434,17 +438,19 @@ function renderLoan(){
         body=`<div class="eyebrow" style="color:${exp?'#e08a80':'var(--mute)'}">${a.n}번째 대출 · ${exp?'만기 지남 · 게임 불가':'사용 중'}</div>
           <div><div class="hint">지금 갚아야 할 금액</div><div class="loan-big">${fmt(debt)}</div></div>
           <div class="row"><span>빌린 돈</span><b>${fmt(a.principal)}</b></div>
-          <div class="row"><span>이자 (${hrs.toFixed(1)}시간 × ${Math.round(a.rate*100)}%)</span><b>${fmt(debt-a.principal)}</b></div>
+          <div class="row"><span>이자 (${hrs.toFixed(1)}시간 × ${Math.round(a.rate*100)}%)</span><b>${fmt(debt+(a.paid||0)-a.principal)}</b></div>
+          ${a.paid?`<div class="row"><span>자동 상환으로 이미 낸 돈</span><b>−${fmt(a.paid)}</b></div>`:''}
           <div class="row"><span>${exp?'사용 기간':'게임에 쓸 수 있는 남은 시간'}</span><b style="color:${exp?'#e08a80':'inherit'}">${exp?'끝남':hm(left)}</b></div>
           <button class="btn primary" type="button" data-repay="${L.k}" ${S.bal>=debt&&!busy?'':'disabled'}>${fmt(debt)} 갚기</button>
           <div class="hint">${S.bal>=debt?'':'갚으려면 '+fmt(debt-S.bal)+'가 더 필요합니다.'}</div>`;}
-      else{const cool=Date.now()<(L.nextAt||0),amt=LOAN_AMOUNTS[ti],rate=L.rates[ti],can=S.bal<1&&!busy&&!cool;
+      else{const cool=Date.now()<(L.nextAt||0),amt=L.amount||LOAN_AMOUNTS[ti],rate=L.rates[ti],lock=!!L.locked,can=S.bal<1&&!busy&&!cool&&!lock;
         body=`<div class="eyebrow">${cnt}번 빌림 · 다음은 ${cnt+1}번째</div>
           <div class="row"><span>빌릴 수 있는 돈</span><b>${fmt(amt)}</b></div>
           <div class="row"><span>시간당 이자</span><b>${Math.round(rate*100)}%</b></div>
           <div class="row"><span>24시간 뒤 갚을 돈</span><b style="color:#e08a80">${fmt(amt*(1+rate*24))}</b></div>
-          <button class="btn primary" type="button" data-loan="${L.k}" ${can?'':'disabled'}>${fmt(amt)} 빌리기</button>
-          <div class="hint">${cool?whenTxt(L.nextAt)+' 이후에 다시 빌릴 수 있습니다.':can?'':'포인트가 0P일 때만 빌릴 수 있습니다. (지금 '+fmt(S.bal)+')'}</div>`;}
+          <div class="row"><span>필요한 신용 등급</span><b style="color:${lock?'#e08a80':'inherit'}">${L.min?L.minGrade+' 이상':'누구나'}</b></div>
+          <button class="btn primary" type="button" data-loan="${L.k}" ${can?'':'disabled'}>${lock?'신용 등급 부족':fmt(amt)+' 빌리기'}</button>
+          <div class="hint">${lock?'지금 등급('+((S.me.credit||{}).grade||'B')+')으로는 여기서 빌릴 수 없습니다.':cool?whenTxt(L.nextAt)+' 이후에 다시 빌릴 수 있습니다.':can?'':'포인트가 0P일 때만 빌릴 수 있습니다. (지금 '+fmt(S.bal)+')'}</div>`;}
       return`<div class="lender">${lenderBanner(L.k)}<div class="lbody">${tiers}${body}</div></div>`;
     }).join('');
   };

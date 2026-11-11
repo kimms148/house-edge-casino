@@ -73,8 +73,11 @@ function resolve(g,bet,gen,payOf){
   const b=bias(g);let o=gen(),pay=payOf(o);const fairPay=pay;let manip=false;
   if(b<0&&pay>=bet&&rnd()<-b){for(let i=0;i<120;i++){const o2=gen(),p2=payOf(o2);if(p2<bet){o=o2;pay=p2;manip=true;break;}}}
   else if(b>0&&pay<=bet&&rnd()<b){for(let i=0;i<120;i++){const o2=gen(),p2=payOf(o2);if(p2>bet){o=o2;pay=p2;manip=true;break;}}}
+  commitRound(pay,manip,fairPay);
   return{o,pay,fairPay,manip,b};
 }
+// tell the server the result as soon as it is fixed, so leaving mid-round settles this result instead of losing the bet
+function commitRound(pay,manip,fairPay,winner){pay=Math.max(0,Math.floor(pay||0));svSend({t:'commit',pay,manip:!!manip,d:manip?pay-Math.floor(fairPay||0):0,winner:Number.isInteger(winner)?winner:undefined});}
 const isPaused=g=>{const p=CFG.paused||{};return !!(p.all||(p.games&&p.games[g]));};
 function applyCfg(d){
   if(!d||typeof d!=='object')return;
@@ -145,7 +148,8 @@ function onServer(m){
       if(m.loanMsg)toast(m.loanMsg);
       if(view==='loan')renderLoan();
       if(!busy)updateBal();else shownBalPending=true;
-      if('invites' in m)S.me.invites=m.invites;
+      if('invites' in m)S.me.invites=m.invites;if(m.credit)S.me.credit=m.credit;
+      if(m.garn)setTimeout(()=>toast('딴 돈의 '+m.garn.pct+'%인 '+fmt(m.garn.amount)+'가 '+m.garn.names.join(', ')+'(으)로 자동 상환되었습니다'+(m.garn.closed.length?' · '+m.garn.closed.join(', ')+' 빚을 다 갚았습니다':'')),1400);
       if(m.by==='invite'){if(m.delta>0)giftArrive(m.delta,(m.friend||'친구')+' 님이 내 초대로 가입했습니다');else toast((m.friend||'친구')+' 님이 내 초대로 가입했습니다');}
       if(m.by==='admin'){if(m.delta>0)giftArrive(m.delta);else if(m.delta<0)toast('관리자가 '+fmt(-m.delta)+'를 회수했습니다');else if(!('delta' in m))toast('관리자가 포인트를 조정했습니다');}
       if(view==='stats')renderStats();
@@ -188,7 +192,7 @@ function betRequest(g,bet){
 /* loans: 10,000P, 20% simple interest per hour, usable for 24 hours */
 const LOAN_TERM=24*3600*1000;
 const LOAN_AMOUNTS=[10000,50000,100000];
-const debtNow=l=>Math.floor(l.principal*(1+(l.rate||.2)*Math.max(0,(Date.now()-l.at)/3600000)));
+const debtNow=l=>Math.max(0,Math.floor(l.principal*(1+(l.rate||.2)*Math.max(0,(Date.now()-l.at)/3600000)))-(l.paid||0));
 const myLenders=()=>(S.me&&S.me.lenders)||[];
 const activeOf=()=>myLenders().filter(L=>L.active);
 const totalDebt=()=>activeOf().reduce((s,L)=>s+debtNow(L.active),0);
