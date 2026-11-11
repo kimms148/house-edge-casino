@@ -78,13 +78,28 @@ function eqStr(a, b) { return eqHex(sha(a), sha(b)); }
 function parseSid(sid) {
   if (!/^\d{5}$/.test(sid)) return null;
   const grade = +sid[0], cls = +sid.slice(1, 3), num = +sid.slice(3, 5);
-  if (grade < 1 || cls < 1 || cls > 7 || num < 1 || num > 19) return null;
+  if (grade < 1 || grade > 3 || cls < 1 || cls > 7 || num < 1 || num > 19) return null;
   return { grade, cls, num };
 }
+// 가입 승인: 관리자가 승인하기 전에는 로그인할 수 없다. (이 기능 이전에 가입한 학생은 approved 값이 없고, 승인된 것으로 본다)
+const isApproved = u => !!u && u.approved !== false;
+const approvedUsers = () => Object.values(DB.users).filter(isApproved);
+// 닉네임: 랭킹과 화면에 보이는 이름. 없으면 실명.
+const NICK_RE = /^[가-힣A-Za-z0-9_]{2,10}$/;
+const disp = u => u.nick || u.name;
+function nickError(nick, sid) {
+  if (!NICK_RE.test(nick)) return '닉네임은 한글·영문·숫자 2~10자로 입력하세요.';
+  const low = nick.toLowerCase();
+  for (const x of Object.values(DB.users)) if (x.sid !== sid && ((x.nick || '').toLowerCase() === low || x.name === nick)) return '이미 다른 사람이 쓰는 닉네임(또는 이름)입니다.';
+  return '';
+}
+// 친구 초대: 학생마다 초대 코드 하나. 그 링크로 가입한 친구가 승인되면 링크 주인이 보상을 받는다.
+function invOf(u) { if (!u.inv) { u.inv = crypto.randomBytes(5).toString('hex'); store.saveUser(u); } return u.inv; }
+const byInv = code => Object.values(DB.users).find(x => x.inv && x.inv === code && isApproved(x)) || null;
 function newStats() { const g = {}; for (const k of GAMES) g[k] = { n: 0, w: 0, net: 0, wag: 0 }; return { rounds: 0, wins: 0, net: 0, wag: 0, manip: 0, md: 0, games: g }; }
 function publicUser(u) {
   const ch = chatOf(u.sid);
-  return { sid: u.sid, name: u.name, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: loanSummary(u), lenders: lenderState(u), stats: u.stats, hist: u.hist.slice(-300), chat: ch && ch.open ? { open: true, msgs: ch.msgs } : null };
+  return { sid: u.sid, name: u.name, nick: u.nick || '', inv: invOf(u), invites: u.invites || 0, inviteReward: settings().inviteReward, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: loanSummary(u), lenders: lenderState(u), stats: u.stats, hist: u.hist.slice(-300), chat: ch && ch.open ? { open: true, msgs: ch.msgs } : null };
 }
 function issueToken(payload) {
   const t = crypto.randomBytes(24).toString('base64url');
@@ -131,7 +146,7 @@ function loanSummary(u) {
   return { principal: act.reduce((s, l) => s + l.principal, 0), debt: act.reduce((s, l) => s + debtOne(l), 0), expired: act.some(l => Date.now() - l.at > LOAN_TERM), count: act.length,
     list: act.map(l => ({ k: l.k, name: LENDER[l.k].name, n: l.n, principal: l.principal, rate: l.rate, debt: debtOne(l), expired: Date.now() - l.at > LOAN_TERM })) };
 }
-const settings = () => Object.assign({ startBal: START }, DB.meta.settings || {});
+const settings = () => Object.assign({ startBal: START, inviteReward: 1000 }, DB.meta.settings || {});
 const userStart = u => u.start || START;
 function debtOf(u, now) { return activeLoans(u).reduce((s, l) => s + debtOne(l, now), 0); }
 const loanExpired = u => activeLoans(u).some(l => Date.now() - l.at > LOAN_TERM);
@@ -195,7 +210,7 @@ function pushBal(sid, extra) {
 function rankData() {
   const byClass = {};
   for (let k = 1; k <= 7; k++) byClass[k] = [];
-  for (const u of Object.values(DB.users)) byClass[u.cls] && byClass[u.cls].push({ sid: u.sid, name: u.name, grade: u.grade, cls: u.cls, num: u.num, bal: worth(u), debt: debtOf(u), rate: Math.round(rate(u) * 10) / 10, rounds: u.stats.rounds });
+  for (const u of approvedUsers()) byClass[u.cls] && byClass[u.cls].push({ sid: u.sid, name: disp(u), grade: u.grade, cls: u.cls, num: u.num, bal: worth(u), debt: debtOf(u), rate: Math.round(rate(u) * 10) / 10, rounds: u.stats.rounds });
   const classes = [];
   for (let k = 1; k <= 7; k++) {
     const l = byClass[k].sort((a, b) => b.rate - a.rate || b.bal - a.bal || a.num - b.num);
@@ -217,13 +232,15 @@ function scheduleRank() {
 function usersMsg() {
   const online = {};
   for (const c of conns) if (c.sid) { const o = online[c.sid] || (online[c.sid] = { n: 0, presence: {} }); o.n++; if (c.presence && (c.presence.st === 'play' || !o.presence.game)) o.presence = c.presence; }
-  const users = Object.values(DB.users).map(u => ({
-    sid: u.sid, name: u.name, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: loanSummary(u), loanCount: loanCount(u), chatOpen: !!(chatOf(u.sid) && chatOf(u.sid).open), stats: { rounds: u.stats.rounds, wins: u.stats.wins, net: u.stats.net, wag: u.stats.wag, manip: u.stats.manip, md: u.stats.md },
+  const users = approvedUsers().map(u => ({
+    sid: u.sid, name: u.name, nick: u.nick || '', invites: u.invites || 0, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: loanSummary(u), loanCount: loanCount(u), chatOpen: !!(chatOf(u.sid) && chatOf(u.sid).open), stats: { rounds: u.stats.rounds, wins: u.stats.wins, net: u.stats.net, wag: u.stats.wag, manip: u.stats.manip, md: u.stats.md },
     pending: u.pending ? { g: u.pending.g, bet: u.pending.bet } : null, online: online[u.sid] ? online[u.sid].n : 0, presence: online[u.sid] ? online[u.sid].presence : null,
     last: u.hist.length ? u.hist[u.hist.length - 1] : null, created: u.created,
     loanStats: (u.loansArchived || []).concat(u.loans || []).reduce((a, l) => { a.n++; a.lent += l.principal; if (l.repaidAt) { a.repaid += l.principal; a.interest += (l.paid || l.principal) - l.principal; } if (l.forgivenAt) a.forgiven += l.principal; return a; }, { n: 0, lent: 0, repaid: 0, interest: 0, forgiven: 0 }),
   })).sort((a, b) => b.online - a.online || a.cls - b.cls || a.num - b.num);
-  return { t: 'users', users };
+  const reqs = Object.values(DB.users).filter(u => !isApproved(u)).sort((a, b) => a.created - b.created)
+    .map(u => { const iv = u.ref && DB.users[u.ref]; return { sid: u.sid, name: u.name, nick: u.nick || '', grade: u.grade, cls: u.cls, num: u.num, created: u.created, ref: iv ? iv.name + ' (' + iv.sid + ')' : '' }; });
+  return { t: 'users', users, reqs };
 }
 let usersTimer = null;
 function scheduleUsers() {
@@ -254,6 +271,19 @@ function record(u, g, bet, pay, manip, d) {
   return h;
 }
 
+// 가입 승인. 초대 링크로 들어온 학생이면 링크 주인에게 보상을 한 번 준다.
+function approve(nu) {
+  nu.approved = true; const sb = settings().startBal; nu.bal = sb; nu.start = sb;
+  const iv = nu.ref && DB.users[nu.ref];
+  if (iv && isApproved(iv) && !nu.refPaid) {
+    nu.refPaid = true; const r = settings().inviteReward; iv.invites = (iv.invites || 0) + 1;
+    if (r > 0) { iv.bal += r; logEv(iv, 'give', '친구 초대 보상 (' + nu.name + ')', r); }
+    store.saveUser(iv); pushBal(iv.sid, { by: 'invite', delta: r, invites: iv.invites, friend: disp(nu) });
+  }
+  store.saveUser(nu);
+  for (const o of conns) if (o.waitSid === nu.sid) { o.waitSid = null; send(o, { t: 'approved', sid: nu.sid }); }
+}
+
 function login(c, payload) {
   c.admin = !!payload.admin; c.sid = payload.sid || null;
   if (c.admin) { send(c, usersMsg()); send(c, { t: 'mail', list: mailList() }); send(c, { t: 'chats', chats: chatsForAdmin() }); send(c, { t: 'settings', settings: settings() }); }
@@ -278,19 +308,24 @@ wss.on('connection', ws => {
         break;
       }
       case 'signup': {
-        const sid = String(m.sid || '').trim(), name = String(m.name || '').trim(), pw = String(m.pw || '');
+        const sid = String(m.sid || '').trim(), name = String(m.name || '').trim(), pw = String(m.pw || ''), nick = String(m.nick || '').trim();
         const info = parseSid(sid);
-        if (!info) return send(c, { t: 'autherr', where: 'signup', msg: '학번을 확인하세요. 5자리(예: 20319)이고 반은 1~7반, 번호는 1~19번이어야 합니다.' });
+        if (!info) return send(c, { t: 'autherr', where: 'signup', msg: '학번을 확인하세요. 5자리(예: 20319)이고 학년은 1~3학년, 반은 1~7반, 번호는 1~19번이어야 합니다.' });
+        if (DB.users[sid] && !isApproved(DB.users[sid])) return send(c, { t: 'autherr', where: 'signup', msg: '이미 가입을 요청한 학번입니다. 관리자가 승인하면 로그인할 수 있습니다.' });
+        if (nick) { const ne = nickError(nick, sid); if (ne) return send(c, { t: 'autherr', where: 'signup', msg: ne }); }
+        if ((c.signups = (c.signups || 0) + 1) > 5) return send(c, { t: 'autherr', where: 'signup', msg: '가입 요청을 너무 많이 보냈습니다. 잠시 후 다시 시도하세요.' });
         if (!/^[가-힣A-Za-z ]{2,12}$/.test(name)) return send(c, { t: 'autherr', where: 'signup', msg: '이름은 한글 또는 영문 2~12자로 입력하세요.' });
         if (pw.length < 4 || pw.length > 64) return send(c, { t: 'autherr', where: 'signup', msg: '비밀번호는 4자 이상이어야 합니다.' });
         if (DB.users[sid]) return send(c, { t: 'autherr', where: 'signup', msg: '이미 가입된 학번입니다. 로그인하세요.' });
         const salt = crypto.randomBytes(16).toString('hex');
         const sb = settings().startBal;
-        const nu = { sid, name, grade: info.grade, cls: info.cls, num: info.num, salt, hash: hashPw(pw, salt), bal: sb, start: sb, stats: newStats(), hist: [], sessions: [], created: Date.now() };
-        DB.users[sid] = nu; store.saveUser(nu);
-        const token = issueToken({ sid });
-        send(c, { t: 'authok', token, admin: false, me: publicUser(nu), mymail: [] });
-        login(c, { sid }); scheduleRank();
+        const nu = { sid, name, grade: info.grade, cls: info.cls, num: info.num, salt, hash: hashPw(pw, salt), bal: sb, start: sb, stats: newStats(), hist: [], sessions: [], created: Date.now(), approved: false };
+        if (nick) nu.nick = nick;
+        const inviter = typeof m.ref === 'string' && m.ref.length <= 20 ? byInv(m.ref) : null; if (inviter) nu.ref = inviter.sid;
+        DB.users[sid] = nu; store.saveUser(nu); c.waitSid = sid;
+        send(c, { t: 'signupwait', msg: '가입 요청을 보냈습니다. 관리자가 승인하면 로그인할 수 있습니다.' });
+        const note = { t: 'reqnew', name: nu.name, sid }; for (const o of admins()) send(o, note);
+        scheduleUsers();
         break;
       }
       case 'login': {
@@ -303,6 +338,7 @@ wss.on('connection', ws => {
         }
         const tu = DB.users[id];
         if (!tu || !eqHex(hashPw(pw, tu.salt), tu.hash)) { c.fails++; return send(c, { t: 'autherr', where: 'login', msg: '학번 또는 비밀번호가 맞지 않습니다.' }); }
+        if (!isApproved(tu)) { c.waitSid = tu.sid; return send(c, { t: 'autherr', where: 'login', msg: '아직 관리자가 가입을 승인하지 않았습니다. 승인되면 로그인할 수 있습니다.' }); }
         const token = issueToken({ sid: id });
         send(c, { t: 'authok', token, admin: false, me: publicUser(tu), mymail: myMail(id) });
         login(c, { sid: id });
@@ -368,6 +404,16 @@ wss.on('connection', ws => {
         break;
       }
       case 'rank': send(c, rankData()); break;
+      case 'nick': {
+        if (!u) return;
+        const nick = String(m.nick || '').trim();
+        if (nick) { const ne = nickError(nick, u.sid); if (ne) return send(c, { t: 'nickerr', msg: ne }); }
+        const old = disp(u); if (nick) u.nick = nick; else delete u.nick;
+        logEv(u, 'admin', '닉네임 변경: ' + old + ' → ' + disp(u), 0); store.saveUser(u);
+        for (const o of userConns(u.sid)) send(o, { t: 'nickok', nick: u.nick || '' });
+        scheduleUsers(); scheduleRank();
+        break;
+      }
       case 'loan': {
         if (!u) return;
         const L = LENDER[String(m.k || 'gold')]; if (!L) return;
@@ -426,22 +472,26 @@ wss.on('connection', ws => {
           return;
         }
         if (m.op === 'settings') {
-          const sb = Math.floor(+m.startBal); if (!(sb >= 0 && sb <= 1e9)) return ack(false, '가입 지급 포인트를 확인하세요.');
-          DB.meta.settings = Object.assign({}, DB.meta.settings || {}, { startBal: sb }); store.saveMeta('settings', DB.meta.settings);
+          const set = {}; let msg = '';
+          if ('startBal' in m) { const sb = Math.floor(+m.startBal); if (!(sb >= 0 && sb <= 1e9)) return ack(false, '가입 지급 포인트를 확인하세요.'); set.startBal = sb; msg = '이제 새로 가입하는 학생은 ' + sb.toLocaleString() + 'P로 시작합니다.'; }
+          if ('inviteReward' in m) { const ir = Math.floor(+m.inviteReward); if (!(ir >= 0 && ir <= 1e9)) return ack(false, '초대 보상을 확인하세요.'); set.inviteReward = ir; msg = '친구 초대 보상은 이제 ' + ir.toLocaleString() + 'P입니다.'; for (const o of authed()) if (o.sid) send(o, { t: 'invinfo', inviteReward: ir }); }
+          DB.meta.settings = Object.assign({}, DB.meta.settings || {}, set); store.saveMeta('settings', DB.meta.settings);
           for (const o of admins()) send(o, { t: 'settings', settings: settings() });
-          return ack(true, '이제 새로 가입하는 학생은 ' + sb.toLocaleString() + 'P로 시작합니다.');
+          return ack(true, msg || '저장했습니다.');
         }
         if (m.op === 'giveall') {
           const amt = Math.floor(+m.amount); const cls = +m.cls || 0; const take = !!m.take;
           if (!(amt > 0) || amt > 1e9) return ack(false, '금액을 확인하세요.');
           let n = 0;
-          for (const x of Object.values(DB.users)) { if (cls && x.cls !== cls) continue; const b0 = x.bal; x.bal = take ? Math.max(0, x.bal - amt) : x.bal + amt; n++; logEv(x, take ? 'take' : 'give', (cls ? cls + '반' : '전체') + ' ' + (take ? '회수' : '지급'), x.bal - b0); store.saveUser(x); pushBal(x.sid, { by: 'admin', delta: x.bal - b0 }); }
+          for (const x of approvedUsers()) { if (cls && x.cls !== cls) continue; const b0 = x.bal; x.bal = take ? Math.max(0, x.bal - amt) : x.bal + amt; n++; logEv(x, take ? 'take' : 'give', (cls ? cls + '반' : '전체') + ' ' + (take ? '회수' : '지급'), x.bal - b0); store.saveUser(x); pushBal(x.sid, { by: 'admin', delta: x.bal - b0 }); }
           scheduleUsers(); scheduleRank();
           return ack(true, (cls ? cls + '반' : '전체') + ' ' + n + '명 ' + (take ? '회수' : '지급') + ': ' + amt.toLocaleString() + 'P씩');
         }
         if (m.op === 'stablereset') { DB.meta.stable = freshStable(); store.saveMeta('stable', DB.meta.stable); const out = { t: 'stable', stable: DB.meta.stable }; for (const o of conns) send(o, out); return ack(true, '말·달팽이 전적을 초기화했습니다.'); }
         if (m.op === 'chatseen') { const ch = chatOf(String(m.sid || '')); if (ch && ch.unread) { ch.unread = 0; saveChat(String(m.sid), ch); const out = { t: 'chats', chats: chatsForAdmin() }; for (const o of admins()) send(o, out); } return; }
+        if (m.op === 'approveall') { const list = Object.values(DB.users).filter(x => !isApproved(x)); for (const x of list) approve(x); scheduleUsers(); scheduleRank(); return ack(true, list.length ? list.length + '명의 가입을 승인했습니다.' : '기다리는 가입 요청이 없습니다.'); }
         if (!tu) return ack(false, '없는 학생입니다.');
+        if (m.op === 'approve') { if (isApproved(tu)) return ack(false, '이미 승인된 학생입니다.'); approve(tu); scheduleUsers(); scheduleRank(); return ack(true, tu.name + ' 학생의 가입을 승인했습니다.'); }
         if (m.op === 'chat') {
           const body = String(m.body || '').trim().slice(0, 500); if (!body) return;
           const ch = chatOf(tu.sid) || { open: false, msgs: [], unread: 0 };

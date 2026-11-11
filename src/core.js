@@ -9,7 +9,12 @@ const pfmt=v=>(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(1)+'%';
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const START=10000;
 const clsLabel=u=>`${u.grade}학년 ${u.cls}반 ${u.num}번`;
-function parseSid(sid){if(!/^\d{5}$/.test(sid))return null;const grade=+sid[0],cls=+sid.slice(1,3),num=+sid.slice(3,5);if(grade<1||cls<1||cls>7||num<1||num>19)return null;return{grade,cls,num};}
+function parseSid(sid){if(!/^\d{5}$/.test(sid))return null;const grade=+sid[0],cls=+sid.slice(1,3),num=+sid.slice(3,5);if(grade<1||grade>3||cls<1||cls>7||num<1||num>19)return null;return{grade,cls,num};}
+const dispName=u=>u.nick||u.name;
+// invite code from a friend's link (?inv=...) is kept until signup
+(()=>{try{const q=new URLSearchParams(location.search).get('inv');if(q&&/^[0-9a-f]{6,20}$/.test(q)){sessionStorage.setItem('he.inv',q);history.replaceState(null,'',location.pathname);}}catch(e){}})();
+const invCode=()=>{try{return sessionStorage.getItem('he.inv')||'';}catch(e){return'';}};
+function gateNote(t){const el=$('#gateNote');el.textContent=t||'';el.hidden=!t;}
 
 /* ---------------- state (balance and records live on the server) ---------------- */
 const prefs=Object.assign({bet:500,crashHist:[]},LS.get('he.prefs',{}));
@@ -124,6 +129,12 @@ function onServer(m){
       LS.set('he.token',m.token);
       if(m.admin)enterAdmin();else enterPlayer(m.me,m.mymail);
       break;
+    case 'signupwait':$('#signupForm').reset();$('#suSidNote').textContent='';try{sessionStorage.removeItem('he.inv');}catch(e){}setSeg(false);gateNote(m.msg);break;
+    case 'approved':gateNote('관리자가 가입을 승인했습니다. 이제 로그인하세요.');if(!$('#liId').value)$('#liId').value=m.sid||'';toast('가입이 승인되었습니다');break;
+    case 'nickok':if(S.me){S.me.nick=m.nick;paintWho();$('#nickModal').hidden=true;toast(m.nick?'닉네임을 '+m.nick+'(으)로 바꿨습니다':'닉네임을 지웠습니다. 실명이 보입니다');}break;
+    case 'nickerr':$('#nickErr').textContent=m.msg;break;
+    case 'invinfo':if(S.me)S.me.inviteReward=m.inviteReward;break;
+    case 'reqnew':if(S.admin)toast('가입 요청: '+m.name+' ('+m.sid+')');break;
     case 'autherr':{const el=m.where==='signup'?$('#suErr'):$('#liErr');el.textContent=m.msg;break;}
     case 'kicked':toast('계정이 삭제되었습니다');doLogout(true);break;
     case 'betok':case 'betno':if(SV.wait){SV.wait.res(m);SV.wait=null;}break;
@@ -134,6 +145,8 @@ function onServer(m){
       if(m.loanMsg)toast(m.loanMsg);
       if(view==='loan')renderLoan();
       if(!busy)updateBal();else shownBalPending=true;
+      if('invites' in m)S.me.invites=m.invites;
+      if(m.by==='invite'){if(m.delta>0)giftArrive(m.delta,(m.friend||'친구')+' 님이 내 초대로 가입했습니다');else toast((m.friend||'친구')+' 님이 내 초대로 가입했습니다');}
       if(m.by==='admin'){if(m.delta>0)giftArrive(m.delta);else if(m.delta<0)toast('관리자가 '+fmt(-m.delta)+'를 회수했습니다');else if(!('delta' in m))toast('관리자가 포인트를 조정했습니다');}
       if(view==='stats')renderStats();
       break;
@@ -142,7 +155,7 @@ function onServer(m){
     case 'mailok':S.mymail=m.mymail||[];renderMyMail();$('#mailBody').value='';$('#mailCount').textContent='0 / 1000';toast('건의를 보냈습니다');break;
     case 'mymail':S.mymail=m.mymail||[];renderMyMail();break;
     case 'mailerr':toast(m.msg);break;
-    case 'users':if(S.admin){USERS=m.users;renderAdmin();if(view==='chats')renderChats();}break;
+    case 'users':if(S.admin){USERS=m.users;REQS=m.reqs||[];renderAdmin();if(view==='chats')renderChats();}break;
     case 'mail':if(S.admin){INBOX=m.list;renderInbox();}break;
     case 'feed':if(S.admin)addFeed(m.e);break;
     case 'userlog':if(S.admin)renderLog(m);break;
@@ -201,36 +214,38 @@ function pushPresence(){
 }
 
 /* ---------------- auth screens ---------------- */
-function showGate(){S.me=null;S.admin=false;$('#gate').hidden=false;$('#appShell').hidden=true;setConn();}
-function setSeg(sign){$('#segLogin').setAttribute('aria-pressed',String(!sign));$('#segSignup').setAttribute('aria-pressed',String(sign));$('#loginForm').hidden=sign;$('#signupForm').hidden=!sign;$('#liErr').textContent='';$('#suErr').textContent='';}
+function showGate(){S.me=null;S.admin=false;$('#gate').hidden=false;$('#appShell').hidden=true;setConn();if(invCode())setSeg(true);}
+function setSeg(sign){gateNote(sign&&invCode()?'친구의 초대 링크로 들어왔습니다. 가입이 승인되면 친구가 보상을 받습니다.':'');$('#segLogin').setAttribute('aria-pressed',String(!sign));$('#segSignup').setAttribute('aria-pressed',String(sign));$('#loginForm').hidden=sign;$('#signupForm').hidden=!sign;$('#liErr').textContent='';$('#suErr').textContent='';}
 $('#segLogin').onclick=()=>setSeg(false);$('#segSignup').onclick=()=>setSeg(true);
 $('#suSid').addEventListener('input',e=>{const v=e.target.value.replace(/\D/g,'').slice(0,5);e.target.value=v;const n=$('#suSidNote');const p=parseSid(v);
-  if(!v){n.className='note';n.textContent='학년 1자리 + 반 2자리 + 번호 2자리';}
+  if(!v){n.className='note';n.textContent='학년(1~3) 1자리 + 반 2자리 + 번호 2자리';}
   else if(p){n.className='note ok';n.textContent=`${p.grade}학년 ${p.cls}반 ${p.num}번`;}
   else if(v.length<5){n.className='note';n.textContent='5자리를 입력하세요';}
-  else{const c=+v.slice(1,3),num=+v.slice(3,5);n.className='note bad';n.textContent=c<1||c>7?'반은 1반부터 7반까지입니다 (예: 20319의 03 = 3반)':num<1||num>19?'번호는 1번부터 19번까지입니다':'학번을 확인하세요';}
+  else{const c=+v.slice(1,3),num=+v.slice(3,5);n.className='note bad';n.textContent=+v[0]<1||+v[0]>3?'학년은 1학년부터 3학년까지입니다 (첫 숫자)':c<1||c>7?'반은 1반부터 7반까지입니다 (예: 20319의 03 = 3반)':num<1||num>19?'번호는 1번부터 19번까지입니다':'학번을 확인하세요';}
 });
 $('#loginForm').addEventListener('submit',e=>{e.preventDefault();const id=$('#liId').value.trim(),pw=$('#liPw').value;
   if(!id||!pw){$('#liErr').textContent='학번과 비밀번호를 입력하세요.';return;}
   if(!svSend({t:'login',id,pw})){$('#liErr').textContent='서버에 연결하는 중입니다. 잠시 후 다시 시도하세요.';return;}
   $('#liErr').textContent='';$('#liPw').value='';});
-$('#signupForm').addEventListener('submit',e=>{e.preventDefault();const sid=$('#suSid').value.trim(),name=$('#suName').value.trim(),pw=$('#suPw').value,pw2=$('#suPw2').value;const err=$('#suErr');
-  if(!parseSid(sid)){err.textContent='학번을 확인하세요. 반은 1~7반, 번호는 1~19번입니다.';return;}
+$('#signupForm').addEventListener('submit',e=>{e.preventDefault();const sid=$('#suSid').value.trim(),name=$('#suName').value.trim(),nick=$('#suNick').value.trim(),pw=$('#suPw').value,pw2=$('#suPw2').value;const err=$('#suErr');
+  if(!parseSid(sid)){err.textContent='학번을 확인하세요. 학년은 1~3학년, 반은 1~7반, 번호는 1~19번입니다.';return;}
+  if(nick&&!/^[가-힣A-Za-z0-9_]{2,10}$/.test(nick)){err.textContent='닉네임은 한글·영문·숫자 2~10자로 입력하세요.';return;}
   if(!/^[가-힣A-Za-z ]{2,12}$/.test(name)){err.textContent='이름은 한글 또는 영문 2~12자로 입력하세요.';return;}
   if(pw.length<4){err.textContent='비밀번호는 4자 이상이어야 합니다.';return;}
   if(pw!==pw2){err.textContent='비밀번호 확인이 일치하지 않습니다.';return;}
-  if(!svSend({t:'signup',sid,name,pw})){err.textContent='서버에 연결하는 중입니다. 잠시 후 다시 시도하세요.';return;}
+  if(!svSend({t:'signup',sid,name,nick,pw,ref:invCode()})){err.textContent='서버에 연결하는 중입니다. 잠시 후 다시 시도하세요.';return;}
   err.textContent='';});
 function enterShell(){$('#gate').hidden=true;$('#appShell').hidden=false;
   document.querySelectorAll('[data-role=player]').forEach(el=>el.hidden=S.admin);
   document.querySelectorAll('[data-role=admin]').forEach(el=>el.hidden=!S.admin);}
 function enterPlayer(me,mymail){
   S.me=me;S.admin=false;S.bal=me.bal;S.stats=me.stats;S.hist=me.hist||[];S.mymail=mymail||[];S.chat=me.chat||null;
-  enterShell();$('#whoText').innerHTML=`<b>${esc(me.name)}</b> · ${esc(clsLabel(me))}`;
+  enterShell();paintWho();gateNote('');
   shownBal=S.bal;$('#balNum').textContent=fmt(S.bal);updateBal();renderMyMail();
   if(!['lobby','rank','stats','mail','game'].includes(view)||view==='game'&&!cur)view='lobby';
   show(view==='game'?'game':view);pushPresence();checkReveal();handleChat();
 }
+function paintWho(){const me=S.me;if(!me)return;$('#whoText').innerHTML=`<b>${esc(dispName(me))}</b> · ${esc(clsLabel(me))}`;}
 function enterAdmin(){
   S.me=null;S.admin=true;enterShell();$('#whoText').innerHTML='<b>관리자</b>';
   if(!rigBuilt){buildRigPanel();rigBuilt=true;}
@@ -244,7 +259,7 @@ function doLogout(local){
 $('#logoutBtn').onclick=()=>{if(busy){toast('판이 끝난 뒤에 로그아웃할 수 있습니다');return;}doLogout(false);};
 
 /* ---------------- views ---------------- */
-let view='lobby',cur=null,busy=false,choice=null,RANK=null,USERS=[],INBOX=[],rigBuilt=false;
+let view='lobby',cur=null,busy=false,choice=null,RANK=null,USERS=[],REQS=[],INBOX=[],rigBuilt=false;
 function show(v){
   if(busy&&v!=='game'){toast('판이 끝난 뒤에 이동할 수 있습니다');return;}
   if(!S.admin&&S.chat&&S.chat.open&&v!=='chat'){toast('관리자와 대화가 끝날 때까지 다른 화면으로 갈 수 없습니다');v='chat';}

@@ -6,6 +6,7 @@
         <button type="button" id="segLogin" aria-pressed="true">로그인</button>
         <button type="button" id="segSignup" aria-pressed="false">회원가입</button>
       </div>
+      <div class="gate-note" id="gateNote" hidden></div>
       <form id="loginForm" class="field" style="gap:12px" novalidate>
         <div class="field"><label for="liId">학번</label><input type="text" id="liId" inputmode="numeric" autocomplete="username" placeholder="예: 20319"></div>
         <div class="field"><label for="liPw">비밀번호</label><input type="password" id="liPw" autocomplete="current-password"></div>
@@ -13,12 +14,14 @@
         <button class="btn primary" type="submit" style="padding:11px">로그인</button>
       </form>
       <form id="signupForm" class="field" style="gap:12px" novalidate hidden>
-        <div class="field"><label for="suSid">학번 (5자리)</label><input type="text" id="suSid" inputmode="numeric" maxlength="5" autocomplete="username" placeholder="예: 20319"><div class="note" id="suSidNote">학년 1자리 + 반 2자리 + 번호 2자리</div></div>
-        <div class="field"><label for="suName">이름</label><input type="text" id="suName" maxlength="12" autocomplete="name"></div>
+        <div class="field"><label for="suSid">학번 (5자리)</label><input type="text" id="suSid" inputmode="numeric" maxlength="5" autocomplete="username" placeholder="예: 20319"><div class="note" id="suSidNote">학년(1~3) 1자리 + 반 2자리 + 번호 2자리</div></div>
+        <div class="field"><label for="suName">이름 (실명, 필수)</label><input type="text" id="suName" maxlength="12" autocomplete="name"></div>
+        <div class="field"><label for="suNick">닉네임 (선택)</label><input type="text" id="suNick" maxlength="10" autocomplete="off" placeholder="랭킹에 보이는 이름"><div class="note">비워 두면 실명이 보입니다. 나중에 바꿀 수 있습니다.</div></div>
         <div class="field"><label for="suPw">비밀번호 (4자 이상)</label><input type="password" id="suPw" autocomplete="new-password"></div>
         <div class="field"><label for="suPw2">비밀번호 확인</label><input type="password" id="suPw2" autocomplete="new-password"></div>
         <div class="form-err" id="suErr"></div>
-        <button class="btn primary" type="submit" style="padding:11px">가입하고 시작하기</button>
+        <button class="btn primary" type="submit" style="padding:11px">가입 요청 보내기</button>
+        <div class="note" style="font-size:12px;color:var(--mute)">관리자가 승인한 뒤에 로그인할 수 있습니다.</div>
       </form>
     </div>
     <button id="gateInstall" class="install" type="button" hidden style="justify-content:center;padding:11px;font-size:15px;border-color:var(--brass);color:var(--brass2)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>회원가입 전에 앱 설치하기</button>
@@ -37,7 +40,7 @@
     <button type="button" data-v="stats" data-role="player">기록</button>
     <button type="button" data-v="loan" data-role="player">대출</button>
     <button type="button" data-v="mail" data-role="player">건의함</button>
-    <button type="button" data-v="admin" data-role="admin">관리자 콘솔</button>
+    <button type="button" data-v="admin" data-role="admin">관리자 콘솔<span class="badge" id="reqBadge" hidden>0</span></button>
     <button type="button" data-v="inbox" data-role="admin">우편함<span class="badge" id="inboxBadge" hidden>0</span></button>
     <button type="button" data-v="chats" data-role="admin">1:1 메시지<span class="badge" id="chatBadge" hidden>0</span></button>
   </nav>
@@ -50,7 +53,7 @@
 
 <main>
   <section class="view" id="v-lobby" hidden>
-    <div class="lobby-head"><h1>오늘의 테이블</h1></div>
+    <div class="lobby-head"><h1>오늘의 테이블</h1><div class="lobby-acts"><button type="button" class="btn invite-btn" id="inviteBtn">친구 초대하기</button><button type="button" class="btn" id="nickBtn">닉네임 변경</button></div></div>
     <button type="button" class="ad-slot" id="lobbyAd" hidden aria-label="대출소 광고"></button>
     <div class="games" id="games"></div>
   </section>
@@ -140,6 +143,7 @@
       <div class="hint" id="netState" style="color:var(--smute)"></div>
     </div>
     <div class="akpis" id="akpis"></div>
+    <div class="abox" id="reqBox" hidden style="margin-top:12px"><h3 style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>가입 요청 <span id="reqCount"></span></span><button type="button" class="abtn w" id="reqAll">모두 승인</button></h3><div id="reqList" style="display:grid;gap:6px"></div></div>
     <div class="adm-grid">
       <div class="abox">
         <h3>학생</h3>
@@ -205,6 +209,19 @@
   <div class="tbl-wrap" style="max-height:min(56vh,520px);overflow:auto"><table class="t" style="min-width:0"><thead><tr><th>시각</th><th>내용</th><th class="n">베팅</th><th class="n">받은 돈</th><th class="n">변동</th><th class="n">잔액</th></tr></thead><tbody id="logBody"></tbody></table></div>
 </div></div>
 <div id="revealModal" class="modal" hidden></div>
+<div id="inviteModal" class="modal" hidden><div class="box" role="dialog" aria-modal="true" aria-labelledby="invT" style="max-width:460px">
+  <div class="eyebrow">INVITE</div><h2 id="invT" style="font-size:20px">친구 초대하기</h2>
+  <p id="invLead"></p>
+  <div class="inv-link"><input type="text" id="invLink" readonly aria-label="내 초대 링크"><button type="button" class="btn primary" id="invCopy">링크 복사</button></div>
+  <p class="hint" id="invCount"></p>
+  <div><button class="btn" type="button" id="invClose">닫기</button></div>
+</div></div>
+<div id="nickModal" class="modal" hidden><div class="box" role="dialog" aria-modal="true" aria-labelledby="nickT" style="max-width:420px">
+  <div class="eyebrow">NICKNAME</div><h2 id="nickT" style="font-size:20px">닉네임 변경</h2>
+  <p class="hint">랭킹과 화면 위쪽에 보이는 이름입니다. 한글·영문·숫자 2~10자. 비워서 저장하면 실명이 보입니다. 관리자에게는 실명이 항상 함께 보입니다.</p>
+  <form id="nickForm" class="field" style="gap:8px"><input type="text" id="nickIn" maxlength="10" autocomplete="off" aria-label="새 닉네임"><div class="form-err" id="nickErr"></div>
+  <div style="display:flex;gap:8px"><button class="btn primary" type="submit">저장</button><button class="btn" type="button" id="nickClose">닫기</button></div></form>
+</div></div>
 <div id="installModal" class="modal" hidden><div class="box" role="dialog" aria-modal="true" aria-labelledby="instT">
   <div class="eyebrow">홈 화면에 추가</div><h2 id="instT">앱으로 설치하기</h2>
   <p id="instLead">설치하면 홈 화면 아이콘으로 바로 열리고, 주소창 없이 앱처럼 실행됩니다.</p>

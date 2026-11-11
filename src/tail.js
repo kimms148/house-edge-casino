@@ -101,7 +101,7 @@ function openReveal(){
   <div><button class="btn" type="button" id="rvClose">닫기</button></div></div>`;
   m.hidden=false;$('#rvClose').onclick=()=>m.hidden=true;
 }
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#revealModal').hidden=true;$('#installModal').hidden=true;if(!$('#tutModal').hidden)closeTut();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#revealModal').hidden=true;$('#installModal').hidden=true;$('#inviteModal').hidden=true;$('#nickModal').hidden=true;if(!$('#tutModal').hidden)closeTut();}});
 
 /* ---------------- admin console ---------------- */
 const rows=new Map();const feed=[];
@@ -242,12 +242,13 @@ function renderAdmin(){
   const ls=users.reduce((a,u)=>{const s=u.loanStats||{};a.lent+=s.lent||0;a.repaid+=s.repaid||0;a.interest+=s.interest||0;a.forgiven+=s.forgiven||0;return a;},{lent:0,repaid:0,interest:0,forgiven:0});
   const tot=users.reduce((a,u)=>a+u.bal,0),house=users.reduce((a,u)=>a-u.stats.net,0),online=users.filter(u=>u.online).length,live=users.filter(u=>u.pending).length,man=users.reduce((a,u)=>a+u.stats.manip,0),broke=users.filter(u=>u.bal<1).length;
   $('#akpis').innerHTML=`<div class="akpi"><span>가입 학생</span><b>${users.length}명</b></div><div class="akpi"><span>접속 중</span><b>${online}명</b></div><div class="akpi"><span>진행 중인 판</span><b>${live}</b></div><div class="akpi"><span>학생 자산 합계</span><b>${fmt(tot)}</b></div><div class="akpi"><span>하우스 수익 (게임만)</span><b class="${house>=0?'pos':'neg'}">${sfmt(house)}</b><small>대출은 포함하지 않음</small></div><div class="akpi"><span>빌려준 돈 (아직 못 받음)</span><b>${fmt(lent)}</b><small>${nLoan}명 · 이자 포함 받을 돈 ${fmt(owed)}</small></div><div class="akpi"><span>대출 누적</span><b>${fmt(ls.lent)}</b><small>상환 ${fmt(ls.repaid)} · 받은 이자 ${fmt(ls.interest)}${ls.forgiven?' · 탕감 '+fmt(ls.forgiven):''}</small></div><div class="akpi"><span>조작된 판 · 파산</span><b>${man} · ${broke}명</b></div>`;
+  renderReqs();
   if(view!=='admin')return;
   const fc=$('#fCls').value,fo=$('#fOnline').value,q=$('#fQ').value.trim();
   const body=$('#admBody');const seen=new Set();
   const ordered=users.slice().sort((a,b)=>(!!b.pending-!!a.pending)||(!!b.online-!!a.online)||a.cls-b.cls||a.num-b.num);
   for(const u of ordered){
-    if(fc&&String(u.cls)!==fc)continue;if(fo==='on'&&!u.online)continue;if(q&&!(u.name.includes(q)||u.sid.includes(q)))continue;
+    if(fc&&String(u.cls)!==fc)continue;if(fo==='on'&&!u.online)continue;if(q&&!(u.name.includes(q)||u.sid.includes(q)||(u.nick||'').includes(q)))continue;
     seen.add(u.sid);let r=rows.get(u.sid);
     if(!r){r=makeRow(u);rows.set(u.sid,r);}
     body.appendChild(r.tr);r.update(u);
@@ -256,6 +257,20 @@ function renderAdmin(){
   $('#admEmpty').hidden=seen.size>0;
   $('#admEmpty').textContent=users.length?'조건에 맞는 학생이 없습니다.':'아직 가입한 학생이 없습니다.';
 }
+// signup requests waiting for approval
+function renderReqs(){const n=REQS.length;const bd=$('#reqBadge');bd.hidden=!n;bd.textContent=n;$('#reqBox').hidden=!n;$('#reqCount').textContent=n?n+'명':'';
+  $('#reqList').innerHTML=REQS.map(q=>`<div class="req-row"><span><b>${esc(q.name)}</b>${q.nick?' ('+esc(q.nick)+')':''} · ${q.grade}학년 ${q.cls}반 ${q.num}번 <small>학번 ${esc(q.sid)} · ${new Date(q.created).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}${q.ref?' · 초대한 학생: '+esc(q.ref):''}</small></span><span class="abtns"><button type="button" class="abtn w" data-ok="${esc(q.sid)}">승인</button><button type="button" class="abtn l" data-no="${esc(q.sid)}">거절</button></span></div>`).join('');}
+$('#reqList').addEventListener('click',e=>{const a=e.target.closest('[data-ok]'),b=e.target.closest('[data-no]');if(a)svSend({t:'adm',op:'approve',sid:a.dataset.ok});else if(b){if(b.dataset.arm){svSend({t:'adm',op:'del',sid:b.dataset.no});}else{b.dataset.arm='1';b.textContent='한 번 더 누르면 거절';}}});
+$('#reqAll').onclick=()=>svSend({t:'adm',op:'approveall'});
+// invite link and nickname (player)
+$('#inviteBtn').onclick=()=>{if(!S.me)return;const r=S.me.inviteReward||0;$('#invLink').value=location.origin+'/?inv='+S.me.inv;
+  $('#invLead').textContent='아래 링크를 친구에게 보내세요. 친구가 이 링크로 가입하고 관리자가 승인하면 '+(r>0?fmt(r)+'를 받습니다.':'초대 횟수가 기록됩니다.');
+  $('#invCount').textContent='지금까지 내 링크로 가입한 친구: '+(S.me.invites||0)+'명';$('#invCopy').textContent='링크 복사';$('#inviteModal').hidden=false;};
+$('#invCopy').onclick=async()=>{const el=$('#invLink');let ok=false;try{await navigator.clipboard.writeText(el.value);ok=true;}catch(e){el.select();try{ok=document.execCommand('copy');}catch(e2){}}$('#invCopy').textContent=ok?'복사했습니다':'링크를 길게 눌러 복사하세요';};
+$('#invClose').onclick=()=>{$('#inviteModal').hidden=true;};
+$('#nickBtn').onclick=()=>{if(!S.me)return;$('#nickIn').value=S.me.nick||'';$('#nickErr').textContent='';$('#nickModal').hidden=false;$('#nickIn').focus();};
+$('#nickClose').onclick=()=>{$('#nickModal').hidden=true;};
+$('#nickForm').addEventListener('submit',e=>{e.preventDefault();const v=$('#nickIn').value.trim();if(v&&!/^[가-힣A-Za-z0-9_]{2,10}$/.test(v)){$('#nickErr').textContent='닉네임은 한글·영문·숫자 2~10자로 입력하세요.';return;}$('#nickErr').textContent='';svSend({t:'nick',nick:v});});
 function makeRow(u){
   const tr=document.createElement('div');tr.className='pcard';const sid=u.sid;
   tr.innerHTML=`<div class="pc-top"><span class="odot"></span><b class="pc-name"></b><span class="pc-id"></span><span class="pc-st"></span></div>
@@ -286,7 +301,7 @@ function makeRow(u){
     const pm=tr.querySelector('.pc-meta');const s=r.u.stats;pm.textContent=`${s.rounds}판 · 승률 ${s.rounds?Math.round(s.wins/s.rounds*100):0}% · 조작 ${s.manip}판${s.md?' ('+sfmt(s.md)+')':''}${Math.round(e*100)?' · 확률 '+biasText(e):''}${p.force?' · 다음 판 '+(p.force==='win'?'승리':'패배')+' 대기':''}`;};
   r.update=(nu)=>{r.u=nu;const p=nu.presence||{};
     tr.querySelector('.odot').className='odot'+(nu.online?' on':'');
-    tr.querySelector('.pc-name').textContent=nu.name;
+    tr.querySelector('.pc-name').textContent=nu.name+(nu.nick?' ('+nu.nick+')':'');
     tr.querySelector('.pc-id').textContent=`${nu.cls}반 ${nu.num}번`;tr.title=`${nu.sid} · ${nu.grade}학년 ${nu.cls}반 ${nu.num}번`;
     tr.querySelector('.bl').textContent=fmt(nu.bal);
     const debt=nu.loan?nu.loan.debt:0;const rate=(nu.bal-debt-(nu.start||START))/Math.max(1,nu.start||START)*100;const rt=tr.querySelector('.rt');rt.textContent=pfmt(rate);rt.className='pc-rate rt '+(rate>=0?'pos':'neg');
@@ -363,8 +378,8 @@ function renderInbox(){
 }
 
 /* ---------------- admin top-up: coins fly into the balance ---------------- */
-function giftArrive(amount){
-  const wrap=document.createElement('div');wrap.className='gift';wrap.innerHTML='<div class="gbox"><span>관리자가 용돈을 지급했습니다</span><b>+'+fmt(amount)+'</b></div>';document.body.appendChild(wrap);
+function giftArrive(amount,text){
+  const wrap=document.createElement('div');wrap.className='gift';wrap.innerHTML='<div class="gbox"><span>'+esc(text||'관리자가 용돈을 지급했습니다')+'</span><b>+'+fmt(amount)+'</b></div>';document.body.appendChild(wrap);
   const box=wrap.querySelector('.gbox'),bal=$('#bal');
   setTimeout(()=>{const a=box.getBoundingClientRect(),b=bal.getBoundingClientRect();const n=Math.min(18,6+Math.floor(Math.log10(Math.max(10,amount))*3));
     for(let i=0;i<n;i++){const c=document.createElement('div');c.className='coin-fly';c.style.left=(a.left+a.width/2-9+(rnd()-.5)*60)+'px';c.style.top=(a.top+a.height/2-9)+'px';wrap.appendChild(c);
@@ -382,17 +397,19 @@ function buildOps(){
   <div class="sub">게임별 정지</div><div class="pause-grid">${GIDS.map(g=>`<label><input type="checkbox" id="pz_${g}" data-g="${g}">${META[g].name}</label>`).join('')}</div></div>
   <div style="border-top:1px solid var(--sline);padding-top:10px"></div>
   <div><label for="opStart">가입 시 지급 포인트</label><div class="abtns" style="margin-top:4px"><input type="number" id="opStart" min="0" step="1000"><button type="button" class="abtn" id="opStartSave">저장</button></div><div class="sub">이미 가입한 학생에게는 영향이 없습니다. 수익률은 각자 가입할 때 받은 포인트를 기준으로 계산합니다.</div></div>
+  <div><label for="opInv">친구 초대 보상</label><div class="abtns" style="margin-top:4px"><input type="number" id="opInv" min="0" step="500"><button type="button" class="abtn" id="opInvSave">저장</button></div><div class="sub">초대 링크로 가입한 친구를 승인하면 링크 주인에게 이만큼 지급합니다. 0이면 보상 없이 횟수만 셉니다.</div></div>
   <div class="toggle" style="display:block"><label for="opAllAmt">한꺼번에 지급 · 회수</label><div class="abtns" style="margin-top:4px"><select id="opAllCls" style="background:var(--steel);border:1px solid var(--sline);color:var(--sink);border-radius:4px;padding:3px 6px;font-size:12px"><option value="0">전체</option>${[1,2,3,4,5,6,7].map(k=>`<option value="${k}">${k}반</option>`).join('')}</select><input type="number" id="opAllAmt" min="1" step="1000" placeholder="금액"><button type="button" class="abtn w" id="opAllGive">지급</button><button type="button" class="abtn l" id="opAllTake">회수</button></div></div>`;
   const setP=()=>{CFG.paused={all:$('#pzAll').checked,games:{}};GIDS.forEach(g=>{if($('#pz_'+g).checked)CFG.paused.games[g]=true;});saveCfg();paintPaused();};
   $('#pzAll').addEventListener('change',()=>{setP();toast($('#pzAll').checked?'모든 게임을 멈췄습니다':'모든 게임을 다시 열었습니다');});
   GIDS.forEach(g=>$('#pz_'+g).addEventListener('change',e=>{setP();toast(META[g].name+(e.target.checked?' 정지':' 다시 시작'));}));
   paintPaused();
   $('#opStartSave').onclick=()=>{const v=Math.floor(+$('#opStart').value);if(!(v>=0)||$('#opStart').value===''){toast('포인트를 입력하세요');return;}svSend({t:'adm',op:'settings',startBal:v});};
+  $('#opInvSave').onclick=()=>{const v=Math.floor(+$('#opInv').value);if(!(v>=0)||$('#opInv').value===''){toast('포인트를 입력하세요');return;}svSend({t:'adm',op:'settings',inviteReward:v});};
   const all=take=>{const a=Math.floor(+$('#opAllAmt').value);if(!(a>0)){toast('금액을 입력하세요');return;}svSend({t:'adm',op:'giveall',amount:a,cls:+$('#opAllCls').value,take});$('#opAllAmt').value='';};
   $('#opAllGive').onclick=()=>all(false);$('#opAllTake').onclick=()=>all(true);
   syncOps();
 }
-function syncOps(){const el=$('#opStart');if(el&&el!==document.activeElement)el.value=SETTINGS.startBal;}
+function syncOps(){const el=$('#opStart');if(el&&el!==document.activeElement)el.value=SETTINGS.startBal;const iv=$('#opInv');if(iv&&iv!==document.activeElement)iv.value=SETTINGS.inviteReward==null?1000:SETTINGS.inviteReward;}
 
 /* ---------------- loan (player): three lenders ---------------- */
 const LENDER_ART={
