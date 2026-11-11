@@ -540,6 +540,17 @@ wss.on('connection', ws => {
         }
         if (m.op === 'stablereset') { DB.meta.stable = freshStable(); store.saveMeta('stable', DB.meta.stable); const out = { t: 'stable', stable: DB.meta.stable }; for (const o of conns) send(o, out); return ack(true, '말·달팽이 전적을 초기화했습니다.'); }
         if (m.op === 'chatseen') { const ch = chatOf(String(m.sid || '')); if (ch && ch.unread) { ch.unread = 0; saveChat(String(m.sid), ch); const out = { t: 'chats', chats: chatsForAdmin() }; for (const o of admins()) send(o, out); } return; }
+        if (m.op === 'delall') {
+          if (String(m.confirm || '') !== '모두 삭제') return ack(false, '확인 문구가 맞지 않아 삭제하지 않았습니다.');
+          const sids = Object.keys(DB.users);
+          for (const sid of sids) { delete DB.users[sid]; store.deleteUser(sid); if (DB.meta['chat:' + sid]) { delete DB.meta['chat:' + sid]; store.saveMeta('chat:' + sid, null); } }
+          for (const mm of Object.values(DB.mail)) { delete DB.mail[mm.id]; store.deleteMail(mm.id); }
+          for (const [h, p] of tokens) if (p.sid) tokens.delete(h);
+          for (const o of conns) if (o.sid) { send(o, { t: 'kicked' }); o.sid = null; }
+          DB.meta.stable = freshStable(); store.saveMeta('stable', DB.meta.stable);
+          pushMail(); for (const o of admins()) send(o, { t: 'chats', chats: chatsForAdmin() });
+          scheduleUsers(); scheduleRank(); return ack(true, '학생 ' + sids.length + '명의 계정과 기록을 모두 삭제했습니다.');
+        }
         if (m.op === 'approveall') { const list = Object.values(DB.users).filter(x => !isApproved(x)); for (const x of list) approve(x); scheduleUsers(); scheduleRank(); return ack(true, list.length ? list.length + '명의 가입을 승인했습니다.' : '기다리는 가입 요청이 없습니다.'); }
         if (!tu) return ack(false, '없는 학생입니다.');
         if (m.op === 'approve') { if (isApproved(tu)) return ack(false, '이미 승인된 학생입니다.'); approve(tu); scheduleUsers(); scheduleRank(); return ack(true, tu.name + ' 학생의 가입을 승인했습니다.'); }

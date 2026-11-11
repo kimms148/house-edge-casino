@@ -163,17 +163,61 @@ function bacDeal(shoe){
   }
   return{P,B,ps:bsc(P),bs:bsc(B)};
 }
+// play-it-yourself baccarat: the same six cards give both branches of the one real choice (draw or stand on 5)
+function bacFrom(seq,draw5){
+  const P=[seq[0],seq[2]],B=[seq[1],seq[3]];let i=4;const ps=bsc(P),bs=bsc(B);let p3=null;
+  if(ps<8&&bs<8){
+    if(ps<=4||(ps===5&&draw5)){p3=seq[i++];P.push(p3);}
+    if(p3===null){if(bs<=5)B.push(seq[i++]);}
+    else{const x=bv(p3);const draw=bs<=2||(bs===3&&x!==8)||(bs===4&&x>=2&&x<=7)||(bs===5&&x>=4&&x<=7)||(bs===6&&(x===6||x===7));if(draw)B.push(seq[i++]);}
+  }
+  return{P,B,ps:bsc(P),bs:bsc(B),used:i};
+}
 function cardEl(c,third){const red=c.s===1||c.s===2;const d=document.createElement('div');d.className='card deal'+(third?' third':'');
   d.innerHTML=`<div class="in"><div class="f ${red?'red':''}"><span class="r">${RANKS[c.r]}</span><span class="s">${SUITS[c.s]}</span></div><div class="b"></div></div>`;return d;}
-GAMES.baccarat={id:'baccarat',shoe:[],choiceLabel:'베팅 위치',
-  choices:()=>[{label:'플레이어',sub:'2x'},{label:'뱅커',sub:'1.95x'},{label:'타이',sub:'9x'}],
+GAMES.baccarat={id:'baccarat',shoe:[],mode:'bet',choiceLabel:'베팅 위치',
+  choices(){return this.mode==='play'?[]:[{label:'플레이어',sub:'2x'},{label:'뱅커',sub:'1.95x'},{label:'타이',sub:'9x'}];},
   newShoe(){const s=[];for(let k=0;k<8;k++)for(let su=0;su<4;su++)for(let r=1;r<=13;r++)s.push({r,s:su});this.shoe=shuffle(s);},
   mount(st,extra){if(this.shoe.length<60)this.newShoe();
-    st.innerHTML=`<div class="bac"><div class="zone" id="zP"><h3>플레이어</h3><div class="score" id="sP">–</div><div class="hand-cards" id="cP"></div></div><div class="zone" id="zB"><h3>뱅커</h3><div class="score" id="sB">–</div><div class="hand-cards" id="cB"></div></div><div class="shoe-info" id="shoeInfo"></div></div>`;
-    this.info();extra.innerHTML=`<div class="hint">타이가 나오면 플레이어·뱅커 베팅은 원금을 돌려받습니다. 뱅커 승리 배당에는 5% 수수료가 붙습니다.</div>`;},
+    st.innerHTML=`<div class="bac"><div class="zone" id="zP"><h3>플레이어</h3><div class="score" id="sP">–</div><div class="hand-cards" id="cP"></div></div><div class="zone" id="zB"><h3>뱅커</h3><div class="score" id="sB">–</div><div class="hand-cards" id="cB"></div></div><div class="bac-msg" id="bacMsg"></div><div class="bj-act" id="bacAct" hidden><button type="button" class="btn" data-a="draw">한 장 더 받기</button><button type="button" class="btn" data-a="stand">멈추기</button></div><div class="shoe-info" id="shoeInfo"></div></div>`;
+    this.info();extra.innerHTML=`<div class="seg" role="group" aria-label="바카라 방식" style="margin-bottom:8px"><button type="button" data-m="bet" aria-pressed="${this.mode==='bet'}">승부 맞히기</button><button type="button" data-m="play" aria-pressed="${this.mode==='play'}">직접 플레이</button></div>
+      <div class="hint">${this.mode==='play'?'당신이 플레이어 자리에 앉아 뱅커(하우스)와 겨룹니다. 내 카드는 직접 눌러서 엽니다. 이기면 2배, 비기면 원금 반환. 합이 0~4면 자동으로 한 장 더 받고, 6~7이면 멈추며, <b>합이 5일 때만</b> 더 받을지 직접 고릅니다. 뱅커는 정해진 규칙대로 받습니다. 고르는 도중에 나가면 한 장 더 받은 것으로 정산됩니다.':'타이가 나오면 플레이어·뱅커 베팅은 원금을 돌려받습니다. 뱅커 승리 배당에는 5% 수수료가 붙습니다.'}</div>`;
+    extra.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{if(busy)return;this.mode=b.dataset.m;choice=null;renderChoices();this.mount(stage,$('#gExtra'));setPlayBtn();});},
   info(){const el=$('#shoeInfo');if(el)el.textContent=`8덱 슈 · 남은 카드 ${this.shoe.length}장`;},
+  async playSelf(bet){
+    const self=this;let seq=null;
+    const gen=()=>{if(seq){self.shoe.push(...seq);shuffle(self.shoe);}seq=self.shoe.splice(-6).reverse();return{seq,h:bacFrom(seq,true)};};
+    const payFor=h=>h.ps>h.bs?bet*2:h.ps===h.bs?bet:0;
+    const r=resolve('baccarat',bet,gen,o=>payFor(o.h));let h=r.o.h;const cards=r.o.seq;
+    const cP=$('#cP'),cB=$('#cB'),sP=$('#sP'),sB=$('#sB'),msg=$('#bacMsg'),act=$('#bacAct');cP.innerHTML=cB.innerHTML='';sP.textContent=sB.textContent='–';msg.textContent='';
+    $('#zP').classList.remove('won');$('#zB').classList.remove('won');
+    const put=async(zone,c,third)=>{const el=cardEl(c,third);zone.appendChild(el);await wait(330);return el;};
+    const open=async(el)=>{el.classList.add('open');await wait(380);};
+    // deal: both hands face down, the player turns their own cards
+    const p1=await put(cP,h.P[0]),b1=await put(cB,h.B[0]),p2=await put(cP,h.P[1]),b2=await put(cB,h.B[1]);
+    const mine=async(el,shown)=>{el.classList.add('mine');await new Promise(res=>{const t=setTimeout(res,6000);el.onclick=()=>{clearTimeout(t);res();};});el.onclick=null;el.classList.remove('mine');await open(el);sP.textContent=bsc(shown);};
+    msg.textContent='내 카드를 눌러서 여세요';liveText='카드 확인 중';pushPresence();
+    await mine(p1,[h.P[0]]);await mine(p2,h.P.slice(0,2));
+    msg.textContent='';await open(b1);sB.textContent=bsc([h.B[0]]);await open(b2);sB.textContent=bsc(h.B.slice(0,2));
+    const ps2=bsc(h.P.slice(0,2)),bs2=bsc(h.B.slice(0,2));let chose='';
+    if(ps2>=8||bs2>=8){banner('내추럴',ps2>bs2?'win':'lose');await wait(600);}
+    else if(ps2===5){
+      msg.textContent='합이 5입니다. 한 장 더 받을까요?';act.hidden=false;liveText='합 5 · 고르는 중';pushPresence();
+      const a=await new Promise(res=>{const t=setTimeout(()=>res('draw'),20000);act.onclick=e=>{const b=e.target.closest('[data-a]');if(b){clearTimeout(t);res(b.dataset.a);}};});
+      act.hidden=true;act.onclick=null;msg.textContent='';chose=a==='stand'?' (멈춤)':' (받음)';
+      if(a==='stand'){h=bacFrom(cards,false);commitRound(payFor(h),r.manip,r.fairPay);}
+    }
+    if(h.P[2]){await wait(250);const el=await put(cP,h.P[2],true);await open(el);sP.textContent=bsc(h.P);}
+    if(h.B[2]){await wait(250);const el=await put(cB,h.B[2],true);await open(el);sB.textContent=bsc(h.B);}
+    self.shoe.push(...cards.slice(h.used));
+    const pay=payFor(h),w=h.ps>h.bs?0:h.bs>h.ps?1:2;
+    if(w!==1)$('#zP').classList.add('won');if(w!==0)$('#zB').classList.add('won');
+    await wait(200);banner(['승리','뱅커 승','타이 · 원금 반환'][w],pay>=bet?'win':'lose');this.info();
+    return{pay,fairPay:r.fairPay,manip:r.manip&&pay!==r.fairPay,text:`${h.ps} : ${h.bs} ${['내가 승리','뱅커 승','타이'][w]}${chose}`};
+  },
   async play(bet,pick){
     if(this.shoe.length<60){this.newShoe();toast('새 슈를 셔플했습니다');}
+    if(this.mode==='play')return this.playSelf(bet);
     let drawn=null;const self=this;
     const gen=()=>{if(drawn){self.shoe.push(...drawn);shuffle(self.shoe);}const before=self.shoe.slice(-8);const h=bacDeal(self.shoe);drawn=[...h.P,...h.B];return h;};
     const payOf=h=>{const w=h.ps>h.bs?0:h.bs>h.ps?1:2;if(w===2)return pick===2?bet*9:(pick===2?0:bet);return pick===w?(w===0?bet*2:Math.floor(bet*1.95)):0;};
