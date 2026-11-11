@@ -1564,7 +1564,7 @@ GAMES.blackjack={id:'blackjack',mode:'play',shoe:[],choiceLabel:'누가 이길�
       <div class="shoe-info" id="bjShoe"></div></div>`;
     const c=bjCfg();
     extra.innerHTML=`<div class="seg" role="group" aria-label="블랙잭 방식" style="margin-bottom:8px"><button type="button" data-m="play" aria-pressed="${this.mode==='play'}">직접 플레이</button><button type="button" data-m="bet" aria-pressed="${this.mode==='bet'}">승부 맞히기</button></div>
-      <div class="hint">${this.mode==='play'?`블랙잭 ${c.payout} (원금 포함 ${BJ_PAY[c.payout]||2.5}배) · 이기면 2배 · 비기면 ${c.tieHouse?'하우스 승':'원금 반환'} · 딜러 소프트 17 ${c.s17==='hit'?'히트':'스탠드'} · ${this.decks}덱`:`플레이어 손은 17이 될 때까지 자동으로 받습니다. 플레이어·딜러에 걸었는데 비기면 원금을 돌려받습니다.`}</div>`;
+      <div class="hint">${this.mode==='play'?`판 도중에 나가면 진 것으로 처리됩니다 · 블랙잭 ${c.payout} (원금 포함 ${BJ_PAY[c.payout]||2.5}배) · 이기면 2배 · 비기면 ${c.tieHouse?'하우스 승':'원금 반환'} · 딜러 소프트 17 ${c.s17==='hit'?'히트':'스탠드'} · ${this.decks}덱`:`플레이어 손은 17이 될 때까지 자동으로 받습니다. 플레이어·딜러에 걸었는데 비기면 원금을 돌려받습니다.`}</div>`;
     extra.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{if(busy)return;this.mode=b.dataset.m;choice=null;renderChoices();this.mount(stage,$('#gExtra'));setPlayBtn();});
     this.info();
   },

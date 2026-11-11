@@ -322,6 +322,8 @@ function finishRound(u, pay, manip, d, winner) {
 function abandonRound(u) {
   const p = u.pending;
   if (p.commit) return finishRound(u, p.commit.pay, p.commit.manip, p.commit.d, p.commit.winner);
+  // 직접 하는 블랙잭은 패가 나쁠 때 나가서 베팅을 돌려받지 못하도록, 도중에 나가면 진 것으로 처리한다
+  if (p.g === 'blackjack') return finishRound(u, 0, false, 0);
   u.bal += p.bet; u.pending = null; logEv(u, 'admin', '판 도중에 나감: 베팅 ' + p.bet.toLocaleString() + 'P 돌려줌', p.bet);
   store.saveUser(u); pushBal(u.sid, {}); pushLog(u.sid); scheduleUsers(); scheduleRank();
 }
