@@ -107,10 +107,10 @@
   </section>
 
   <section class="view" id="v-loan" hidden>
-    <div class="view-head"><div><h2>대출</h2><div class="hint" style="margin-top:4px">대출소 세 곳. 빌리는 금액은 같고 이자만 다릅니다. 포인트가 0P일 때 빌릴 수 있고, 한 대출소에서는 갚은 뒤에 다음 단계를 바로 또 빌릴 수 있습니다.</div></div><div class="loan-total" id="loanTotal"></div></div>
+    <div class="view-head"><div><h2>대출</h2><div class="hint" style="margin-top:4px">대출소 세 곳. 이자가 서로 다릅니다. 포인트가 0P일 때, 내 신용 등급의 한도 안에서 원하는 금액을 적어 빌립니다.</div></div><div class="loan-total" id="loanTotal"></div></div>
     <div class="credit-bar" id="creditBar"></div>
     <div class="lenders" id="loanCard"></div>
-    <ul class="loan-terms" style="margin-top:14px;max-width:760px"><li>빌린 돈은 <b>24시간 동안만</b> 게임에 쓸 수 있습니다. 한 곳이라도 24시간이 지나면 그곳을 갚기 전까지 게임을 할 수 없습니다.</li><li>같은 대출소에서 빌릴 때마다 금액과 이자가 커집니다 (1만 → 5만 → 10만). 이자는 갚을 때까지 계속 늘어납니다.</li><li><b>신용 등급</b>: 기한 안에 갚으면 점수가 오르고(+15), 24시간을 넘기면 크게 떨어집니다(−25). 빚이 있는데 또 빌려도 떨어집니다(−5). 등급이 낮아지면 이자가 싼 대출소는 빌려주지 않고, A등급이 되면 한도가 1.5배가 됩니다.</li><li><b>자동 상환</b>: 빚이 있는 동안에는 게임에서 딴 돈의 일부가 자동으로 대출소로 빠져나갑니다. 연체된 곳, 이자가 높은 곳부터 가져갑니다.</li><li>한 곳에서 빌린 돈을 다 잃으면 다른 대출소에서 또 빌릴 수 있습니다. 이렇게 빚으로 빚을 막는 것을 '돌려막기'라고 합니다.</li></ul>
+    <ul class="loan-terms" style="margin-top:14px;max-width:760px"><li>빌린 돈은 <b>24시간 동안만</b> 게임에 쓸 수 있습니다. 한 곳이라도 24시간이 지나면 그곳을 갚기 전까지 게임을 할 수 없습니다.</li><li><b>한도</b>: 세 곳에서 빌린 돈을 합쳐 내 등급의 한도까지만 빌릴 수 있습니다. D 20,000 · C 50,000 · B 100,000 · A 200,000P.</li><li><b>이자</b>: 같은 대출소에서 빌릴 때마다 이자가 커집니다 (1번째 → 2번째 → 3번째 이후). 이자는 갚을 때까지 계속 늘어납니다.</li><li><b>신용 점수 올리기</b>: 기한 안에 갚으면 최대 +15점입니다. 한도에 비해 적게 빌렸거나 1시간이 되기 전에 갚으면 그만큼 적게 오릅니다 (예: 한도의 절반을 30분 쓰고 갚으면 +3점). 조금 빌리고 바로 갚는 것으로는 오르지 않고, 하루에 최대 15점까지만 오릅니다.</li><li><b>신용 점수가 떨어질 때</b>: 24시간을 넘기면 −25점, 빚이 있는데 또 빌리면 −5점. 등급이 낮아지면 한도가 줄고 이자가 싼 대출소는 빌려주지 않습니다.</li><li><b>자동 상환</b>: 빚이 있는 동안에는 게임에서 딴 돈의 일부가 자동으로 대출소로 빠져나갑니다. 연체된 곳, 이자가 높은 곳부터 가져갑니다.</li><li>한 곳에서 빌린 돈을 다 잃으면 다른 대출소에서 또 빌릴 수 있습니다. 이렇게 빚으로 빚을 막는 것을 '돌려막기'라고 합니다.</li></ul>
   </section>
 
   <section class="view" id="v-chat" hidden>
@@ -243,9 +243,9 @@
 </div></div>
 <div id="nickModal" class="modal" hidden><div class="box" role="dialog" aria-modal="true" aria-labelledby="nickT" style="max-width:420px">
   <div class="eyebrow">NICKNAME</div><h2 id="nickT" style="font-size:20px">닉네임 변경</h2>
-  <p class="hint">랭킹과 화면 위쪽에 보이는 이름입니다. 한글·영문·숫자 2~10자. 비워서 저장하면 실명이 보입니다. 관리자에게는 실명이 항상 함께 보입니다.</p>
+  <p class="hint">랭킹과 화면 위쪽에 보이는 이름입니다. 한글·영문·숫자 2~10자. <b id="nickCostTxt">닉네임을 바꾸는 데 500,000P가 듭니다.</b> 비워서 저장하면 무료로 실명으로 돌아갑니다. 관리자에게는 실명이 항상 함께 보입니다.</p>
   <form id="nickForm" class="field" style="gap:8px"><input type="text" id="nickIn" maxlength="10" autocomplete="off" aria-label="새 닉네임"><div class="form-err" id="nickErr"></div>
-  <div style="display:flex;gap:8px"><button class="btn primary" type="submit">저장</button><button class="btn" type="button" id="nickClose">닫기</button></div></form>
+  <div style="display:flex;gap:8px"><button class="btn primary" type="submit" id="nickSave">저장</button><button class="btn" type="button" id="nickClose">닫기</button></div></form>
 </div></div>
 <div id="installModal" class="modal" hidden><div class="box" role="dialog" aria-modal="true" aria-labelledby="instT">
   <div class="eyebrow">홈 화면에 추가</div><h2 id="instT">앱으로 설치하기</h2>

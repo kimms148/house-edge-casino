@@ -34,7 +34,7 @@ function renderRank(){
   $('#classTabs').innerHTML=[0,1,2,3,4,5,6,7].map(k=>`<button type="button" data-c="${k}" aria-pressed="${k===rankCls}">${k?k+'반':'전체'}</button>`).join('');
   const list=rankCls===0?(RANK.all||[]):(RANK.byClass[rankCls]||[]);
   tbl.innerHTML=`<thead><tr><th>순위</th><th>${rankCls===0?'반 · 번호':'번호'}</th><th>이름</th><th class="n">자산</th><th class="n">수익률</th><th class="n">판수</th></tr></thead><tbody>${
-    list.length?list.map((u,i)=>`<tr class="${S.me&&u.sid===S.me.sid?'me':''}"><td><span class="medal ${i<3?'m'+(i+1):''}">${i+1}</span></td><td>${rankCls===0?u.grade+'학년 '+u.cls+'반 '+u.num+'번':u.grade+'학년 '+u.num+'번'}</td><td>${esc(u.name)}${S.me&&u.sid===S.me.sid?' <span class="tag on">나</span>':''}</td><td class="n">${fmt(u.bal)}${u.debt?' <span class="debt-tag">빚 '+fmt(u.debt)+'</span>':''}</td><td class="n ${u.rate>=0?'pos':'neg'}">${pfmt(u.rate)}</td><td class="n">${u.rounds}</td></tr>`).join('')
+    list.length?list.map((u,i)=>`<tr class="${S.me&&u.sid===S.me.sid?'me':''}"><td><span class="medal ${i<3?'m'+(i+1):''}">${i+1}</span></td><td>${rankCls===0?u.grade+'학년 '+u.cls+'반 '+u.num+'번':u.grade+'학년 '+u.num+'번'}</td><td>${esc(u.name)}${u.real?' <span class="hint">('+esc(u.real)+')</span>':''}${S.me&&u.sid===S.me.sid?' <span class="tag on">나</span>':''}</td><td class="n">${fmt(u.bal)}${u.debt?' <span class="debt-tag">빚 '+fmt(u.debt)+'</span>':''}</td><td class="n ${u.rate>=0?'pos':'neg'}">${pfmt(u.rate)}</td><td class="n">${u.rounds}</td></tr>`).join('')
     :`<tr><td colspan="6" class="hint" style="text-align:center;padding:20px">${rankCls?rankCls+'반에는 ':''}아직 가입한 학생이 없습니다.</td></tr>`}</tbody>`;
 }
 $('#classBoard').addEventListener('click',e=>{const b=e.target.closest('[data-c]');if(b){rankCls=+b.dataset.c;renderRank();}});
@@ -270,9 +270,12 @@ $('#invCopy').onclick=async()=>{const el=$('#invLink');let ok=false;try{await na
 $('#invClose').onclick=()=>{$('#inviteModal').hidden=true;};
 $('#bmClose').onclick=()=>{$('#bacManual').hidden=true;};
 $('#bacManual').addEventListener('click',e=>{if(e.target.id==='bacManual')e.currentTarget.hidden=true;});
-$('#nickBtn').onclick=()=>{if(!S.me)return;$('#nickIn').value=S.me.nick||'';$('#nickErr').textContent='';$('#nickModal').hidden=false;$('#nickIn').focus();};
+const nickCost=()=>S.me&&S.me.nickCost!=null?S.me.nickCost:500000;
+const nickPaint=()=>{const v=$('#nickIn').value.trim();$('#nickSave').textContent=v?fmt(nickCost())+' 내고 변경':'닉네임 지우기 (무료)';};
+$('#nickIn').addEventListener('input',nickPaint);
+$('#nickBtn').onclick=()=>{if(!S.me)return;$('#nickIn').value=S.me.nick||'';$('#nickErr').textContent='';$('#nickCostTxt').textContent='닉네임을 바꾸는 데 '+fmt(nickCost())+'가 듭니다.';nickPaint();$('#nickModal').hidden=false;$('#nickIn').focus();};
 $('#nickClose').onclick=()=>{$('#nickModal').hidden=true;};
-$('#nickForm').addEventListener('submit',e=>{e.preventDefault();const v=$('#nickIn').value.trim();if(v&&!/^[가-힣A-Za-z0-9_]{2,10}$/.test(v)){$('#nickErr').textContent='닉네임은 한글·영문·숫자 2~10자로 입력하세요.';return;}$('#nickErr').textContent='';svSend({t:'nick',nick:v});});
+$('#nickForm').addEventListener('submit',e=>{e.preventDefault();const v=$('#nickIn').value.trim();if(v&&!/^[가-힣A-Za-z0-9_]{2,10}$/.test(v)){$('#nickErr').textContent='닉네임은 한글·영문·숫자 2~10자로 입력하세요.';return;}if(v&&S.bal<nickCost()){$('#nickErr').textContent='닉네임을 바꾸려면 '+fmt(nickCost())+'가 필요합니다. (보유 '+fmt(S.bal)+')';return;}$('#nickErr').textContent='';svSend({t:'nick',nick:v});});
 function makeRow(u){
   const tr=document.createElement('div');tr.className='pcard';const sid=u.sid;
   tr.innerHTML=`<div class="pc-top"><span class="odot"></span><b class="pc-name"></b><span class="pc-id"></span><span class="pc-st"></span></div>
@@ -427,16 +430,17 @@ function lenderBanner(k,ad){const A=LENDER_ART[k];return`<div class="bn ${k}"><s
 let loanTimer=null;
 const hm=ms=>{const m=Math.max(0,Math.floor(ms/60000));return Math.floor(m/60)+'시간 '+(m%60)+'분';};
 const whenTxt=t=>{const d=new Date(t);return(d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
+const loanAmt={};
 function renderLoan(){
   const el=$('#loanCard');if(!el||!S.me)return;clearInterval(loanTimer);
   const paint=()=>{
     const Ls=myLenders();const td=totalDebt();
     $('#loanTotal').textContent=td?'빚 합계 '+fmt(td)+' ('+activeOf().length+'곳)':'';
     const cr=S.me.credit||{score:50,grade:'B'},gp=S.me.garnish==null?30:S.me.garnish;
-    $('#creditBar').innerHTML=`<span>신용 등급</span><span class="cg ${cr.grade}">${cr.grade}</span><span>${cr.score}점 / 100</span><span class="meter"><i style="width:${cr.score}%"></i></span><span class="hint">${td&&gp?'빚이 있는 동안 딴 돈의 '+gp+'%가 자동 상환됩니다':cr.grade==='A'?'A등급: 대출 한도 1.5배':'기한 안에 갚으면 등급이 오릅니다'}</span>`;
+    $('#creditBar').innerHTML=`<span>신용 등급</span><span class="cg ${cr.grade}">${cr.grade}</span><span>${cr.score}점 / 100</span><span class="meter"><i style="width:${cr.score}%"></i></span><span><b>한도 ${fmt(cr.limit||100000)}</b> · 더 빌릴 수 있는 돈 ${fmt(cr.avail==null?100000:cr.avail)}</span><span class="hint">${td&&gp?'빚이 있는 동안 딴 돈의 '+gp+'%가 자동 상환됩니다':'등급이 오르면 한도가 늘어납니다'}</span>`;
     el.innerHTML=Ls.map(L=>{
       const a=L.active,cnt=L.count||0,ti=Math.min(cnt,2);
-      const tiers=`<div class="tiers">${LOAN_AMOUNTS.map((amt,i)=>`<span class="${!a&&i===ti?'next':i<ti||(a&&i<=Math.min(cnt-1,2)&&i<ti)?'used':''}">${i===2?'3차~':(i+1)+'차'}<br>${amt/10000}만 · ${Math.round(L.rates[i]*100)}%</span>`).join('')}</div>`;
+      const tiers=`<div class="tiers">${L.rates.map((rt,i)=>`<span class="${!a&&i===ti?'next':i<ti?'used':''}">${i===2?'3번째~':(i+1)+'번째'}<br>시간당 ${Math.round(rt*100)}%</span>`).join('')}</div>`;
       let body;
       if(a){const debt=debtNow(a),left=a.at+LOAN_TERM-Date.now(),exp=left<=0,hrs=(Date.now()-a.at)/3600000;
         body=`<div class="eyebrow" style="color:${exp?'#e08a80':'var(--mute)'}">${a.n}번째 대출 · ${exp?'만기 지남 · 게임 불가':'사용 중'}</div>
@@ -447,21 +451,25 @@ function renderLoan(){
           <div class="row"><span>${exp?'사용 기간':'게임에 쓸 수 있는 남은 시간'}</span><b style="color:${exp?'#e08a80':'inherit'}">${exp?'끝남':hm(left)}</b></div>
           <button class="btn primary" type="button" data-repay="${L.k}" ${S.bal>=debt&&!busy?'':'disabled'}>${fmt(debt)} 갚기</button>
           <div class="hint">${S.bal>=debt?'':'갚으려면 '+fmt(debt-S.bal)+'가 더 필요합니다.'}</div>`;}
-      else{const cool=Date.now()<(L.nextAt||0),amt=L.amount||LOAN_AMOUNTS[ti],rate=L.rates[ti],lock=!!L.locked,can=S.bal<1&&!busy&&!cool&&!lock;
+      else{const cr=S.me.credit||{},avail=cr.avail==null?100000:cr.avail,lmin=cr.min||1000;if(loanAmt[L.k]==null||loanAmt[L.k]>avail)loanAmt[L.k]=avail;const amt=Math.max(0,Math.floor(+loanAmt[L.k]||0));
+        const cool=Date.now()<(L.nextAt||0),rate=L.rates[ti],lock=!!L.locked,full=avail<lmin,can=S.bal<1&&!busy&&!cool&&!lock&&!full;
         body=`<div class="eyebrow">${cnt}번 빌림 · 다음은 ${cnt+1}번째</div>
-          <div class="row"><span>빌릴 수 있는 돈</span><b>${fmt(amt)}</b></div>
+          <div class="row"><span>빌릴 금액 (${fmt(lmin)} ~ ${fmt(avail)})</span><span class="loan-in"><input type="number" data-amt="${L.k}" min="${lmin}" max="${avail}" step="1000" value="${amt||''}" aria-label="${L.name} 빌릴 금액" ${lock||full?'disabled':''}>P</span></div>
           <div class="row"><span>시간당 이자</span><b>${Math.round(rate*100)}%</b></div>
-          <div class="row"><span>24시간 뒤 갚을 돈</span><b style="color:#e08a80">${fmt(amt*(1+rate*24))}</b></div>
+          <div class="row"><span>24시간 뒤 갚을 돈</span><b style="color:#e08a80" data-due="${L.k}">${fmt(amt*(1+rate*24))}</b></div>
           <div class="row"><span>필요한 신용 등급</span><b style="color:${lock?'#e08a80':'inherit'}">${L.min?L.minGrade+' 이상':'누구나'}</b></div>
-          <button class="btn primary" type="button" data-loan="${L.k}" ${can?'':'disabled'}>${lock?'신용 등급 부족':fmt(amt)+' 빌리기'}</button>
-          <div class="hint">${lock?'지금 등급('+((S.me.credit||{}).grade||'B')+')으로는 여기서 빌릴 수 없습니다.':cool?whenTxt(L.nextAt)+' 이후에 다시 빌릴 수 있습니다.':can?'':'포인트가 0P일 때만 빌릴 수 있습니다. (지금 '+fmt(S.bal)+')'}</div>`;}
+          <button class="btn primary" type="button" data-loan="${L.k}" data-rate="${rate}" ${can?'':'disabled'}>${lock?'신용 등급 부족':full?'한도를 모두 썼습니다':'빌리기'}</button>
+          <div class="hint">${full&&!lock?'지금 등급의 한도('+fmt(cr.limit||0)+')를 모두 빌렸습니다.':lock?'지금 등급('+((S.me.credit||{}).grade||'B')+')으로는 여기서 빌릴 수 없습니다.':cool?whenTxt(L.nextAt)+' 이후에 다시 빌릴 수 있습니다.':can?'':'포인트가 0P일 때만 빌릴 수 있습니다. (지금 '+fmt(S.bal)+')'}</div>`;}
       return`<div class="lender">${lenderBanner(L.k)}<div class="lbody">${tiers}${body}</div></div>`;
     }).join('');
   };
   paint();loanTimer=setInterval(()=>{if(view!=='loan'){clearInterval(loanTimer);return;}if(!el.contains(document.activeElement))paint();},1000);
 }
+$('#loanCard').addEventListener('input',e=>{const i=e.target.closest('[data-amt]');if(!i)return;const k=i.dataset.amt;loanAmt[k]=Math.max(0,Math.floor(+i.value||0));
+  const due=$('#loanCard').querySelector('[data-due="'+k+'"]'),btn=$('#loanCard').querySelector('[data-loan="'+k+'"]');if(due&&btn)due.textContent=fmt(loanAmt[k]*(1+(+btn.dataset.rate)*24));});
 $('#loanCard').addEventListener('click',e=>{const b=e.target.closest('[data-loan],[data-repay]');if(!b||b.disabled)return;
-  const m=b.dataset.loan?{t:'loan',k:b.dataset.loan}:{t:'repay',k:b.dataset.repay};if(!svSend(m))toast('서버에 연결되어 있지 않습니다');});
+  if(b.dataset.loan){const cr=S.me.credit||{},a=Math.floor(+loanAmt[b.dataset.loan]||0);if(a<(cr.min||1000)){toast('빌릴 금액을 '+fmt(cr.min||1000)+' 이상으로 적으세요');return;}if(cr.avail!=null&&a>cr.avail){toast('더 빌릴 수 있는 돈은 '+fmt(cr.avail)+'까지입니다');return;}}
+  const m=b.dataset.loan?{t:'loan',k:b.dataset.loan,amount:Math.floor(+loanAmt[b.dataset.loan]||0)}:{t:'repay',k:b.dataset.repay};if(!svSend(m))toast('서버에 연결되어 있지 않습니다');});
 ['#lobbyAd','#brokeAd'].forEach(id=>$(id).addEventListener('click',()=>show('loan')));
 $('#brokeLoan').onclick=()=>show('loan');
 setInterval(()=>{if(S.me&&activeOf().length&&!busy)updateBal();},30000);

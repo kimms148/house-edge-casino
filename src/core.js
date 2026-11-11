@@ -134,7 +134,7 @@ function onServer(m){
       break;
     case 'signupwait':$('#signupForm').reset();$('#suSidNote').textContent='';try{sessionStorage.removeItem('he.inv');}catch(e){}setSeg(false);gateNote(m.msg);break;
     case 'approved':gateNote('관리자가 가입을 승인했습니다. 이제 로그인하세요.');if(!$('#liId').value)$('#liId').value=m.sid||'';toast('가입이 승인되었습니다');break;
-    case 'nickok':if(S.me){S.me.nick=m.nick;paintWho();$('#nickModal').hidden=true;toast(m.nick?'닉네임을 '+m.nick+'(으)로 바꿨습니다':'닉네임을 지웠습니다. 실명이 보입니다');}break;
+    case 'nickok':if(S.me){S.me.nick=m.nick;paintWho();$('#nickModal').hidden=true;toast(m.nick?'닉네임을 '+m.nick+'(으)로 바꿨습니다'+(m.cost?' (−'+fmt(m.cost)+')':''):'닉네임을 지웠습니다. 실명이 보입니다');}break;
     case 'nickerr':$('#nickErr').textContent=m.msg;break;
     case 'invinfo':if(S.me)S.me.inviteReward=m.inviteReward;break;
     case 'reqnew':if(S.admin)toast('가입 요청: '+m.name+' ('+m.sid+')');break;

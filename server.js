@@ -87,6 +87,8 @@ const approvedUsers = () => Object.values(DB.users).filter(isApproved);
 // 닉네임: 랭킹과 화면에 보이는 이름. 없으면 실명.
 const NICK_RE = /^[가-힣A-Za-z0-9_]{2,10}$/;
 const disp = u => u.nick || u.name;
+// 닉네임을 바꾸는 값. 가입할 때 정하는 것과 닉네임을 지워 실명으로 돌아가는 것은 무료.
+const NICK_COST = 500000;
 function nickError(nick, sid) {
   if (!NICK_RE.test(nick)) return '닉네임은 한글·영문·숫자 2~10자로 입력하세요.';
   const low = nick.toLowerCase();
@@ -99,7 +101,7 @@ const byInv = code => Object.values(DB.users).find(x => x.inv && x.inv === code 
 function newStats() { const g = {}; for (const k of GAMES) g[k] = { n: 0, w: 0, net: 0, wag: 0 }; return { rounds: 0, wins: 0, net: 0, wag: 0, manip: 0, md: 0, games: g }; }
 function publicUser(u) {
   const ch = chatOf(u.sid);
-  return { sid: u.sid, name: u.name, nick: u.nick || '', inv: invOf(u), invites: u.invites || 0, inviteReward: settings().inviteReward, credit: creditInfo(u), garnish: settings().garnish, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: loanSummary(u), lenders: lenderState(u), stats: u.stats, hist: u.hist.slice(-300), chat: ch && ch.open ? { open: true, msgs: ch.msgs } : null };
+  return { sid: u.sid, name: u.name, nick: u.nick || '', inv: invOf(u), invites: u.invites || 0, inviteReward: settings().inviteReward, nickCost: NICK_COST, credit: creditInfo(u), garnish: settings().garnish, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: loanSummary(u), lenders: lenderState(u), stats: u.stats, hist: u.hist.slice(-300), chat: ch && ch.open ? { open: true, msgs: ch.msgs } : null };
 }
 function issueToken(payload) {
   const t = crypto.randomBytes(24).toString('base64url');
@@ -139,7 +141,20 @@ const debtOne = (l, now) => Math.max(0, Math.floor(l.principal * (1 + (l.rate ||
 // 신용 점수 0~100 (처음 50). 제때 갚으면 오르고, 연체하거나 돌려막으면 내려간다.
 const creditOf = u => typeof u.credit === 'number' ? u.credit : 50;
 const gradeOf = s => s >= 75 ? 'A' : s >= 50 ? 'B' : s >= 25 ? 'C' : 'D';
-const creditInfo = u => ({ score: creditOf(u), grade: gradeOf(creditOf(u)) });
+// 대출 한도(세 곳 합계): 신용 등급이 오르면 늘어난다. 기본(B) 100,000P.
+const LIMITS = { A: 200000, B: 100000, C: 50000, D: 20000 };
+const LOAN_MIN = 1000;
+const limitOf = u => LIMITS[gradeOf(creditOf(u))];
+const borrowed = u => activeLoans(u).reduce((s, l) => s + l.principal, 0);
+const creditInfo = u => ({ score: creditOf(u), grade: gradeOf(creditOf(u)), limit: limitOf(u), avail: Math.max(0, limitOf(u) - borrowed(u)), min: LOAN_MIN, limits: LIMITS });
+// 갚아서 오르는 점수: 한도에 비해 얼마나 빌렸는지 × 얼마나 오래 빌렸는지(1시간이면 전부). 하루에 최대 15점.
+// 100P를 빌리고 바로 갚는 식으로는 점수가 오르지 않는다.
+function repayGain(u, ln, base) {
+  const frac = Math.min(1, ln.principal / (ln.lim || limitOf(u))), held = Math.min(1, (Date.now() - ln.at) / 3600000);
+  const day = (u.cgain || []).filter(x => Date.now() - x.t < 24 * 3600000);
+  const g = Math.max(0, Math.min(Math.floor(base * frac * held), 15 - day.reduce((s, x) => s + x.d, 0)));
+  if (g > 0) day.push({ t: Date.now(), d: g }); u.cgain = day; return g;
+}
 function addCredit(u, d, why) { const b = creditOf(u); u.credit = Math.max(0, Math.min(100, b + d)); if (u.credit !== b) logEv(u, 'admin', '신용 점수 ' + b + ' → ' + u.credit + ' (' + why + ')', 0); }
 // A등급은 한도 1.5배
 const limitMult = u => creditOf(u) >= 75 ? 1.5 : 1;
@@ -149,7 +164,7 @@ function checkLate(u) { let ch = false; for (const [k, l] of Object.entries(u.lo
 function closeLoan(u, k, extraPaid) {
   const ln = u.loanBy[k]; const rec = (u.loans || []).filter(x => lenderOf(x) === k && x.at === ln.at).pop();
   if (rec) { rec.repaidAt = Date.now(); rec.paid = (ln.paid || 0) + (extraPaid || 0); }
-  addCredit(u, ln.late ? 5 : 15, LENDER[k].name + (ln.late ? ' 연체 후 상환' : ' 기한 안에 상환')); u.loanBy[k] = null;
+  addCredit(u, repayGain(u, ln, ln.late ? 5 : 15), LENDER[k].name + (ln.late ? ' 연체 후 상환' : ' 기한 안에 상환')); u.loanBy[k] = null;
 }
 // 자동 상환: 빚이 있으면 딴 돈(순이익)의 일부가 대출소로 빠져나간다. 연체된 곳, 이자가 높은 곳부터.
 function garnish(u, profit) {
@@ -165,7 +180,7 @@ function garnish(u, profit) {
 // per-lender state the student's loan tab draws from
 function lenderState(u) {
   return LENDERS.map(L => { const a = (u.loanBy || {})[L.k]; const cnt = loanCount(u, L.k);
-    return { k: L.k, name: L.name, rates: L.rates, count: cnt, nextAt: nextLoanAt(u, L.k), min: L.min, minGrade: gradeOf(L.min), locked: creditOf(u) < L.min, amount: Math.floor(LOAN_AMOUNTS[Math.min(cnt, LOAN_AMOUNTS.length - 1)] * limitMult(u)), active: a ? Object.assign({}, a, { debt: debtOne(a), expired: Date.now() - a.at > LOAN_TERM }) : null }; });
+    return { k: L.k, name: L.name, rates: L.rates, count: cnt, nextAt: nextLoanAt(u, L.k), min: L.min, minGrade: gradeOf(L.min), locked: creditOf(u) < L.min, rate: L.rates[Math.min(cnt, L.rates.length - 1)], active: a ? Object.assign({}, a, { debt: debtOne(a), expired: Date.now() - a.at > LOAN_TERM }) : null }; });
 }
 // one summary for screens that only need totals
 function loanSummary(u) {
@@ -234,10 +249,10 @@ function pushBal(sid, extra) {
 }
 
 // ranking: 반별 학생 순위 + 반 평균 수익률 순위
-function rankData() {
+function rankData(forAdmin) {
   const byClass = {};
   for (let k = 1; k <= 7; k++) byClass[k] = [];
-  for (const u of approvedUsers()) byClass[u.cls] && byClass[u.cls].push({ sid: u.sid, name: disp(u), grade: u.grade, cls: u.cls, num: u.num, bal: worth(u), debt: debtOf(u), rate: Math.round(rate(u) * 10) / 10, rounds: u.stats.rounds });
+  for (const u of approvedUsers()) byClass[u.cls] && byClass[u.cls].push({ sid: u.sid, name: disp(u), real: forAdmin && u.nick ? u.name : undefined, grade: u.grade, cls: u.cls, num: u.num, bal: worth(u), debt: debtOf(u), rate: Math.round(rate(u) * 10) / 10, rounds: u.stats.rounds });
   const classes = [];
   for (let k = 1; k <= 7; k++) {
     const l = byClass[k].sort((a, b) => b.rate - a.rate || b.bal - a.bal || a.num - b.num);
@@ -252,7 +267,7 @@ function rankData() {
 let rankTimer = null;
 function scheduleRank() {
   if (rankTimer) return;
-  rankTimer = setTimeout(() => { rankTimer = null; const m = JSON.stringify(rankData()); for (const c of authed()) if (c.ws.readyState === 1) c.ws.send(m); }, 1500);
+  rankTimer = setTimeout(() => { rankTimer = null; const m = JSON.stringify(rankData()), ma = JSON.stringify(rankData(true)); for (const c of authed()) if (c.ws.readyState === 1) c.ws.send(c.admin ? ma : m); }, 1500);
 }
 
 // admin: 모든 가입자(접속 여부와 진행 중인 판 포함)
@@ -331,7 +346,7 @@ function abandonRound(u) {
 function login(c, payload) {
   c.admin = !!payload.admin; c.sid = payload.sid || null;
   if (c.admin) { send(c, usersMsg()); send(c, { t: 'mail', list: mailList() }); send(c, { t: 'chats', chats: chatsForAdmin() }); send(c, { t: 'settings', settings: settings() }); }
-  send(c, rankData());
+  send(c, rankData(c.admin));
   scheduleUsers();
 }
 
@@ -451,14 +466,18 @@ wss.on('connection', ws => {
         send(c, { t: 'mailok', mymail: myMail(u.sid) }); pushMail();
         break;
       }
-      case 'rank': send(c, rankData()); break;
+      case 'rank': send(c, rankData(c.admin)); break;
       case 'nick': {
         if (!u) return;
         const nick = String(m.nick || '').trim();
+        if (nick === (u.nick || '')) return send(c, { t: 'nickerr', msg: nick ? '지금 쓰는 닉네임과 같습니다.' : '지금 닉네임이 없습니다.' });
         if (nick) { const ne = nickError(nick, u.sid); if (ne) return send(c, { t: 'nickerr', msg: ne }); }
-        const old = disp(u); if (nick) u.nick = nick; else delete u.nick;
-        logEv(u, 'admin', '닉네임 변경: ' + old + ' → ' + disp(u), 0); store.saveUser(u);
-        for (const o of userConns(u.sid)) send(o, { t: 'nickok', nick: u.nick || '' });
+        if (nick && u.pending) return send(c, { t: 'nickerr', msg: '판이 끝난 뒤에 바꿀 수 있습니다.' });
+        if (nick && u.bal < NICK_COST) return send(c, { t: 'nickerr', msg: '닉네임을 바꾸려면 ' + NICK_COST.toLocaleString() + 'P가 필요합니다. (보유 ' + u.bal.toLocaleString() + 'P)' });
+        const old = disp(u), cost = nick ? NICK_COST : 0; if (nick) { u.nick = nick; u.bal -= cost; } else delete u.nick;
+        logEv(u, 'admin', '닉네임 변경: ' + old + ' → ' + disp(u), -cost); store.saveUser(u);
+        for (const o of userConns(u.sid)) send(o, { t: 'nickok', nick: u.nick || '', cost });
+        if (cost) pushBal(u.sid, {});
         scheduleUsers(); scheduleRank();
         break;
       }
@@ -471,10 +490,12 @@ wss.on('connection', ws => {
         if (creditOf(u) < L.min) return send(c, { t: 'loanerr', msg: L.name + '은(는) 신용 등급 ' + gradeOf(L.min) + ' 이상에게만 빌려줍니다. (지금 ' + gradeOf(creditOf(u)) + '등급, ' + creditOf(u) + '점)' });
         if (u.bal >= 1 || u.pending) return send(c, { t: 'loanerr', msg: '포인트를 모두 잃었을 때만 대출을 받을 수 있습니다.' });
         if (Date.now() < nextLoanAt(u, L.k)) { const d = new Date(nextLoanAt(u, L.k)); return send(c, { t: 'loanerr', msg: L.name + '은(는) 하루에 한 번만 빌려줍니다. ' + (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ' 이후에 다시 빌릴 수 있습니다.' }); }
-        const ti = Math.min(loanCount(u, L.k), LOAN_AMOUNTS.length - 1), amount = Math.floor(LOAN_AMOUNTS[ti] * limitMult(u)), rate = L.rates[ti];
+        const ti = Math.min(loanCount(u, L.k), L.rates.length - 1), rate = L.rates[ti], amount = Math.floor(+m.amount), avail = limitOf(u) - borrowed(u);
+        if (!(amount >= LOAN_MIN)) return send(c, { t: 'loanerr', msg: '빌릴 금액을 ' + LOAN_MIN.toLocaleString() + 'P 이상으로 적으세요.' });
+        if (amount > avail) return send(c, { t: 'loanerr', msg: '한도를 넘었습니다. ' + gradeOf(creditOf(u)) + '등급 한도는 ' + limitOf(u).toLocaleString() + 'P이고, 지금 더 빌릴 수 있는 돈은 ' + Math.max(0, avail).toLocaleString() + 'P입니다.' });
         const n = loanCount(u, L.k) + 1, at = Date.now();
         if (activeLoans(u).length) addCredit(u, -5, '빚이 있는데 또 대출');
-        u.loanBy[L.k] = { principal: amount, rate, at, n }; u.bal += amount;
+        u.loanBy[L.k] = { principal: amount, rate, at, n, lim: limitOf(u) }; u.bal += amount;
         u.loans = (u.loans || []).concat([{ lender: L.k, principal: amount, rate, at }]);
         logEv(u, 'loan', L.name + ' ' + n + '번째 대출 (시간당 ' + Math.round(rate * 100) + '%)', amount);
         store.saveUser(u); pushBal(u.sid, { loanMsg: L.name + '에서 ' + amount.toLocaleString() + 'P를 빌렸습니다. 24시간 안에 쓸 수 있고, 이자는 시간당 ' + Math.round(rate * 100) + '%입니다.' }); scheduleUsers(); scheduleRank();

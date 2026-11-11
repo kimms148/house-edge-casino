@@ -84,6 +84,8 @@ main{max-width:1180px;margin:0 auto;padding-block:22px 60px;padding-left:max(16p
 .manual p,.manual li{font-size:13.5px;line-height:1.65}
 .manual ol,.manual ul{margin:0;padding-left:20px;display:grid;gap:3px}
 .manual .paytable td:last-child{font-family:inherit;text-align:right}
+.loan-in{display:inline-flex;align-items:center;gap:4px;font-family:var(--f-num)}
+.loan-in input{width:108px;background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:5px;padding:5px 8px;font-family:var(--f-num);font-size:14px;text-align:right}
 .lobby-acts{display:flex;gap:8px;flex-wrap:wrap}
 .invite-btn{border-color:var(--brass);color:var(--brass2)}
 .inv-link{display:flex;gap:8px}.inv-link input{flex:1 1 0;min-width:0;background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:8px 10px;font-size:13px}
