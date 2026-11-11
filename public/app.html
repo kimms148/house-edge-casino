@@ -84,6 +84,10 @@ main{max-width:1180px;margin:0 auto;padding-block:22px 60px;padding-left:max(16p
 .credit-bar .cg.C,.credit-bar .cg.D{color:#e08a80}
 .credit-bar .meter{flex:1 1 140px;height:6px;border-radius:3px;background:#ffffff14;overflow:hidden;min-width:120px}
 .credit-bar .meter i{display:block;height:100%;background:var(--brass)}
+.manual h3{font-size:15px;color:var(--brass2);margin-top:6px}
+.manual p,.manual li{font-size:13.5px;line-height:1.65}
+.manual ol,.manual ul{margin:0;padding-left:20px;display:grid;gap:3px}
+.manual .paytable td:last-child{font-family:inherit;text-align:right}
 .lobby-acts{display:flex;gap:8px;flex-wrap:wrap}
 .invite-btn{border-color:var(--brass);color:var(--brass2)}
 .inv-link{display:flex;gap:8px}.inv-link input{flex:1 1 0;min-width:0;background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:8px 10px;font-size:13px}
@@ -371,6 +375,7 @@ details.more[open] summary{color:var(--cyan)}
 .admin-scope .mitem .meta{color:var(--smute)}
 
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.2s!important}}
+.modal .box.manual{align-self:start}
 
 /* coin */
 .coin-scene{position:absolute;inset:0;display:grid;place-items:center;perspective:900px}
@@ -790,6 +795,30 @@ details.more[open] summary{color:var(--cyan)}
   <div class="tbl-wrap" style="max-height:min(56vh,520px);overflow:auto"><table class="t" style="min-width:0"><thead><tr><th>시각</th><th>내용</th><th class="n">베팅</th><th class="n">받은 돈</th><th class="n">변동</th><th class="n">잔액</th></tr></thead><tbody id="logBody"></tbody></table></div>
 </div></div>
 <div id="revealModal" class="modal" hidden></div>
+<div id="bacManual" class="modal" hidden><div class="box manual" role="dialog" aria-modal="true" aria-labelledby="bmT" style="max-width:680px">
+  <div class="eyebrow">BACCARAT</div><h2 id="bmT" style="font-size:22px">바카라 설명서</h2>
+  <h3>1. 어떤 게임인가</h3>
+  <p>플레이어와 뱅커 두 자리에 카드를 나눠 주고, <b>합이 9에 더 가까운 쪽</b>이 이기는 게임입니다. '플레이어'와 '뱅커'는 자리 이름일 뿐이고, 승부 맞히기에서는 어느 쪽에든 걸 수 있습니다. 카드는 8벌(416장)을 섞은 슈에서 나옵니다.</p>
+  <h3>2. 점수 세는 법</h3>
+  <table class="paytable"><tr><td>A</td><td>1점</td></tr><tr><td>2 ~ 9</td><td>적힌 숫자</td></tr><tr><td>10 · J · Q · K</td><td>0점</td></tr></table>
+  <p>카드를 모두 더한 뒤 <b>일의 자리만</b> 셉니다. 예: 7 + 8 = 15 → <b>5점</b>, K + 9 = 9 → <b>9점</b>, 6 + 4 = 10 → <b>0점</b>. 그래서 가장 높은 점수는 9이고, 블랙잭처럼 넘쳐서 지는 일(버스트)은 없습니다.</p>
+  <h3>3. 한 판의 순서</h3>
+  <ol><li>베팅합니다.</li><li>플레이어와 뱅커가 2장씩 받습니다.</li><li>어느 한쪽이라도 처음 2장의 합이 <b>8 또는 9</b>면 '내추럴'입니다. 더 받지 않고 바로 승부를 냅니다.</li><li>내추럴이 아니면 아래 규칙대로 세 번째 카드를 받습니다. 양쪽 모두 최대 3장입니다.</li><li>합이 높은 쪽이 이기고, 같으면 타이(무승부)입니다.</li></ol>
+  <h3>4. 세 번째 카드 규칙</h3>
+  <p><b>플레이어</b></p>
+  <table class="paytable"><tr><td>처음 2장 합 0 ~ 5</td><td>한 장 더 받음</td></tr><tr><td>6 ~ 7</td><td>멈춤</td></tr><tr><td>8 ~ 9</td><td>내추럴</td></tr></table>
+  <p><b>뱅커</b>: 플레이어가 멈췄으면 뱅커는 0 ~ 5에서 받고 6 ~ 7에서 멈춥니다. 플레이어가 세 번째 카드를 받았으면 그 카드에 따라 정합니다.</p>
+  <table class="paytable"><tr><td>뱅커 합 0 ~ 2</td><td>항상 받음</td></tr><tr><td>3</td><td>플레이어 셋째 카드가 8이 아니면 받음</td></tr><tr><td>4</td><td>셋째 카드가 2 ~ 7이면 받음</td></tr><tr><td>5</td><td>셋째 카드가 4 ~ 7이면 받음</td></tr><tr><td>6</td><td>셋째 카드가 6 ~ 7이면 받음</td></tr><tr><td>7</td><td>멈춤</td></tr></table>
+  <p class="hint">이 규칙은 자동으로 적용됩니다. 외울 필요는 없습니다.</p>
+  <h3>5. 승부 맞히기 (기본 방식)</h3>
+  <table class="paytable"><tr><td>플레이어에 걸어 적중</td><td>2배</td></tr><tr><td>뱅커에 걸어 적중 (수수료 5%)</td><td>1.95배</td></tr><tr><td>타이에 걸어 적중</td><td>9배</td></tr><tr><td>플레이어·뱅커에 걸었는데 타이</td><td>원금 반환</td></tr></table>
+  <p>뱅커는 세 번째 카드 규칙 덕분에 플레이어보다 조금 더 자주 이깁니다. 그래서 뱅커 쪽 배당에만 수수료가 붙습니다. 타이는 배당이 커 보이지만 약 10판에 1판만 나옵니다.</p>
+  <h3>6. 직접 플레이</h3>
+  <ul><li>내가 플레이어 자리에 앉아 뱅커(하우스)와 겨룹니다. 어디에 걸지 고르지 않습니다.</li><li>내 카드 두 장은 엎어져서 나옵니다. <b>카드를 눌러서</b> 한 장씩 엽니다.</li><li>합이 0 ~ 4면 자동으로 한 장 더 받고, 6 ~ 7이면 멈춥니다.</li><li><b>합이 5일 때만</b> [한 장 더 받기]와 [멈추기] 중에 직접 고릅니다. 20초 안에 고르지 않으면 한 장 더 받습니다.</li><li>이기면 2배, 비기면 원금 반환, 지면 베팅을 잃습니다.</li><li>고르는 도중에 나가면 한 장 더 받은 것으로 정산됩니다.</li></ul>
+  <h3>7. 용어</h3>
+  <table class="paytable"><tr><td>슈</td><td>여러 벌의 카드를 섞어 담아 둔 통</td></tr><tr><td>내추럴</td><td>처음 2장의 합이 8 또는 9</td></tr><tr><td>타이</td><td>양쪽 점수가 같은 무승부</td></tr><tr><td>수수료(커미션)</td><td>뱅커 승리 배당에서 하우스가 떼는 5%</td></tr></table>
+  <div><button class="btn primary" type="button" id="bmClose">닫기</button></div>
+</div></div>
 <div id="inviteModal" class="modal" hidden><div class="box" role="dialog" aria-modal="true" aria-labelledby="invT" style="max-width:460px">
   <div class="eyebrow">INVITE</div><h2 id="invT" style="font-size:20px">친구 초대하기</h2>
   <p id="invLead"></p>
@@ -1382,8 +1411,10 @@ GAMES.baccarat={id:'baccarat',shoe:[],mode:'bet',choiceLabel:'베팅 위치',
   mount(st,extra){if(this.shoe.length<60)this.newShoe();
     st.innerHTML=`<div class="bac"><div class="zone" id="zP"><h3>플레이어</h3><div class="score" id="sP">–</div><div class="hand-cards" id="cP"></div></div><div class="zone" id="zB"><h3>뱅커</h3><div class="score" id="sB">–</div><div class="hand-cards" id="cB"></div></div><div class="bac-msg" id="bacMsg"></div><div class="bj-act" id="bacAct" hidden><button type="button" class="btn" data-a="draw">한 장 더 받기</button><button type="button" class="btn" data-a="stand">멈추기</button></div><div class="shoe-info" id="shoeInfo"></div></div>`;
     this.info();extra.innerHTML=`<div class="seg" role="group" aria-label="바카라 방식" style="margin-bottom:8px"><button type="button" data-m="bet" aria-pressed="${this.mode==='bet'}">승부 맞히기</button><button type="button" data-m="play" aria-pressed="${this.mode==='play'}">직접 플레이</button></div>
+      <button type="button" class="btn" id="bacManualBtn" style="width:100%;margin-bottom:8px">바카라 설명서</button>
       <div class="hint">${this.mode==='play'?'당신이 플레이어 자리에 앉아 뱅커(하우스)와 겨룹니다. 내 카드는 직접 눌러서 엽니다. 이기면 2배, 비기면 원금 반환. 합이 0~4면 자동으로 한 장 더 받고, 6~7이면 멈추며, <b>합이 5일 때만</b> 더 받을지 직접 고릅니다. 뱅커는 정해진 규칙대로 받습니다. 고르는 도중에 나가면 한 장 더 받은 것으로 정산됩니다.':'타이가 나오면 플레이어·뱅커 베팅은 원금을 돌려받습니다. 뱅커 승리 배당에는 5% 수수료가 붙습니다.'}</div>`;
-    extra.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{if(busy)return;this.mode=b.dataset.m;choice=null;renderChoices();this.mount(stage,$('#gExtra'));setPlayBtn();});},
+    extra.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{if(busy)return;this.mode=b.dataset.m;choice=null;renderChoices();this.mount(stage,$('#gExtra'));setPlayBtn();});
+    $('#bacManualBtn').onclick=()=>{$('#bacManual').hidden=false;$('#bacManual').scrollTop=0;};},
   info(){const el=$('#shoeInfo');if(el)el.textContent=`8덱 슈 · 남은 카드 ${this.shoe.length}장`;},
   async playSelf(bet){
     const self=this;let seq=null;
@@ -1777,7 +1808,8 @@ const TUT={
     {t:'플레이어, 뱅커, 타이(무승부) 중 어디가 이길지 겁니다. 내가 카드를 고르는 게임이 아닙니다.',s:`<div class="trow">${pill('플레이어 2배',1)}${pill('뱅커 1.95배')}${pill('타이 9배')}</div>`},
     {t:'양쪽에 카드를 2장씩 줍니다. 10·J·Q·K는 0점, A는 1점이고, 합의 일의 자리만 셉니다.',s:`<div class="trow">${mini('7','♠')}${mini('8','♥',1)}<b class="tarrow">= 15 → 5점</b></div>`},
     {t:'정해진 규칙에 따라 3번째 카드를 받기도 합니다. 9에 더 가까운 쪽이 이깁니다.',s:`<div class="trow"><span class="tsc">플레이어 8</span><b>VS</b><span class="tsc">뱅커 5</span></div>${res('플레이어 승 · ×2',1)}`},
-    {t:'타이가 나오면 플레이어·뱅커에 건 돈은 그대로 돌려받습니다.',s:`${res('타이 · 원금 반환',1)}`}]},
+    {t:'타이가 나오면 플레이어·뱅커에 건 돈은 그대로 돌려받습니다.',s:`${res('타이 · 원금 반환',1)}`},
+    {t:'직접 플레이로 바꾸면 내가 플레이어 자리에 앉습니다. 내 카드를 눌러서 열고, 합이 5일 때만 한 장 더 받을지 고릅니다. 자세한 규칙은 오른쪽 "바카라 설명서"에 있습니다.',s:`<div class="trow">${mini('2','♣')}${mini('3','♦',1)}<b class="tarrow">= 5 → 받기 / 멈추기</b></div>`}]},
   slot:{steps:[
     {t:'금액을 정하고 스핀을 누르면 릴 3개가 돌아갑니다.',s:`<div class="treels"><span class="spin">🍒</span><span class="spin">🔔</span><span class="spin">⭐</span></div>`},
     {t:'가운데 줄에 같은 그림 3개가 나오면 그림마다 정해진 배당을 받습니다. 7·7·7은 500배입니다.',s:`<div class="treels"><span>7</span><span>7</span><span>7</span></div>${res('잭팟 ×500',1)}`},
@@ -1927,7 +1959,7 @@ function openReveal(){
   <div><button class="btn" type="button" id="rvClose">닫기</button></div></div>`;
   m.hidden=false;$('#rvClose').onclick=()=>m.hidden=true;
 }
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#revealModal').hidden=true;$('#installModal').hidden=true;$('#inviteModal').hidden=true;$('#nickModal').hidden=true;if(!$('#tutModal').hidden)closeTut();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#revealModal').hidden=true;$('#installModal').hidden=true;$('#inviteModal').hidden=true;$('#nickModal').hidden=true;$('#bacManual').hidden=true;if(!$('#tutModal').hidden)closeTut();}});
 
 /* ---------------- admin console ---------------- */
 const rows=new Map();const feed=[];
@@ -2094,6 +2126,8 @@ $('#inviteBtn').onclick=()=>{if(!S.me)return;const r=S.me.inviteReward||0;$('#in
   $('#invCount').textContent='지금까지 내 링크로 가입한 친구: '+(S.me.invites||0)+'명';$('#invCopy').textContent='링크 복사';$('#inviteModal').hidden=false;};
 $('#invCopy').onclick=async()=>{const el=$('#invLink');let ok=false;try{await navigator.clipboard.writeText(el.value);ok=true;}catch(e){el.select();try{ok=document.execCommand('copy');}catch(e2){}}$('#invCopy').textContent=ok?'복사했습니다':'링크를 길게 눌러 복사하세요';};
 $('#invClose').onclick=()=>{$('#inviteModal').hidden=true;};
+$('#bmClose').onclick=()=>{$('#bacManual').hidden=true;};
+$('#bacManual').addEventListener('click',e=>{if(e.target.id==='bacManual')e.currentTarget.hidden=true;});
 $('#nickBtn').onclick=()=>{if(!S.me)return;$('#nickIn').value=S.me.nick||'';$('#nickErr').textContent='';$('#nickModal').hidden=false;$('#nickIn').focus();};
 $('#nickClose').onclick=()=>{$('#nickModal').hidden=true;};
 $('#nickForm').addEventListener('submit',e=>{e.preventDefault();const v=$('#nickIn').value.trim();if(v&&!/^[가-힣A-Za-z0-9_]{2,10}$/.test(v)){$('#nickErr').textContent='닉네임은 한글·영문·숫자 2~10자로 입력하세요.';return;}$('#nickErr').textContent='';svSend({t:'nick',nick:v});});

@@ -101,7 +101,7 @@ function openReveal(){
   <div><button class="btn" type="button" id="rvClose">닫기</button></div></div>`;
   m.hidden=false;$('#rvClose').onclick=()=>m.hidden=true;
 }
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#revealModal').hidden=true;$('#installModal').hidden=true;$('#inviteModal').hidden=true;$('#nickModal').hidden=true;if(!$('#tutModal').hidden)closeTut();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#revealModal').hidden=true;$('#installModal').hidden=true;$('#inviteModal').hidden=true;$('#nickModal').hidden=true;$('#bacManual').hidden=true;if(!$('#tutModal').hidden)closeTut();}});
 
 /* ---------------- admin console ---------------- */
 const rows=new Map();const feed=[];
@@ -268,6 +268,8 @@ $('#inviteBtn').onclick=()=>{if(!S.me)return;const r=S.me.inviteReward||0;$('#in
   $('#invCount').textContent='지금까지 내 링크로 가입한 친구: '+(S.me.invites||0)+'명';$('#invCopy').textContent='링크 복사';$('#inviteModal').hidden=false;};
 $('#invCopy').onclick=async()=>{const el=$('#invLink');let ok=false;try{await navigator.clipboard.writeText(el.value);ok=true;}catch(e){el.select();try{ok=document.execCommand('copy');}catch(e2){}}$('#invCopy').textContent=ok?'복사했습니다':'링크를 길게 눌러 복사하세요';};
 $('#invClose').onclick=()=>{$('#inviteModal').hidden=true;};
+$('#bmClose').onclick=()=>{$('#bacManual').hidden=true;};
+$('#bacManual').addEventListener('click',e=>{if(e.target.id==='bacManual')e.currentTarget.hidden=true;});
 $('#nickBtn').onclick=()=>{if(!S.me)return;$('#nickIn').value=S.me.nick||'';$('#nickErr').textContent='';$('#nickModal').hidden=false;$('#nickIn').focus();};
 $('#nickClose').onclick=()=>{$('#nickModal').hidden=true;};
 $('#nickForm').addEventListener('submit',e=>{e.preventDefault();const v=$('#nickIn').value.trim();if(v&&!/^[가-힣A-Za-z0-9_]{2,10}$/.test(v)){$('#nickErr').textContent='닉네임은 한글·영문·숫자 2~10자로 입력하세요.';return;}$('#nickErr').textContent='';svSend({t:'nick',nick:v});});
