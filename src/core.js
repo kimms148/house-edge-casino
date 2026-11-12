@@ -137,7 +137,9 @@ function onServer(m){
     case 'nickok':if(S.me){S.me.nick=m.nick;paintWho();$('#nickModal').hidden=true;toast(m.nick?'닉네임을 '+m.nick+'(으)로 바꿨습니다'+(m.cost?' (−'+fmt(m.cost)+')':''):'닉네임을 지웠습니다. 실명이 보입니다');}break;
     case 'nickerr':$('#nickErr').textContent=m.msg;break;
     case 'invinfo':if(S.me)S.me.inviteReward=m.inviteReward;break;
-    case 'reqnew':if(S.admin)toast('가입 요청: '+m.name+' ('+m.sid+')');break;
+    case 'reqnew':if(S.admin)reqAlert(m);break;
+    case 'notice':NQ=m.list||[];noticePump();break;
+    case 'notices':if(S.admin){NOTICES=m.list||[];renderNotices();}break;
     case 'autherr':{const el=m.where==='signup'?$('#suErr'):$('#liErr');el.textContent=m.msg;break;}
     case 'kicked':toast('계정이 삭제되었습니다');doLogout(true);break;
     case 'betok':case 'betno':if(SV.wait){SV.wait.res(m);SV.wait=null;}break;
@@ -159,7 +161,7 @@ function onServer(m){
     case 'mailok':S.mymail=m.mymail||[];renderMyMail();$('#mailBody').value='';$('#mailCount').textContent='0 / 1000';toast('건의를 보냈습니다');break;
     case 'mymail':S.mymail=m.mymail||[];renderMyMail();break;
     case 'mailerr':toast(m.msg);break;
-    case 'users':if(S.admin){USERS=m.users;REQS=m.reqs||[];renderAdmin();if(view==='chats')renderChats();}break;
+    case 'users':if(S.admin){USERS=m.users;REQS=m.reqs||[];if(!reqGreeted){reqGreeted=true;if(REQS.length)reqAlert(null);}renderAdmin();if(view==='chats')renderChats();}break;
     case 'mail':if(S.admin){INBOX=m.list;renderInbox();}break;
     case 'feed':if(S.admin)addFeed(m.e);break;
     case 'userlog':if(S.admin)renderLog(m);break;
@@ -251,19 +253,19 @@ function enterPlayer(me,mymail){
 }
 function paintWho(){const me=S.me;if(!me)return;$('#whoText').innerHTML=`<b>${esc(dispName(me))}</b> · ${esc(clsLabel(me))}`;}
 function enterAdmin(){
-  S.me=null;S.admin=true;enterShell();$('#whoText').innerHTML='<b>관리자</b>';
+  S.me=null;S.admin=true;reqGreeted=false;NQ=[];enterShell();$('#whoText').innerHTML='<b>관리자</b>';
   if(!rigBuilt){buildRigPanel();rigBuilt=true;}
   show(['admin','inbox','rank'].includes(view)?view:'admin');setConn();
 }
 function doLogout(local){
   if(!local)svSend({t:'logout',token:LS.get('he.token',null)});
-  LS.del('he.token');busy=false;playing=false;cur=null;view='lobby';USERS=[];INBOX=[];
+  LS.del('he.token');busy=false;playing=false;cur=null;view='lobby';USERS=[];INBOX=[];REQS=[];NQ=[];S.admin=false;$('#noticeModal').hidden=true;$('#reqAlert').innerHTML='';document.title=BASE_TITLE;
   $('#liId').value='';setSeg(false);showGate();
 }
 $('#logoutBtn').onclick=()=>{if(busy){toast('판이 끝난 뒤에 로그아웃할 수 있습니다');return;}doLogout(false);};
 
 /* ---------------- views ---------------- */
-let view='lobby',cur=null,busy=false,choice=null,RANK=null,USERS=[],REQS=[],INBOX=[],rigBuilt=false;
+let view='lobby',cur=null,busy=false,choice=null,RANK=null,USERS=[],REQS=[],INBOX=[],rigBuilt=false,NQ=[],NOTICES=[],reqGreeted=false;
 function show(v){
   if(busy&&v!=='game'){toast('판이 끝난 뒤에 이동할 수 있습니다');return;}
   if(!S.admin&&S.chat&&S.chat.open&&v!=='chat'){toast('관리자와 대화가 끝날 때까지 다른 화면으로 갈 수 없습니다');v='chat';}
@@ -305,6 +307,7 @@ function updateBal(){
   {const lad=$('#lobbyAd');const nx=S.me&&S.bal<1&&!busy?openLender():null;lad.hidden=!nx;if(nx&&!lad.dataset.k){lad.dataset.k=nx.k;lad.innerHTML=lenderBanner(nx.k,true);}if(!nx)lad.dataset.k='';}
   if(S.bet>S.bal&&S.bal>=1&&!busy)setBet(S.bal);
 }
+const BASE_TITLE=document.title;
 function toast(msg){const d=document.createElement('div');d.textContent=msg;$('#toast').appendChild(d);setTimeout(()=>d.remove(),2400);}
 
 /* bet */

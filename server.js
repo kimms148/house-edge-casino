@@ -141,12 +141,12 @@ const debtOne = (l, now) => Math.max(0, Math.floor(l.principal * (1 + (l.rate ||
 // 신용 점수 0~100 (처음 50). 제때 갚으면 오르고, 연체하거나 돌려막으면 내려간다.
 const creditOf = u => typeof u.credit === 'number' ? u.credit : 50;
 const gradeOf = s => s >= 75 ? 'A' : s >= 50 ? 'B' : s >= 25 ? 'C' : 'D';
-// 대출 한도(세 곳 합계): 신용 등급이 오르면 늘어난다. 기본(B) 100,000P.
+// 대출 한도(대출소마다 따로): 신용 등급이 오르면 늘어난다. 기본(B) 100,000P.
 const LIMITS = { A: 200000, B: 100000, C: 50000, D: 20000 };
 const LOAN_MIN = 1000;
 const limitOf = u => LIMITS[gradeOf(creditOf(u))];
 const borrowed = u => activeLoans(u).reduce((s, l) => s + l.principal, 0);
-const creditInfo = u => ({ score: creditOf(u), grade: gradeOf(creditOf(u)), limit: limitOf(u), avail: Math.max(0, limitOf(u) - borrowed(u)), min: LOAN_MIN, limits: LIMITS });
+const creditInfo = u => ({ score: creditOf(u), grade: gradeOf(creditOf(u)), limit: limitOf(u), avail: limitOf(u), each: true, min: LOAN_MIN, limits: LIMITS });
 // 갚아서 오르는 점수: 한도에 비해 얼마나 빌렸는지 × 얼마나 오래 빌렸는지(1시간이면 전부). 하루에 최대 15점.
 // 100P를 빌리고 바로 갚는 식으로는 점수가 오르지 않는다.
 function repayGain(u, ln, base) {
@@ -289,6 +289,16 @@ function scheduleUsers() {
   if (usersTimer) return;
   usersTimer = setTimeout(() => { usersTimer = null; const m = JSON.stringify(usersMsg()); for (const c of admins()) if (c.ws.readyState === 1) c.ws.send(m); }, 250);
 }
+// 전체 공지: 학생은 [확인했습니다]를 누를 때까지 화면을 가리는 창으로 본다. 누가 읽었는지 학생별로 기록한다.
+const notices = () => DB.meta.notices || [];
+const unreadNotices = u => notices().filter(n => !(u.nack || []).includes(n.id)).map(n => ({ id: n.id, text: n.text, at: n.at }));
+function noticesMsg() {
+  const us = approvedUsers();
+  return { t: 'notices', list: notices().slice().reverse().map(n => { const un = us.filter(u => !(u.nack || []).includes(n.id)); return { id: n.id, text: n.text, at: n.at, total: us.length, read: us.length - un.length, unread: un.slice(0, 80).map(u => u.name + ' (' + u.sid + ')') }; }) };
+}
+let noticeTimer = null;
+function scheduleNotices() { if (noticeTimer) return; noticeTimer = setTimeout(() => { noticeTimer = null; const m = noticesMsg(); for (const c of admins()) send(c, m); }, 300); }
+function pushNotices() { for (const o of conns) if (o.sid && DB.users[o.sid]) send(o, { t: 'notice', list: unreadNotices(DB.users[o.sid]) }); scheduleNotices(); }
 const mailList = () => Object.values(DB.mail).sort((a, b) => b.t - a.t);
 function pushMail() { const m = { t: 'mail', list: mailList() }; for (const c of admins()) send(c, m); }
 const myMail = sid => mailList().filter(m => m.sid === sid).slice(0, 30).map(m => ({ id: m.id, body: m.body, t: m.t, read: !!m.read }));
@@ -345,7 +355,8 @@ function abandonRound(u) {
 
 function login(c, payload) {
   c.admin = !!payload.admin; c.sid = payload.sid || null;
-  if (c.admin) { send(c, usersMsg()); send(c, { t: 'mail', list: mailList() }); send(c, { t: 'chats', chats: chatsForAdmin() }); send(c, { t: 'settings', settings: settings() }); }
+  if (c.admin) { send(c, usersMsg()); send(c, { t: 'mail', list: mailList() }); send(c, { t: 'chats', chats: chatsForAdmin() }); send(c, { t: 'settings', settings: settings() }); send(c, noticesMsg()); }
+  else if (c.sid && DB.users[c.sid]) send(c, { t: 'notice', list: unreadNotices(DB.users[c.sid]) });
   send(c, rankData(c.admin));
   scheduleUsers();
 }
@@ -401,6 +412,11 @@ wss.on('connection', ws => {
         const token = issueToken({ sid: id });
         send(c, { t: 'authok', token, admin: false, me: publicUser(tu), mymail: myMail(id) });
         login(c, { sid: id });
+        break;
+      }
+      case 'noticeack': {
+        if (!u) break; const id = String(m.id || '');
+        if (notices().some(n => n.id === id) && !(u.nack || []).includes(id)) { u.nack = (u.nack || []).filter(x => notices().some(n => n.id === x)).concat([id]); store.saveUser(u); scheduleNotices(); }
         break;
       }
       case 'logout': {
@@ -490,9 +506,9 @@ wss.on('connection', ws => {
         if (creditOf(u) < L.min) return send(c, { t: 'loanerr', msg: L.name + '은(는) 신용 등급 ' + gradeOf(L.min) + ' 이상에게만 빌려줍니다. (지금 ' + gradeOf(creditOf(u)) + '등급, ' + creditOf(u) + '점)' });
         if (u.bal >= 1 || u.pending) return send(c, { t: 'loanerr', msg: '포인트를 모두 잃었을 때만 대출을 받을 수 있습니다.' });
         if (Date.now() < nextLoanAt(u, L.k)) { const d = new Date(nextLoanAt(u, L.k)); return send(c, { t: 'loanerr', msg: L.name + '은(는) 하루에 한 번만 빌려줍니다. ' + (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ' 이후에 다시 빌릴 수 있습니다.' }); }
-        const ti = Math.min(loanCount(u, L.k), L.rates.length - 1), rate = L.rates[ti], amount = Math.floor(+m.amount), avail = limitOf(u) - borrowed(u);
+        const ti = Math.min(loanCount(u, L.k), L.rates.length - 1), rate = L.rates[ti], amount = Math.floor(+m.amount), avail = limitOf(u);
         if (!(amount >= LOAN_MIN)) return send(c, { t: 'loanerr', msg: '빌릴 금액을 ' + LOAN_MIN.toLocaleString() + 'P 이상으로 적으세요.' });
-        if (amount > avail) return send(c, { t: 'loanerr', msg: '한도를 넘었습니다. ' + gradeOf(creditOf(u)) + '등급 한도는 ' + limitOf(u).toLocaleString() + 'P이고, 지금 더 빌릴 수 있는 돈은 ' + Math.max(0, avail).toLocaleString() + 'P입니다.' });
+        if (amount > avail) return send(c, { t: 'loanerr', msg: '한도를 넘었습니다. ' + gradeOf(creditOf(u)) + '등급은 대출소 한 곳에서 ' + limitOf(u).toLocaleString() + 'P까지 빌릴 수 있습니다.' });
         const n = loanCount(u, L.k) + 1, at = Date.now();
         if (activeLoans(u).length) addCredit(u, -5, '빚이 있는데 또 대출');
         u.loanBy[L.k] = { principal: amount, rate, at, n, lim: limitOf(u) }; u.bal += amount;
@@ -571,6 +587,15 @@ wss.on('connection', ws => {
           DB.meta.stable = freshStable(); store.saveMeta('stable', DB.meta.stable);
           pushMail(); for (const o of admins()) send(o, { t: 'chats', chats: chatsForAdmin() });
           scheduleUsers(); scheduleRank(); return ack(true, '학생 ' + sids.length + '명의 계정과 기록을 모두 삭제했습니다.');
+        }
+        if (m.op === 'notice') {
+          const text = String(m.text || '').trim().slice(0, 500); if (text.length < 2) return ack(false, '공지 내용을 적으세요.');
+          DB.meta.notices = notices().concat([{ id: 'n' + Date.now().toString(36) + crypto.randomBytes(2).toString('hex'), text, at: Date.now() }]).slice(-20); store.saveMeta('notices', DB.meta.notices);
+          pushNotices(); return ack(true, '공지를 보냈습니다. 지금 접속하지 않은 학생은 다음에 들어올 때 봅니다.');
+        }
+        if (m.op === 'noticedel') {
+          DB.meta.notices = notices().filter(n => n.id !== m.id); store.saveMeta('notices', DB.meta.notices);
+          pushNotices(); return ack(true, '공지를 지웠습니다.');
         }
         if (m.op === 'approveall') { const list = Object.values(DB.users).filter(x => !isApproved(x)); for (const x of list) approve(x); scheduleUsers(); scheduleRank(); return ack(true, list.length ? list.length + '명의 가입을 승인했습니다.' : '기다리는 가입 요청이 없습니다.'); }
         if (!tu) return ack(false, '없는 학생입니다.');

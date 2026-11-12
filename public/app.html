@@ -90,6 +90,17 @@ main{max-width:1180px;margin:0 auto;padding-block:22px 60px;padding-left:max(16p
 .manual .paytable td:last-child{font-family:inherit;text-align:right}
 .loan-in{display:inline-flex;align-items:center;gap:4px;font-family:var(--f-num)}
 .loan-in input{width:108px;background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:5px;padding:5px 8px;font-family:var(--f-num);font-size:14px;text-align:right}
+.modal.notice{z-index:95;background:#000d}
+.modal.notice .box{border-color:var(--brass2);box-shadow:0 0 0 1px var(--brass2),0 20px 60px #000a}
+.notice-body{white-space:pre-wrap;overflow-wrap:anywhere;font-size:16px;line-height:1.7;max-height:50vh;overflow:auto;padding:14px;background:var(--bg);border:1px solid var(--line);border-radius:8px}
+#reqAlert{position:fixed;top:calc(64px + env(safe-area-inset-top,0px));right:12px;z-index:80;display:grid;gap:8px;width:min(320px,calc(100vw - 24px))}
+.req-alert{display:grid;gap:6px;padding:12px 14px;background:var(--steel);color:var(--sink);border:1px solid #74c79a;border-left-width:4px;border-radius:8px;box-shadow:0 10px 30px #0009;font-size:13px;animation:popIn .3s}
+.req-alert b{font-size:14px}
+.nt-item{display:grid;gap:6px;padding:10px;border:1px solid var(--sline);border-radius:6px;font-size:13px}
+.nt-text{white-space:pre-wrap;overflow-wrap:anywhere;color:var(--sink)}
+.nt-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--smute);font-size:12px}
+.nt-item details{font-size:12px;color:var(--smute)}.nt-item summary{cursor:pointer}
+.nt-un{font-size:12px;color:var(--smute);line-height:1.6}
 .lobby-acts{display:flex;gap:8px;flex-wrap:wrap}
 .invite-btn{border-color:var(--brass);color:var(--brass2)}
 .inv-link{display:flex;gap:8px}.inv-link input{flex:1 1 0;min-width:0;background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:8px 10px;font-size:13px}
@@ -694,10 +705,10 @@ details.more[open] summary{color:var(--cyan)}
   </section>
 
   <section class="view" id="v-loan" hidden>
-    <div class="view-head"><div><h2>대출</h2><div class="hint" style="margin-top:4px">대출소 세 곳. 이자가 서로 다릅니다. 포인트가 0P일 때, 내 신용 등급의 한도 안에서 원하는 금액을 적어 빌립니다.</div></div><div class="loan-total" id="loanTotal"></div></div>
+    <div class="view-head"><div><h2>대출</h2><div class="hint" style="margin-top:4px">대출소 세 곳. 이자가 서로 다릅니다. 포인트가 0P일 때, 대출소마다 내 신용 등급의 한도 안에서 원하는 금액을 적어 빌립니다.</div></div><div class="loan-total" id="loanTotal"></div></div>
     <div class="credit-bar" id="creditBar"></div>
     <div class="lenders" id="loanCard"></div>
-    <ul class="loan-terms" style="margin-top:14px;max-width:760px"><li>빌린 돈은 <b>24시간 동안만</b> 게임에 쓸 수 있습니다. 한 곳이라도 24시간이 지나면 그곳을 갚기 전까지 게임을 할 수 없습니다.</li><li><b>한도</b>: 세 곳에서 빌린 돈을 합쳐 내 등급의 한도까지만 빌릴 수 있습니다. D 20,000 · C 50,000 · B 100,000 · A 200,000P.</li><li><b>이자</b>: 같은 대출소에서 빌릴 때마다 이자가 커집니다 (1번째 → 2번째 → 3번째 이후). 이자는 갚을 때까지 계속 늘어납니다.</li><li><b>신용 점수 올리기</b>: 기한 안에 갚으면 최대 +15점입니다. 한도에 비해 적게 빌렸거나 1시간이 되기 전에 갚으면 그만큼 적게 오릅니다 (예: 한도의 절반을 30분 쓰고 갚으면 +3점). 조금 빌리고 바로 갚는 것으로는 오르지 않고, 하루에 최대 15점까지만 오릅니다.</li><li><b>신용 점수가 떨어질 때</b>: 24시간을 넘기면 −25점, 빚이 있는데 또 빌리면 −5점. 등급이 낮아지면 한도가 줄고 이자가 싼 대출소는 빌려주지 않습니다.</li><li><b>자동 상환</b>: 빚이 있는 동안에는 게임에서 딴 돈의 일부가 자동으로 대출소로 빠져나갑니다. 연체된 곳, 이자가 높은 곳부터 가져갑니다.</li><li>한 곳에서 빌린 돈을 다 잃으면 다른 대출소에서 또 빌릴 수 있습니다. 이렇게 빚으로 빚을 막는 것을 '돌려막기'라고 합니다.</li></ul>
+    <ul class="loan-terms" style="margin-top:14px;max-width:760px"><li>빌린 돈은 <b>24시간 동안만</b> 게임에 쓸 수 있습니다. 한 곳이라도 24시간이 지나면 그곳을 갚기 전까지 게임을 할 수 없습니다.</li><li><b>한도</b>: 대출소마다 따로, 내 등급의 한도까지 빌릴 수 있습니다. D 20,000 · C 50,000 · B 100,000 · A 200,000P. 세 곳에서 모두 빌리면 빚은 한도의 세 배까지 늘어납니다.</li><li><b>이자</b>: 같은 대출소에서 빌릴 때마다 이자가 커집니다 (1번째 → 2번째 → 3번째 이후). 이자는 갚을 때까지 계속 늘어납니다.</li><li><b>신용 점수 올리기</b>: 기한 안에 갚으면 최대 +15점입니다. 한도에 비해 적게 빌렸거나 1시간이 되기 전에 갚으면 그만큼 적게 오릅니다 (예: 한도의 절반을 30분 쓰고 갚으면 +3점). 조금 빌리고 바로 갚는 것으로는 오르지 않고, 하루에 최대 15점까지만 오릅니다.</li><li><b>신용 점수가 떨어질 때</b>: 24시간을 넘기면 −25점, 빚이 있는데 또 빌리면 −5점. 등급이 낮아지면 한도가 줄고 이자가 싼 대출소는 빌려주지 않습니다.</li><li><b>자동 상환</b>: 빚이 있는 동안에는 게임에서 딴 돈의 일부가 자동으로 대출소로 빠져나갑니다. 연체된 곳, 이자가 높은 곳부터 가져갑니다.</li><li>한 곳에서 빌린 돈을 다 잃으면 다른 대출소에서 또 빌릴 수 있습니다. 이렇게 빚으로 빚을 막는 것을 '돌려막기'라고 합니다.</li></ul>
   </section>
 
   <section class="view" id="v-chat" hidden>
@@ -755,6 +766,13 @@ details.more[open] summary{color:var(--cyan)}
           <h3>운영 설정</h3>
           <div class="rig-list" id="opsList"></div>
         </div>
+        <div class="abox">
+          <h3>전체 공지</h3>
+          <textarea id="ntText" maxlength="500" rows="3" aria-label="공지 내용" placeholder="모든 학생에게 보낼 공지를 적으세요" style="width:100%;background:var(--steel);border:1px solid var(--sline);color:var(--sink);border-radius:4px;padding:8px;font:inherit;font-size:13px;resize:vertical"></textarea>
+          <div class="abtns" style="margin-top:6px;justify-content:space-between"><span class="hint" id="ntCount" style="color:var(--smute)">0 / 500</span><button type="button" class="abtn w" id="ntSend">공지 보내기</button></div>
+          <div class="sub" style="margin-top:6px;color:var(--smute);font-size:12px">학생 화면 전체를 가리는 창으로 뜨고, [확인했습니다]를 눌러야 닫힙니다. 접속하지 않은 학생은 다음에 들어올 때 봅니다. 판이 진행 중이면 그 판이 끝난 뒤에 뜹니다.</div>
+          <div id="ntList" style="display:grid;gap:8px;margin-top:10px"></div>
+        </div>
       </div>
     </div>
   </section>
@@ -783,6 +801,13 @@ details.more[open] summary{color:var(--cyan)}
 </div>
 
 <div id="toast"></div>
+<div id="reqAlert" aria-live="assertive"></div>
+<div id="noticeModal" class="modal notice" hidden><div class="box" role="alertdialog" aria-modal="true" aria-labelledby="ntT" style="max-width:520px">
+  <div class="eyebrow">NOTICE</div><h2 id="ntT" style="font-size:22px">관리자 공지</h2>
+  <div class="hint" id="ntMeta"></div>
+  <div id="ntBody" class="notice-body"></div>
+  <div><button class="btn primary" type="button" id="ntOk" disabled style="width:100%">확인했습니다</button></div>
+</div></div>
 <div id="tutModal" class="modal tut" hidden><div class="box" role="dialog" aria-modal="true" aria-labelledby="tutT">
   <div class="tut-nav" style="justify-content:space-between"><div><div class="eyebrow">게임 방법 · <span id="tutStep"></span></div><h2 id="tutT" style="font-size:20px">게임 방법</h2></div><button class="btn" type="button" id="tutReplay">↺ 다시 재생</button></div>
   <div class="tut-scene" id="tutScene"></div>
@@ -987,7 +1012,9 @@ function onServer(m){
     case 'nickok':if(S.me){S.me.nick=m.nick;paintWho();$('#nickModal').hidden=true;toast(m.nick?'닉네임을 '+m.nick+'(으)로 바꿨습니다'+(m.cost?' (−'+fmt(m.cost)+')':''):'닉네임을 지웠습니다. 실명이 보입니다');}break;
     case 'nickerr':$('#nickErr').textContent=m.msg;break;
     case 'invinfo':if(S.me)S.me.inviteReward=m.inviteReward;break;
-    case 'reqnew':if(S.admin)toast('가입 요청: '+m.name+' ('+m.sid+')');break;
+    case 'reqnew':if(S.admin)reqAlert(m);break;
+    case 'notice':NQ=m.list||[];noticePump();break;
+    case 'notices':if(S.admin){NOTICES=m.list||[];renderNotices();}break;
     case 'autherr':{const el=m.where==='signup'?$('#suErr'):$('#liErr');el.textContent=m.msg;break;}
     case 'kicked':toast('계정이 삭제되었습니다');doLogout(true);break;
     case 'betok':case 'betno':if(SV.wait){SV.wait.res(m);SV.wait=null;}break;
@@ -1009,7 +1036,7 @@ function onServer(m){
     case 'mailok':S.mymail=m.mymail||[];renderMyMail();$('#mailBody').value='';$('#mailCount').textContent='0 / 1000';toast('건의를 보냈습니다');break;
     case 'mymail':S.mymail=m.mymail||[];renderMyMail();break;
     case 'mailerr':toast(m.msg);break;
-    case 'users':if(S.admin){USERS=m.users;REQS=m.reqs||[];renderAdmin();if(view==='chats')renderChats();}break;
+    case 'users':if(S.admin){USERS=m.users;REQS=m.reqs||[];if(!reqGreeted){reqGreeted=true;if(REQS.length)reqAlert(null);}renderAdmin();if(view==='chats')renderChats();}break;
     case 'mail':if(S.admin){INBOX=m.list;renderInbox();}break;
     case 'feed':if(S.admin)addFeed(m.e);break;
     case 'userlog':if(S.admin)renderLog(m);break;
@@ -1101,19 +1128,19 @@ function enterPlayer(me,mymail){
 }
 function paintWho(){const me=S.me;if(!me)return;$('#whoText').innerHTML=`<b>${esc(dispName(me))}</b> · ${esc(clsLabel(me))}`;}
 function enterAdmin(){
-  S.me=null;S.admin=true;enterShell();$('#whoText').innerHTML='<b>관리자</b>';
+  S.me=null;S.admin=true;reqGreeted=false;NQ=[];enterShell();$('#whoText').innerHTML='<b>관리자</b>';
   if(!rigBuilt){buildRigPanel();rigBuilt=true;}
   show(['admin','inbox','rank'].includes(view)?view:'admin');setConn();
 }
 function doLogout(local){
   if(!local)svSend({t:'logout',token:LS.get('he.token',null)});
-  LS.del('he.token');busy=false;playing=false;cur=null;view='lobby';USERS=[];INBOX=[];
+  LS.del('he.token');busy=false;playing=false;cur=null;view='lobby';USERS=[];INBOX=[];REQS=[];NQ=[];S.admin=false;$('#noticeModal').hidden=true;$('#reqAlert').innerHTML='';document.title=BASE_TITLE;
   $('#liId').value='';setSeg(false);showGate();
 }
 $('#logoutBtn').onclick=()=>{if(busy){toast('판이 끝난 뒤에 로그아웃할 수 있습니다');return;}doLogout(false);};
 
 /* ---------------- views ---------------- */
-let view='lobby',cur=null,busy=false,choice=null,RANK=null,USERS=[],REQS=[],INBOX=[],rigBuilt=false;
+let view='lobby',cur=null,busy=false,choice=null,RANK=null,USERS=[],REQS=[],INBOX=[],rigBuilt=false,NQ=[],NOTICES=[],reqGreeted=false;
 function show(v){
   if(busy&&v!=='game'){toast('판이 끝난 뒤에 이동할 수 있습니다');return;}
   if(!S.admin&&S.chat&&S.chat.open&&v!=='chat'){toast('관리자와 대화가 끝날 때까지 다른 화면으로 갈 수 없습니다');v='chat';}
@@ -1155,6 +1182,7 @@ function updateBal(){
   {const lad=$('#lobbyAd');const nx=S.me&&S.bal<1&&!busy?openLender():null;lad.hidden=!nx;if(nx&&!lad.dataset.k){lad.dataset.k=nx.k;lad.innerHTML=lenderBanner(nx.k,true);}if(!nx)lad.dataset.k='';}
   if(S.bet>S.bal&&S.bal>=1&&!busy)setBet(S.bal);
 }
+const BASE_TITLE=document.title;
 function toast(msg){const d=document.createElement('div');d.textContent=msg;$('#toast').appendChild(d);setTimeout(()=>d.remove(),2400);}
 
 /* bet */
@@ -2117,8 +2145,36 @@ function renderAdmin(){
   $('#admEmpty').hidden=seen.size>0;
   $('#admEmpty').textContent=users.length?'조건에 맞는 학생이 없습니다.':'아직 가입한 학생이 없습니다.';
 }
+/* ---------------- notices: a must-read announcement to every student ---------------- */
+let ntCur=null,ntTimer=null;
+function noticePump(){const m=$('#noticeModal');
+  if(!S.me||!NQ.length){if(!m.hidden)m.hidden=true;ntCur=null;clearInterval(ntTimer);return;}
+  if(ntCur&&!m.hidden&&NQ.some(n=>n.id===ntCur))return;
+  if(busy)return;
+  const n=NQ[0];ntCur=n.id;$('#ntBody').textContent=n.text;
+  $('#ntMeta').textContent=new Date(n.at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})+(NQ.length>1?' · 읽지 않은 공지 '+NQ.length+'개':'');
+  m.hidden=false;m.scrollTop=0;let left=3;const b=$('#ntOk');b.disabled=true;b.textContent='확인했습니다 ('+left+')';clearInterval(ntTimer);
+  ntTimer=setInterval(()=>{left--;if(left<=0){clearInterval(ntTimer);b.disabled=false;b.textContent='확인했습니다';b.focus();}else b.textContent='확인했습니다 ('+left+')';},1000);}
+$('#ntOk').onclick=()=>{if(!ntCur||$('#ntOk').disabled)return;if(!svSend({t:'noticeack',id:ntCur})){toast('서버에 연결된 뒤에 다시 누르세요');return;}NQ=NQ.filter(n=>n.id!==ntCur);ntCur=null;$('#noticeModal').hidden=true;noticePump();};
+setInterval(noticePump,700);
+function renderNotices(){const el=$('#ntList');if(!el)return;
+  el.innerHTML=NOTICES.length?NOTICES.map(n=>`<div class="nt-item"><div class="nt-text">${esc(n.text)}</div><div class="nt-foot"><span>${new Date(n.at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} · <b>읽음 ${n.read} / ${n.total}명</b></span><button type="button" class="abtn l" data-ntdel="${esc(n.id)}">삭제</button></div>${n.unread.length?`<details><summary>안 읽은 학생 ${n.total-n.read}명</summary><div class="nt-un">${n.unread.map(esc).join(', ')}</div></details>`:n.total?'<div class="nt-un">모두 읽었습니다.</div>':''}</div>`).join(''):'<div class="hint" style="color:var(--smute)">보낸 공지가 없습니다.</div>';}
+$('#ntText').addEventListener('input',()=>{$('#ntCount').textContent=$('#ntText').value.length+' / 500';});
+$('#ntSend').onclick=()=>{const v=$('#ntText').value.trim();if(v.length<2){toast('공지 내용을 적으세요');return;}if(!confirm('모든 학생에게 이 공지를 보냅니다.\n\n'+v))return;if(svSend({t:'adm',op:'notice',text:v})){$('#ntText').value='';$('#ntCount').textContent='0 / 500';}};
+$('#ntList').addEventListener('click',e=>{const b=e.target.closest('[data-ntdel]');if(!b)return;if(b.dataset.arm)svSend({t:'adm',op:'noticedel',id:b.dataset.ntdel});else{b.dataset.arm='1';b.textContent='한 번 더 누르면 삭제';}});
+/* ---------------- admin alert for a new signup request ---------------- */
+function beep(){try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;const ac=beep.ac||(beep.ac=new C());if(ac.state==='suspended')ac.resume();[880,1175].forEach((f,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.connect(g);g.connect(ac.destination);const t=ac.currentTime+i*.16;g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.18,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.15);o.start(t);o.stop(t+.16);});}catch(e){}}
+function reqAlert(m){
+  const d=document.createElement('div');d.className='req-alert';d.dataset.t=Date.now();if(m)d.dataset.sid=m.sid;else{const old=$('#reqAlert').querySelector('[data-sum]');if(old)old.remove();d.dataset.sum='1';}
+  d.innerHTML=m?`<b>새 가입 요청</b><span>${esc(m.name)} · 학번 ${esc(m.sid)}</span><span class="abtns"><button type="button" class="abtn w" data-a="ok">승인</button><button type="button" class="abtn" data-a="see">요청 보기</button><button type="button" class="abtn" data-a="x">닫기</button></span>`
+    :`<b>가입 요청 ${REQS.length}명이 기다리고 있습니다</b><span class="abtns"><button type="button" class="abtn w" data-a="see">요청 보기</button><button type="button" class="abtn" data-a="x">닫기</button></span>`;
+  d.onclick=e=>{const b=e.target.closest('[data-a]');if(!b)return;if(b.dataset.a==='ok')svSend({t:'adm',op:'approve',sid:m.sid});if(b.dataset.a==='see'){show('admin');setTimeout(()=>$('#reqBox').scrollIntoView({block:'center'}),50);}d.remove();};
+  $('#reqAlert').appendChild(d);
+  if(m){beep();try{if(window.Notification&&Notification.permission==='granted'&&document.hidden)new Notification('하우스 엣지 · 새 가입 요청',{body:m.name+' (학번 '+m.sid+')',tag:'req-'+m.sid});}catch(e){}}
+}
 // signup requests waiting for approval
-function renderReqs(){const n=REQS.length;const bd=$('#reqBadge');bd.hidden=!n;bd.textContent=n;$('#reqBox').hidden=!n;$('#reqCount').textContent=n?n+'명':'';
+function renderReqs(){const n=REQS.length;document.title=S.admin&&n?'('+n+') 가입 요청 · '+BASE_TITLE:BASE_TITLE;
+  $('#reqAlert').querySelectorAll('[data-sid]').forEach(d=>{if(Date.now()-d.dataset.t>3000&&!REQS.some(q=>q.sid===d.dataset.sid))d.remove();});if(!n){const s=$('#reqAlert').querySelector('[data-sum]');if(s)s.remove();}const bd=$('#reqBadge');bd.hidden=!n;bd.textContent=n;$('#reqBox').hidden=!n;$('#reqCount').textContent=n?n+'명':'';
   $('#reqList').innerHTML=REQS.map(q=>`<div class="req-row"><span><b>${esc(q.name)}</b>${q.nick?' ('+esc(q.nick)+')':''} · ${q.grade}학년 ${q.cls}반 ${q.num}번 <small>학번 ${esc(q.sid)} · ${new Date(q.created).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}${q.ref?' · 초대한 학생: '+esc(q.ref):''}</small></span><span class="abtns"><button type="button" class="abtn w" data-ok="${esc(q.sid)}">승인</button><button type="button" class="abtn l" data-no="${esc(q.sid)}">거절</button></span></div>`).join('');}
 $('#reqList').addEventListener('click',e=>{const a=e.target.closest('[data-ok]'),b=e.target.closest('[data-no]');if(a)svSend({t:'adm',op:'approve',sid:a.dataset.ok});else if(b){if(b.dataset.arm){svSend({t:'adm',op:'del',sid:b.dataset.no});}else{b.dataset.arm='1';b.textContent='한 번 더 누르면 거절';}}});
 $('#reqAll').onclick=()=>svSend({t:'adm',op:'approveall'});
@@ -2266,6 +2322,9 @@ function buildOps(){
   <div><label for="opGarn">대출 자동 상환 비율 (%)</label><div class="abtns" style="margin-top:4px"><input type="number" id="opGarn" min="0" max="100" step="5"><button type="button" class="abtn" id="opGarnSave">저장</button></div><div class="sub">빚이 있는 학생이 게임에서 이기면 딴 돈(순이익)의 이만큼이 자동으로 대출소에 갑니다. 0이면 끕니다.</div></div>
   <div class="toggle" style="display:block"><label for="opAllAmt">한꺼번에 지급 · 회수</label><div class="abtns" style="margin-top:4px"><select id="opAllCls" style="background:var(--steel);border:1px solid var(--sline);color:var(--sink);border-radius:4px;padding:3px 6px;font-size:12px"><option value="0">전체</option>${[1,2,3,4,5,6,7].map(k=>`<option value="${k}">${k}반</option>`).join('')}</select><input type="number" id="opAllAmt" min="1" step="1000" placeholder="금액"><button type="button" class="abtn w" id="opAllGive">지급</button><button type="button" class="abtn l" id="opAllTake">회수</button></div></div>`;
   $('#opsList').insertAdjacentHTML('beforeend',`<div class="toggle" style="display:block"><label>모든 학생 계정 삭제</label><div class="sub">가입한 학생과 가입 요청, 포인트·기록·대출·대화·건의를 전부 지웁니다. 되돌릴 수 없습니다. 확률 설정과 운영 설정은 그대로 둡니다.</div><div class="abtns" style="margin-top:4px"><button type="button" class="abtn l" id="opDelAll">모든 학생 삭제…</button></div></div>`);
+  if(window.Notification){$('#opsList').insertAdjacentHTML('afterbegin',`<div><label>가입 요청 알림</label><div class="sub">새 가입 요청이 오면 어느 화면에 있든 오른쪽 위에 알림 카드가 뜨고 소리가 납니다. 다른 탭을 보고 있을 때도 알림을 받으려면 브라우저 알림을 켜세요.</div><div class="abtns" style="margin-top:4px"><button type="button" class="abtn" id="opNotif"></button></div><div style="border-top:1px solid var(--sline);margin-top:10px"></div></div>`);
+    const pn=()=>{const p=Notification.permission;$('#opNotif').textContent=p==='granted'?'브라우저 알림 켜짐':p==='denied'?'브라우저에서 알림이 차단됨':'브라우저 알림 켜기';$('#opNotif').disabled=p!=='default';};pn();
+    $('#opNotif').onclick=()=>{try{const r=Notification.requestPermission(pn);if(r&&r.then)r.then(pn);}catch(e){}};}
   $('#opDelAll').onclick=()=>{const n=(USERS||[]).length+(REQS||[]).length;const v=prompt('학생 '+n+'명(가입 요청 포함)의 계정과 기록을 모두 지웁니다. 되돌릴 수 없습니다.\n계속하려면 아래에 "모두 삭제"라고 입력하세요.');if(v==null)return;if(v.trim()!=='모두 삭제'){toast('문구가 달라서 삭제하지 않았습니다');return;}svSend({t:'adm',op:'delall',confirm:'모두 삭제'});};
   const setP=()=>{CFG.paused={all:$('#pzAll').checked,games:{}};GIDS.forEach(g=>{if($('#pz_'+g).checked)CFG.paused.games[g]=true;});saveCfg();paintPaused();};
   $('#pzAll').addEventListener('change',()=>{setP();toast($('#pzAll').checked?'모든 게임을 멈췄습니다':'모든 게임을 다시 열었습니다');});
@@ -2297,7 +2356,7 @@ function renderLoan(){
     const Ls=myLenders();const td=totalDebt();
     $('#loanTotal').textContent=td?'빚 합계 '+fmt(td)+' ('+activeOf().length+'곳)':'';
     const cr=S.me.credit||{score:50,grade:'B'},gp=S.me.garnish==null?30:S.me.garnish;
-    $('#creditBar').innerHTML=`<span>신용 등급</span><span class="cg ${cr.grade}">${cr.grade}</span><span>${cr.score}점 / 100</span><span class="meter"><i style="width:${cr.score}%"></i></span><span><b>한도 ${fmt(cr.limit||100000)}</b> · 더 빌릴 수 있는 돈 ${fmt(cr.avail==null?100000:cr.avail)}</span><span class="hint">${td&&gp?'빚이 있는 동안 딴 돈의 '+gp+'%가 자동 상환됩니다':'등급이 오르면 한도가 늘어납니다'}</span>`;
+    $('#creditBar').innerHTML=`<span>신용 등급</span><span class="cg ${cr.grade}">${cr.grade}</span><span>${cr.score}점 / 100</span><span class="meter"><i style="width:${cr.score}%"></i></span><span><b>대출소마다 한도 ${fmt(cr.limit||100000)}</b></span><span class="hint">${td&&gp?'빚이 있는 동안 딴 돈의 '+gp+'%가 자동 상환됩니다':'등급이 오르면 한도가 늘어납니다'}</span>`;
     el.innerHTML=Ls.map(L=>{
       const a=L.active,cnt=L.count||0,ti=Math.min(cnt,2);
       const tiers=`<div class="tiers">${L.rates.map((rt,i)=>`<span class="${!a&&i===ti?'next':i<ti?'used':''}">${i===2?'3번째~':(i+1)+'번째'}<br>시간당 ${Math.round(rt*100)}%</span>`).join('')}</div>`;
@@ -2328,7 +2387,7 @@ function renderLoan(){
 $('#loanCard').addEventListener('input',e=>{const i=e.target.closest('[data-amt]');if(!i)return;const k=i.dataset.amt;loanAmt[k]=Math.max(0,Math.floor(+i.value||0));
   const due=$('#loanCard').querySelector('[data-due="'+k+'"]'),btn=$('#loanCard').querySelector('[data-loan="'+k+'"]');if(due&&btn)due.textContent=fmt(loanAmt[k]*(1+(+btn.dataset.rate)*24));});
 $('#loanCard').addEventListener('click',e=>{const b=e.target.closest('[data-loan],[data-repay]');if(!b||b.disabled)return;
-  if(b.dataset.loan){const cr=S.me.credit||{},a=Math.floor(+loanAmt[b.dataset.loan]||0);if(a<(cr.min||1000)){toast('빌릴 금액을 '+fmt(cr.min||1000)+' 이상으로 적으세요');return;}if(cr.avail!=null&&a>cr.avail){toast('더 빌릴 수 있는 돈은 '+fmt(cr.avail)+'까지입니다');return;}}
+  if(b.dataset.loan){const cr=S.me.credit||{},a=Math.floor(+loanAmt[b.dataset.loan]||0);if(a<(cr.min||1000)){toast('빌릴 금액을 '+fmt(cr.min||1000)+' 이상으로 적으세요');return;}if(cr.avail!=null&&a>cr.avail){toast('대출소 한 곳에서 '+fmt(cr.avail)+'까지 빌릴 수 있습니다');return;}}
   const m=b.dataset.loan?{t:'loan',k:b.dataset.loan,amount:Math.floor(+loanAmt[b.dataset.loan]||0)}:{t:'repay',k:b.dataset.repay};if(!svSend(m))toast('서버에 연결되어 있지 않습니다');});
 ['#lobbyAd','#brokeAd'].forEach(id=>$(id).addEventListener('click',()=>show('loan')));
 $('#brokeLoan').onclick=()=>show('loan');
