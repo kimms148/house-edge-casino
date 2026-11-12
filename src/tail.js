@@ -246,14 +246,16 @@ function renderAdmin(){
   if(view!=='admin')return;
   const fc=$('#fCls').value,fo=$('#fOnline').value,q=$('#fQ').value.trim();
   const body=$('#admBody');const seen=new Set();
-  const ordered=users.slice().sort((a,b)=>(!!b.pending-!!a.pending)||(!!b.online-!!a.online)||a.cls-b.cls||a.num-b.num);
+  const ordered=users.slice().sort((a,b)=>(!!b.online-!!a.online)||a.cls-b.cls||a.num-b.num);const want=[];
   for(const u of ordered){
     if(fc&&String(u.cls)!==fc)continue;if(fo==='on'&&!u.online)continue;if(q&&!(u.name.includes(q)||u.sid.includes(q)||(u.nick||'').includes(q)))continue;
     seen.add(u.sid);let r=rows.get(u.sid);
     if(!r){r=makeRow(u);rows.set(u.sid,r);}
-    body.appendChild(r.tr);r.update(u);
+    want.push(r.tr);r.update(u);
   }
   for(const [sid,r] of rows)if(!seen.has(sid)){r.tr.remove();rows.delete(sid);}
+  // move a card only when its place really changed, so typing and clicking in a card is never interrupted
+  want.forEach((tr,i)=>{if(body.children[i]!==tr)body.insertBefore(tr,body.children[i]||null);});
   $('#admEmpty').hidden=seen.size>0;
   $('#admEmpty').textContent=users.length?'조건에 맞는 학생이 없습니다.':'아직 가입한 학생이 없습니다.';
 }
@@ -507,7 +509,8 @@ setInterval(()=>{if(S.me&&activeOf().length&&!busy)updateBal();},30000);
 
 /* ---------------- 1:1 chat ---------------- */
 const tm=t=>{const d=new Date(t);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
-function paintLog(el,msgs,mine){
+function paintLog(el,msgs,mine,key){
+  const sig=(key||'')+'|'+(msgs||[]).length+'|'+(((msgs||[]).at(-1)||{}).t||0);if(el._sig===sig)return;el._sig=sig;
   el.innerHTML='';
   for(const m of msgs||[]){const d=document.createElement('div');d.className='bubble '+(m.from==='system'?'sys':m.from===mine?'me':'them');d.textContent=m.body;
     if(m.from!=='system'){const s=document.createElement('small');s.textContent=(m.from===mine?'나':m.from==='admin'?'관리자':'학생')+' · '+tm(m.t);d.appendChild(s);}
@@ -526,20 +529,22 @@ function renderChats(){
   const bd=$('#chatBadge');bd.hidden=!unread;bd.textContent=unread;
   if(view!=='chats')return;
   const pick=$('#chatPick');const cur0=pick.value;
-  pick.innerHTML='<option value="">새 대화: 학생 고르기</option>'+(USERS||[]).slice().sort((a,b)=>a.cls-b.cls||a.num-b.num).map(u=>`<option value="${u.sid}">${u.cls}반 ${u.num}번 ${esc(u.name)}${u.online?' (접속 중)':''}</option>`).join('');pick.value=cur0;
+  const psig=(USERS||[]).map(u=>u.sid+(u.online?'+':'-')).join();
+  if(pick._sig!==psig&&document.activeElement!==pick){pick._sig=psig;pick.innerHTML='<option value="">새 대화: 학생 고르기</option>'+(USERS||[]).slice().sort((a,b)=>a.cls-b.cls||a.num-b.num).map(u=>`<option value="${u.sid}">${u.cls}반 ${u.num}번 ${esc(u.name)}${u.online?' (접속 중)':''}</option>`).join('');pick.value=cur0;}
   list.sort((a,b)=>(b[1].open-a[1].open)||((b[1].msgs.at(-1)||{}).t||0)-((a[1].msgs.at(-1)||{}).t||0));
-  const cl=$('#convList');cl.innerHTML='';
+  const cl=$('#convList');const csig=admChat+'|'+list.map(([sid,c])=>sid+':'+(c.open?1:0)+':'+(c.unread||0)+':'+c.msgs.length+':'+((c.msgs.at(-1)||{}).t||0)).join();
+  if(cl._sig!==csig){cl._sig=csig;cl.innerHTML='';
   if(!list.length)cl.innerHTML='<div class="empty-note">아직 대화가 없습니다.</div>';
   for(const [sid,c] of list){const b=document.createElement('button');b.type='button';b.className='conv';b.setAttribute('aria-pressed',String(sid===admChat));
     const last=c.msgs[c.msgs.length-1];
     b.innerHTML=`<span><b style="font-weight:500"></b> ${c.open?'<span class="tag on">대화 중</span>':''} ${c.unread?'<span class="badge" style="display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--red);color:#fff;font-size:11px;text-align:center">'+c.unread+'</span>':''}</span><small></small>`;
     b.querySelector('b').textContent=c.cls+'반 '+c.num+'번 '+c.name;b.querySelector('small').textContent=last?last.body:'';
-    b.onclick=()=>{admChat=sid;renderChats();};cl.appendChild(b);}
+    b.onclick=()=>{admChat=sid;renderChats();};cl.appendChild(b);}}
   const c=admChat&&CHATS[admChat];const u=admChat&&(USERS||[]).find(x=>x.sid===admChat);
   $('#admChatTitle').textContent=admChat?((u?u.cls+'반 '+u.num+'번 '+u.name:(c?c.name:admChat))):'대화를 고르세요';
   $('#admChatIn').disabled=!admChat;$('#admChatClose').hidden=!(c&&c.open);
   $('#admChatState').textContent=!admChat?'':c&&c.open?(u&&u.pending?'학생이 판을 끝내면 대화 화면으로 넘어갑니다':'대화 중 · 학생은 게임을 할 수 없습니다'):'메시지를 보내면 대화가 시작됩니다';
-  paintLog($('#admChatLog'),c?c.msgs:[],'admin');
+  paintLog($('#admChatLog'),c?c.msgs:[],'admin',admChat);
   if(c&&c.unread)svSend({t:'adm',op:'chatseen',sid:admChat});
 }
 $('#chatPick').addEventListener('change',e=>{if(e.target.value){admChat=e.target.value;e.target.value='';renderChats();$('#admChatIn').focus();}});

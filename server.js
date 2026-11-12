@@ -142,7 +142,7 @@ const debtOne = (l, now) => Math.max(0, Math.floor(l.principal * (1 + (l.rate ||
 const creditOf = u => typeof u.credit === 'number' ? u.credit : 50;
 const gradeOf = s => s >= 75 ? 'A' : s >= 50 ? 'B' : s >= 25 ? 'C' : 'D';
 // 대출 한도(대출소마다 따로): 신용 등급이 오르면 늘어난다. 기본(B) 100,000P.
-const LIMITS = { A: 200000, B: 100000, C: 50000, D: 20000 };
+const LIMITS = { A: 300000, B: 100000, C: 50000, D: 20000 };
 const LOAN_MIN = 1000;
 const limitOf = u => LIMITS[gradeOf(creditOf(u))];
 const borrowed = u => activeLoans(u).reduce((s, l) => s + l.principal, 0);

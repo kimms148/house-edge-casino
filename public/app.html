@@ -708,7 +708,7 @@ details.more[open] summary{color:var(--cyan)}
     <div class="view-head"><div><h2>대출</h2><div class="hint" style="margin-top:4px">대출소 세 곳. 이자가 서로 다릅니다. 포인트가 0P일 때, 대출소마다 내 신용 등급의 한도 안에서 원하는 금액을 적어 빌립니다.</div></div><div class="loan-total" id="loanTotal"></div></div>
     <div class="credit-bar" id="creditBar"></div>
     <div class="lenders" id="loanCard"></div>
-    <ul class="loan-terms" style="margin-top:14px;max-width:760px"><li>빌린 돈은 <b>24시간 동안만</b> 게임에 쓸 수 있습니다. 한 곳이라도 24시간이 지나면 그곳을 갚기 전까지 게임을 할 수 없습니다.</li><li><b>한도</b>: 대출소마다 따로, 내 등급의 한도까지 빌릴 수 있습니다. D 20,000 · C 50,000 · B 100,000 · A 200,000P. 세 곳에서 모두 빌리면 빚은 한도의 세 배까지 늘어납니다.</li><li><b>이자</b>: 같은 대출소에서 빌릴 때마다 이자가 커집니다 (1번째 → 2번째 → 3번째 이후). 이자는 갚을 때까지 계속 늘어납니다.</li><li><b>신용 점수 올리기</b>: 기한 안에 갚으면 최대 +15점입니다. 한도에 비해 적게 빌렸거나 1시간이 되기 전에 갚으면 그만큼 적게 오릅니다 (예: 한도의 절반을 30분 쓰고 갚으면 +3점). 조금 빌리고 바로 갚는 것으로는 오르지 않고, 하루에 최대 15점까지만 오릅니다.</li><li><b>신용 점수가 떨어질 때</b>: 24시간을 넘기면 −25점, 빚이 있는데 또 빌리면 −5점. 등급이 낮아지면 한도가 줄고 이자가 싼 대출소는 빌려주지 않습니다.</li><li><b>자동 상환</b>: 빚이 있는 동안에는 게임에서 딴 돈의 일부가 자동으로 대출소로 빠져나갑니다. 연체된 곳, 이자가 높은 곳부터 가져갑니다.</li><li>한 곳에서 빌린 돈을 다 잃으면 다른 대출소에서 또 빌릴 수 있습니다. 이렇게 빚으로 빚을 막는 것을 '돌려막기'라고 합니다.</li></ul>
+    <ul class="loan-terms" style="margin-top:14px;max-width:760px"><li>빌린 돈은 <b>24시간 동안만</b> 게임에 쓸 수 있습니다. 한 곳이라도 24시간이 지나면 그곳을 갚기 전까지 게임을 할 수 없습니다.</li><li><b>한도</b>: 대출소마다 따로, 내 등급의 한도까지 빌릴 수 있습니다. D 20,000 · C 50,000 · B 100,000 · A 300,000P. 세 곳에서 모두 빌리면 빚은 한도의 세 배까지 늘어납니다.</li><li><b>이자</b>: 같은 대출소에서 빌릴 때마다 이자가 커집니다 (1번째 → 2번째 → 3번째 이후). 이자는 갚을 때까지 계속 늘어납니다.</li><li><b>신용 점수 올리기</b>: 기한 안에 갚으면 최대 +15점입니다. 한도에 비해 적게 빌렸거나 1시간이 되기 전에 갚으면 그만큼 적게 오릅니다 (예: 한도의 절반을 30분 쓰고 갚으면 +3점). 조금 빌리고 바로 갚는 것으로는 오르지 않고, 하루에 최대 15점까지만 오릅니다.</li><li><b>신용 점수가 떨어질 때</b>: 24시간을 넘기면 −25점, 빚이 있는데 또 빌리면 −5점. 등급이 낮아지면 한도가 줄고 이자가 싼 대출소는 빌려주지 않습니다.</li><li><b>자동 상환</b>: 빚이 있는 동안에는 게임에서 딴 돈의 일부가 자동으로 대출소로 빠져나갑니다. 연체된 곳, 이자가 높은 곳부터 가져갑니다.</li><li>한 곳에서 빌린 돈을 다 잃으면 다른 대출소에서 또 빌릴 수 있습니다. 이렇게 빚으로 빚을 막는 것을 '돌려막기'라고 합니다.</li></ul>
   </section>
 
   <section class="view" id="v-chat" hidden>
@@ -2134,14 +2134,16 @@ function renderAdmin(){
   if(view!=='admin')return;
   const fc=$('#fCls').value,fo=$('#fOnline').value,q=$('#fQ').value.trim();
   const body=$('#admBody');const seen=new Set();
-  const ordered=users.slice().sort((a,b)=>(!!b.pending-!!a.pending)||(!!b.online-!!a.online)||a.cls-b.cls||a.num-b.num);
+  const ordered=users.slice().sort((a,b)=>(!!b.online-!!a.online)||a.cls-b.cls||a.num-b.num);const want=[];
   for(const u of ordered){
     if(fc&&String(u.cls)!==fc)continue;if(fo==='on'&&!u.online)continue;if(q&&!(u.name.includes(q)||u.sid.includes(q)||(u.nick||'').includes(q)))continue;
     seen.add(u.sid);let r=rows.get(u.sid);
     if(!r){r=makeRow(u);rows.set(u.sid,r);}
-    body.appendChild(r.tr);r.update(u);
+    want.push(r.tr);r.update(u);
   }
   for(const [sid,r] of rows)if(!seen.has(sid)){r.tr.remove();rows.delete(sid);}
+  // move a card only when its place really changed, so typing and clicking in a card is never interrupted
+  want.forEach((tr,i)=>{if(body.children[i]!==tr)body.insertBefore(tr,body.children[i]||null);});
   $('#admEmpty').hidden=seen.size>0;
   $('#admEmpty').textContent=users.length?'조건에 맞는 학생이 없습니다.':'아직 가입한 학생이 없습니다.';
 }
@@ -2395,7 +2397,8 @@ setInterval(()=>{if(S.me&&activeOf().length&&!busy)updateBal();},30000);
 
 /* ---------------- 1:1 chat ---------------- */
 const tm=t=>{const d=new Date(t);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
-function paintLog(el,msgs,mine){
+function paintLog(el,msgs,mine,key){
+  const sig=(key||'')+'|'+(msgs||[]).length+'|'+(((msgs||[]).at(-1)||{}).t||0);if(el._sig===sig)return;el._sig=sig;
   el.innerHTML='';
   for(const m of msgs||[]){const d=document.createElement('div');d.className='bubble '+(m.from==='system'?'sys':m.from===mine?'me':'them');d.textContent=m.body;
     if(m.from!=='system'){const s=document.createElement('small');s.textContent=(m.from===mine?'나':m.from==='admin'?'관리자':'학생')+' · '+tm(m.t);d.appendChild(s);}
@@ -2414,20 +2417,22 @@ function renderChats(){
   const bd=$('#chatBadge');bd.hidden=!unread;bd.textContent=unread;
   if(view!=='chats')return;
   const pick=$('#chatPick');const cur0=pick.value;
-  pick.innerHTML='<option value="">새 대화: 학생 고르기</option>'+(USERS||[]).slice().sort((a,b)=>a.cls-b.cls||a.num-b.num).map(u=>`<option value="${u.sid}">${u.cls}반 ${u.num}번 ${esc(u.name)}${u.online?' (접속 중)':''}</option>`).join('');pick.value=cur0;
+  const psig=(USERS||[]).map(u=>u.sid+(u.online?'+':'-')).join();
+  if(pick._sig!==psig&&document.activeElement!==pick){pick._sig=psig;pick.innerHTML='<option value="">새 대화: 학생 고르기</option>'+(USERS||[]).slice().sort((a,b)=>a.cls-b.cls||a.num-b.num).map(u=>`<option value="${u.sid}">${u.cls}반 ${u.num}번 ${esc(u.name)}${u.online?' (접속 중)':''}</option>`).join('');pick.value=cur0;}
   list.sort((a,b)=>(b[1].open-a[1].open)||((b[1].msgs.at(-1)||{}).t||0)-((a[1].msgs.at(-1)||{}).t||0));
-  const cl=$('#convList');cl.innerHTML='';
+  const cl=$('#convList');const csig=admChat+'|'+list.map(([sid,c])=>sid+':'+(c.open?1:0)+':'+(c.unread||0)+':'+c.msgs.length+':'+((c.msgs.at(-1)||{}).t||0)).join();
+  if(cl._sig!==csig){cl._sig=csig;cl.innerHTML='';
   if(!list.length)cl.innerHTML='<div class="empty-note">아직 대화가 없습니다.</div>';
   for(const [sid,c] of list){const b=document.createElement('button');b.type='button';b.className='conv';b.setAttribute('aria-pressed',String(sid===admChat));
     const last=c.msgs[c.msgs.length-1];
     b.innerHTML=`<span><b style="font-weight:500"></b> ${c.open?'<span class="tag on">대화 중</span>':''} ${c.unread?'<span class="badge" style="display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--red);color:#fff;font-size:11px;text-align:center">'+c.unread+'</span>':''}</span><small></small>`;
     b.querySelector('b').textContent=c.cls+'반 '+c.num+'번 '+c.name;b.querySelector('small').textContent=last?last.body:'';
-    b.onclick=()=>{admChat=sid;renderChats();};cl.appendChild(b);}
+    b.onclick=()=>{admChat=sid;renderChats();};cl.appendChild(b);}}
   const c=admChat&&CHATS[admChat];const u=admChat&&(USERS||[]).find(x=>x.sid===admChat);
   $('#admChatTitle').textContent=admChat?((u?u.cls+'반 '+u.num+'번 '+u.name:(c?c.name:admChat))):'대화를 고르세요';
   $('#admChatIn').disabled=!admChat;$('#admChatClose').hidden=!(c&&c.open);
   $('#admChatState').textContent=!admChat?'':c&&c.open?(u&&u.pending?'학생이 판을 끝내면 대화 화면으로 넘어갑니다':'대화 중 · 학생은 게임을 할 수 없습니다'):'메시지를 보내면 대화가 시작됩니다';
-  paintLog($('#admChatLog'),c?c.msgs:[],'admin');
+  paintLog($('#admChatLog'),c?c.msgs:[],'admin',admChat);
   if(c&&c.unread)svSend({t:'adm',op:'chatseen',sid:admChat});
 }
 $('#chatPick').addEventListener('change',e=>{if(e.target.value){admChat=e.target.value;e.target.value='';renderChats();$('#admChatIn').focus();}});
