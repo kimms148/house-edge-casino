@@ -464,23 +464,23 @@ let loanTimer=null;
 const hm=ms=>{const m=Math.max(0,Math.floor(ms/60000));return Math.floor(m/60)+'시간 '+(m%60)+'분';};
 const whenTxt=t=>{const d=new Date(t);return(d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
 const loanAmt={};
-function borrowForm(L,more){const cr=S.me.credit||{},lmin=cr.min||1000,avail=L.avail==null?(cr.avail==null?100000:cr.avail):L.avail,cnt=L.count||0,rate=L.rates[Math.min(cnt,2)],a=L.active,exp=!!(a&&a.at+LOAN_TERM<=Date.now());
+function borrowForm(L,more){const cr=S.me.credit||{},lmin=cr.min||1000,avail=L.avail==null?(cr.avail==null?500000:cr.avail):L.avail,cnt=L.count||0,rate=L.rates[Math.min(cnt,2)],a=L.active,exp=!!(a&&a.at+LOAN_TERM<=Date.now());
   if(loanAmt[L.k]==null||loanAmt[L.k]>avail)loanAmt[L.k]=avail;const amt=Math.max(0,Math.floor(+loanAmt[L.k]||0));
-  const lock=!!L.locked,full=avail<lmin,off=lock||full||exp,can=S.bal<1&&!busy&&!off;
+  const lock=!!L.locked,full=avail<lmin,off=lock||full||exp,can=!busy&&!off;
   return `<div class="row"><span>${more?'더 빌릴 금액':'빌릴 금액'} (${fmt(lmin)} ~ ${fmt(avail)})</span><span class="loan-in"><input type="number" data-amt="${L.k}" min="${lmin}" max="${avail}" step="1000" value="${amt||''}" aria-label="${L.name} 빌릴 금액" ${off?'disabled':''}>P</span></div>
           <div class="row"><span>${more?'더 빌리면 바뀌는 이자 (빚 전체)':'시간당 이자'}</span><b>시간당 ${Math.round(rate*100)}%</b></div>
           ${more?'':`<div class="row"><span>24시간 뒤 갚을 돈</span><b style="color:#e08a80" data-due="${L.k}">${fmt(amt*(1+rate*24))}</b></div>
           <div class="row"><span>필요한 신용 등급</span><b style="color:${lock?'#e08a80':'inherit'}">${L.min?L.minGrade+' 이상':'누구나'}</b></div>`}
           <div class="row"><span>이 대출소 한도 (등급 한도 × ${L.mult||1})</span><b>${fmt(L.cap==null?avail:L.cap)}</b></div>
           <button class="btn ${more?'':'primary'}" type="button" data-loan="${L.k}" data-rate="${rate}" data-max="${avail}" ${can?'':'disabled'}>${lock?'신용 등급 부족':exp?'만기 지남 · 먼저 갚기':full?'한도를 모두 썼습니다':more?'더 빌리기':'빌리기'}</button>
-          <div class="hint">${lock?'지금 등급('+(cr.grade||'B')+')으로는 여기서 빌릴 수 없습니다.':exp?'만기가 지난 대출은 갚아야 더 빌릴 수 있습니다.':full?'이 대출소의 한도('+fmt(L.cap||0)+')를 모두 빌렸습니다.':can?(more?'기한은 처음 빌린 때부터 24시간 그대로입니다.':''):'포인트가 0P일 때만 빌릴 수 있습니다. (지금 '+fmt(S.bal)+')'}</div>`;}
+          <div class="hint">${lock?'지금 등급('+(cr.grade||'B')+')으로는 여기서 빌릴 수 없습니다.':exp?'만기가 지난 대출은 갚아야 더 빌릴 수 있습니다.':full?'이 대출소의 한도('+fmt(L.cap||0)+')를 모두 빌렸습니다.':can?(more?'기한은 처음 빌린 때부터 24시간 그대로입니다.':''):'판이 끝난 뒤에 빌릴 수 있습니다.'}</div>`;}
 function renderLoan(){
   const el=$('#loanCard');if(!el||!S.me)return;clearInterval(loanTimer);
   const paint=()=>{
     const Ls=myLenders();const td=totalDebt();
     $('#loanTotal').textContent=td?'빚 합계 '+fmt(td)+' ('+activeOf().length+'곳)':'';
     const cr=S.me.credit||{score:50,grade:'B'},gp=S.me.garnish==null?30:S.me.garnish;
-    $('#creditBar').innerHTML=`<span>신용 등급</span><span class="cg ${cr.grade}">${cr.grade}</span><span>${cr.score}점 / 100</span><span class="meter"><i style="width:${cr.score}%"></i></span><span><b>등급 한도 ${fmt(cr.limit||100000)}</b> · 대출소에 따라 1~5배</span><span class="hint">${td&&gp?'빚이 있는 동안 딴 돈의 '+gp+'%가 자동 상환됩니다':'등급이 오르면 한도가 늘어납니다'}</span>`;
+    $('#creditBar').innerHTML=`<span>신용 등급</span><span class="cg ${cr.grade}">${cr.grade}</span><span>${cr.score}점 / 100</span><span class="meter"><i style="width:${cr.score}%"></i></span><span><b>등급 한도 ${fmt(cr.limit||500000)}</b> · 대출소에 따라 1~5배</span><span class="hint">${td&&gp?'빚이 있는 동안 딴 돈의 '+gp+'%가 자동 상환됩니다':'등급이 오르면 한도가 늘어납니다'}</span>`;
     el.innerHTML=Ls.map(L=>{
       const a=L.active,cnt=L.count||0,ti=Math.min(cnt,2);
       const tiers=`<div class="tiers">${L.rates.map((rt,i)=>`<span class="${!a&&i===ti?'next':i<ti?'used':''}">${i===2?'3번째~':(i+1)+'번째'}<br>시간당 ${Math.round(rt*100)}%</span>`).join('')}</div>`;

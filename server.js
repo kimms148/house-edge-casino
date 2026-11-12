@@ -142,7 +142,7 @@ const debtOne = (l, now) => Math.max(0, Math.floor(l.principal * (1 + (l.rate ||
 const creditOf = u => typeof u.credit === 'number' ? u.credit : 50;
 const gradeOf = s => s >= 75 ? 'A' : s >= 50 ? 'B' : s >= 25 ? 'C' : 'D';
 // 대출 한도(대출소마다 따로): 신용 등급이 오르면 늘어난다. 기본(B) 100,000P.
-const LIMITS = { A: 300000, B: 100000, C: 50000, D: 20000 };
+const LIMITS = { A: 1000000, B: 500000, C: 300000, D: 100000 };
 const LOAN_MIN = 1000;
 const limitOf = u => LIMITS[gradeOf(creditOf(u))];
 // 대출소별 한도: 이자가 비싼 곳일수록 더 많이 빌려준다 (등급 한도 × 1, 3, 5). 한도 안에서는 빚이 있어도 더 빌릴 수 있다.
@@ -510,7 +510,7 @@ wss.on('connection', ws => {
         checkLate(u);
         if (cur && Date.now() - cur.at > LOAN_TERM) return send(c, { t: 'loanerr', msg: L.name + '의 대출은 만기가 지났습니다. 먼저 갚아야 더 빌릴 수 있습니다.' });
         if (creditOf(u) < L.min) return send(c, { t: 'loanerr', msg: L.name + '은(는) 신용 등급 ' + gradeOf(L.min) + ' 이상에게만 빌려줍니다. (지금 ' + gradeOf(creditOf(u)) + '등급, ' + creditOf(u) + '점)' });
-        if (u.bal >= 1 || u.pending) return send(c, { t: 'loanerr', msg: '포인트를 모두 잃었을 때만 대출을 받을 수 있습니다.' });
+        if (u.pending) return send(c, { t: 'loanerr', msg: '판이 끝난 뒤에 빌릴 수 있습니다.' });
         if (Date.now() < nextLoanAt(u, L.k)) { const d = new Date(nextLoanAt(u, L.k)); return send(c, { t: 'loanerr', msg: L.name + '은(는) 하루에 한 번만 빌려줍니다. ' + (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ' 이후에 다시 빌릴 수 있습니다.' }); }
         const ti = Math.min(loanCount(u, L.k), L.rates.length - 1), rate = L.rates[ti], amount = Math.floor(+m.amount), avail = capOf(u, L) - (cur ? cur.principal : 0);
         if (!(amount >= LOAN_MIN)) return send(c, { t: 'loanerr', msg: '빌릴 금액을 ' + LOAN_MIN.toLocaleString() + 'P 이상으로 적으세요.' });
