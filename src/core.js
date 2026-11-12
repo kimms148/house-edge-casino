@@ -147,13 +147,13 @@ function onServer(m){
     case 'bal':
       if(!S.me)break;
       S.bal=m.bal;if(m.stats)S.stats=m.stats;if('loan' in m)S.me.loan=m.loan;if('lenders' in m)S.me.lenders=m.lenders;if(m.h){S.hist.push(m.h);if(S.hist.length>300)S.hist.shift();}
-      if(m.loanMsg)toast(m.loanMsg);
+      if(m.loanMsg){if(m.by==='admin')adminNote(m.loanMsg);else toast(m.loanMsg);}
       if(view==='loan')renderLoan();
       if(!busy)updateBal();else shownBalPending=true;
       if('invites' in m)S.me.invites=m.invites;if(m.credit)S.me.credit=m.credit;
       if(m.garn)setTimeout(()=>toast('딴 돈의 '+m.garn.pct+'%인 '+fmt(m.garn.amount)+'가 '+m.garn.names.join(', ')+'(으)로 자동 상환되었습니다'+(m.garn.closed.length?' · '+m.garn.closed.join(', ')+' 빚을 다 갚았습니다':'')),1400);
       if(m.by==='invite'){if(m.delta>0)giftArrive(m.delta,(m.friend||'친구')+' 님이 내 초대로 가입했습니다');else toast((m.friend||'친구')+' 님이 내 초대로 가입했습니다');}
-      if(m.by==='admin'){if(m.delta>0)giftArrive(m.delta);else if(m.delta<0)toast('관리자가 '+fmt(-m.delta)+'를 회수했습니다');else if(!('delta' in m))toast('관리자가 포인트를 조정했습니다');}
+      if(m.by==='admin'){if(m.delta>0)giftArrive(m.delta);else if(m.delta<0)adminNote('관리자가 '+fmt(-m.delta)+'를 회수했습니다');else if(!('delta' in m)&&!m.loanMsg)toast('관리자가 포인트를 조정했습니다');}
       if(view==='stats')renderStats();
       break;
     case 'rank':RANK=m;if(view==='rank')renderRank();break;

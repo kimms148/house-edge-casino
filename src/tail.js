@@ -413,6 +413,7 @@ function renderInbox(){
 }
 
 /* ---------------- admin top-up: coins fly into the balance ---------------- */
+function adminNote(text){const wrap=document.createElement("div");wrap.className="gift";wrap.innerHTML="<div class=\"gbox\"><span>"+esc(text)+"</span></div>";document.body.appendChild(wrap);setTimeout(()=>wrap.remove(),3500);}
 function giftArrive(amount,text){
   const wrap=document.createElement('div');wrap.className='gift';wrap.innerHTML='<div class="gbox"><span>'+esc(text||'관리자가 용돈을 지급했습니다')+'</span><b>+'+fmt(amount)+'</b></div>';document.body.appendChild(wrap);
   const box=wrap.querySelector('.gbox'),bal=$('#bal');
@@ -422,7 +423,7 @@ function giftArrive(amount,text){
       c.animate([{transform:'translate(0,0) scale(1)',opacity:1},{transform:`translate(${dx*0.5+(rnd()-.5)*120}px,${dy*0.5-80}px) scale(1.2)`,opacity:1,offset:.5},{transform:`translate(${dx}px,${dy}px) scale(.6)`,opacity:.2}],{duration:900+rnd()*300,delay:i*60,easing:'cubic-bezier(.5,0,.6,1)',fill:'forwards'});}
     setTimeout(()=>{bal.classList.remove('gifted');void bal.offsetWidth;bal.classList.add('gifted');},900);
   },500);
-  setTimeout(()=>wrap.remove(),2700);
+  setTimeout(()=>wrap.remove(),3500);
 }
 
 /* ---------------- ops settings (admin): start points, give to everyone ---------------- */
