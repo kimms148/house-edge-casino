@@ -123,8 +123,8 @@ function resolveToken(t) {
 // 대출소 세 곳. 빌리는 금액은 같고(1차 1만, 2차 5만, 3차 이후 10만), 이자율만 다르다. 각 대출소는 따로 센다.
 const LOAN_AMOUNTS = [10000, 50000, 100000];
 const LENDERS = [
-  { k: 'gold', name: '골드브릿지 캐피탈', rates: [0.20, 0.40, 0.60], min: 50, mult: 1 },
-  { k: 'moon', name: '블랙문 크레딧', rates: [0.30, 0.50, 0.70], min: 25, mult: 3 },
+  { k: 'gold', name: '골드브릿지 캐피탈', rates: [0.10, 0.20, 0.30], min: 50, mult: 1 },
+  { k: 'moon', name: '블랙문 크레딧', rates: [0.20, 0.40, 0.60], min: 25, mult: 3 },
   { k: 'red', name: '레드라인 대부', rates: [0.40, 0.60, 0.80], min: 0, mult: 5 },
 ];
 const LENDER = Object.fromEntries(LENDERS.map(L => [L.k, L]));

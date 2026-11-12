@@ -2352,8 +2352,8 @@ function syncOps(){const el=$('#opStart');if(el&&el!==document.activeElement)el.
 
 /* ---------------- loan (player): three lenders ---------------- */
 const LENDER_ART={
-  gold:{en:'GOLD BRIDGE CAPITAL',copy:'다음 판이 당신을 기다립니다',fine:'업계 최저 금리 시간당 20%부터 · 3분 입금',mark:'⛩'},
-  moon:{en:'BLACKMOON CREDIT',copy:'심사 없이 3초 입금',fine:'다른 곳에서 거절당해도 OK · 시간당 30%부터',mark:'☾'},
+  gold:{en:'GOLD BRIDGE CAPITAL',copy:'다음 판이 당신을 기다립니다',fine:'업계 최저 금리 시간당 10%부터 · 3분 입금',mark:'⛩'},
+  moon:{en:'BLACKMOON CREDIT',copy:'심사 없이 3초 입금',fine:'다른 곳에서 거절당해도 OK · 시간당 20%부터',mark:'☾'},
   red:{en:'REDLINE LOAN',copy:'어디서도 안 될 때, 여기선 됩니다',fine:'신용 무관 · 연체자 환영 · 시간당 40%부터',mark:'☎'}};
 const LENDER_NAME={gold:'골드브릿지 캐피탈',moon:'블랙문 크레딧',red:'레드라인 대부'};
 function lenderBanner(k,ad){const A=LENDER_ART[k];return`<div class="bn ${k}"><span class="bn-en">${A.en}</span><span class="bn-name">${LENDER_NAME[k]}</span><span class="bn-copy">${A.copy}</span><span class="bn-fine">${A.fine}</span><span class="bn-mark" aria-hidden="true">${A.mark}</span>${ad?'<span class="bn-cta">지금 바로 빌리기 →</span>':''}</div>`;}
