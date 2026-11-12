@@ -123,9 +123,9 @@ function resolveToken(t) {
 // 대출소 세 곳. 빌리는 금액은 같고(1차 1만, 2차 5만, 3차 이후 10만), 이자율만 다르다. 각 대출소는 따로 센다.
 const LOAN_AMOUNTS = [10000, 50000, 100000];
 const LENDERS = [
-  { k: 'gold', name: '골드브릿지 캐피탈', rates: [0.20, 0.40, 0.60], min: 50 },
-  { k: 'moon', name: '블랙문 크레딧', rates: [0.30, 0.50, 0.70], min: 25 },
-  { k: 'red', name: '레드라인 대부', rates: [0.40, 0.60, 0.80], min: 0 },
+  { k: 'gold', name: '골드브릿지 캐피탈', rates: [0.20, 0.40, 0.60], min: 50, mult: 1 },
+  { k: 'moon', name: '블랙문 크레딧', rates: [0.30, 0.50, 0.70], min: 25, mult: 3 },
+  { k: 'red', name: '레드라인 대부', rates: [0.40, 0.60, 0.80], min: 0, mult: 5 },
 ];
 const LENDER = Object.fromEntries(LENDERS.map(L => [L.k, L]));
 const LOAN_TIERS = LOAN_AMOUNTS.map((amount, i) => ({ amount, rate: LENDERS[0].rates[i] }));
@@ -137,7 +137,7 @@ const lastLoanAt = (u, k) => { const l = (u.loans || []).filter(x => lenderOf(x)
 const nextLoanAt = () => 0;
 const activeLoans = u => Object.entries(u.loanBy || {}).filter(([, l]) => l).map(([k, l]) => Object.assign({ k }, l));
 // 빚 = 원금 + 이자 − 자동 상환으로 이미 낸 돈
-const debtOne = (l, now) => Math.max(0, Math.floor(l.principal * (1 + (l.rate || 0.2) * Math.max(0, ((now || Date.now()) - l.at) / 3600000))) - (l.paid || 0));
+const debtOne = (l, now) => Math.max(0, Math.floor(l.principal * (1 + (l.rate || 0.2) * Math.max(0, ((now || Date.now()) - l.at) / 3600000))) - (l.paid || 0) - (l.adj || 0));
 // 신용 점수 0~100 (처음 50). 제때 갚으면 오르고, 연체하거나 돌려막으면 내려간다.
 const creditOf = u => typeof u.credit === 'number' ? u.credit : 50;
 const gradeOf = s => s >= 75 ? 'A' : s >= 50 ? 'B' : s >= 25 ? 'C' : 'D';
@@ -145,6 +145,8 @@ const gradeOf = s => s >= 75 ? 'A' : s >= 50 ? 'B' : s >= 25 ? 'C' : 'D';
 const LIMITS = { A: 300000, B: 100000, C: 50000, D: 20000 };
 const LOAN_MIN = 1000;
 const limitOf = u => LIMITS[gradeOf(creditOf(u))];
+// 대출소별 한도: 이자가 비싼 곳일수록 더 많이 빌려준다 (등급 한도 × 1, 3, 5). 한도 안에서는 빚이 있어도 더 빌릴 수 있다.
+const capOf = (u, L) => limitOf(u) * (L.mult || 1);
 const borrowed = u => activeLoans(u).reduce((s, l) => s + l.principal, 0);
 const creditInfo = u => ({ score: creditOf(u), grade: gradeOf(creditOf(u)), limit: limitOf(u), avail: limitOf(u), each: true, min: LOAN_MIN, limits: LIMITS });
 // 갚아서 오르는 점수: 한도에 비해 얼마나 빌렸는지 × 얼마나 오래 빌렸는지(1시간이면 전부). 하루에 최대 15점.
@@ -162,8 +164,10 @@ const limitMult = u => creditOf(u) >= 75 ? 1.5 : 1;
 function checkLate(u) { let ch = false; for (const [k, l] of Object.entries(u.loanBy || {})) if (l && !l.late && Date.now() - l.at > LOAN_TERM) { l.late = true; addCredit(u, -25, LENDER[k].name + ' 연체'); ch = true; } if (ch) store.saveUser(u); return ch; }
 // 대출 하나를 닫는다 (직접 상환 또는 자동 상환으로 다 갚음)
 function closeLoan(u, k, extraPaid) {
-  const ln = u.loanBy[k]; const rec = (u.loans || []).filter(x => lenderOf(x) === k && x.at === ln.at).pop();
-  if (rec) { rec.repaidAt = Date.now(); rec.paid = (ln.paid || 0) + (extraPaid || 0); }
+  const ln = u.loanBy[k]; const recs = (u.loans || []).filter(x => lenderOf(x) === k && x.at >= ln.at && !x.repaidAt && !x.forgivenAt);
+  // 더 빌린 기록이 여러 개면 낸 돈을 나눠 적는다: 뒤의 것은 원금만, 이자는 첫 기록에
+  const total = (ln.paid || 0) + (extraPaid || 0), rest = recs.slice(1).reduce((s, x) => s + x.principal, 0);
+  recs.forEach((rec, i) => { rec.repaidAt = Date.now(); rec.paid = i ? rec.principal : Math.max(rec.principal, total - rest); });
   addCredit(u, repayGain(u, ln, ln.late ? 5 : 15), LENDER[k].name + (ln.late ? ' 연체 후 상환' : ' 기한 안에 상환')); u.loanBy[k] = null;
 }
 // 자동 상환: 빚이 있으면 딴 돈(순이익)의 일부가 대출소로 빠져나간다. 연체된 곳, 이자가 높은 곳부터.
@@ -180,7 +184,7 @@ function garnish(u, profit) {
 // per-lender state the student's loan tab draws from
 function lenderState(u) {
   return LENDERS.map(L => { const a = (u.loanBy || {})[L.k]; const cnt = loanCount(u, L.k);
-    return { k: L.k, name: L.name, rates: L.rates, count: cnt, nextAt: nextLoanAt(u, L.k), min: L.min, minGrade: gradeOf(L.min), locked: creditOf(u) < L.min, rate: L.rates[Math.min(cnt, L.rates.length - 1)], active: a ? Object.assign({}, a, { debt: debtOne(a), expired: Date.now() - a.at > LOAN_TERM }) : null }; });
+    return { k: L.k, name: L.name, rates: L.rates, count: cnt, nextAt: nextLoanAt(u, L.k), min: L.min, minGrade: gradeOf(L.min), locked: creditOf(u) < L.min, mult: L.mult || 1, cap: capOf(u, L), avail: Math.max(0, capOf(u, L) - (a ? a.principal : 0)), rate: L.rates[Math.min(cnt, L.rates.length - 1)], active: a ? Object.assign({}, a, { debt: debtOne(a), expired: Date.now() - a.at > LOAN_TERM }) : null }; });
 }
 // one summary for screens that only need totals
 function loanSummary(u) {
@@ -221,11 +225,12 @@ function updateStable(kind, winner) {
 }
 
 // 관리자 1:1 메시지
-const chatOf = sid => DB.meta['chat:' + sid] || null;
+// 삭제된 학생의 대화는 빈 값(null)으로 남을 수 있다. 메시지 목록이 있는 것만 대화로 본다.
+const chatOf = sid => { const ch = DB.meta['chat:' + sid]; return ch && Array.isArray(ch.msgs) ? ch : null; };
 function saveChat(sid, ch) { DB.meta['chat:' + sid] = ch; store.saveMeta('chat:' + sid, ch); }
 function chatsForAdmin() {
   const out = {};
-  for (const k of Object.keys(DB.meta)) if (k.startsWith('chat:')) { const sid = k.slice(5); const u = DB.users[sid]; if (u) out[sid] = Object.assign({ name: u.name, cls: u.cls, num: u.num, grade: u.grade }, DB.meta[k]); }
+  for (const k of Object.keys(DB.meta)) if (k.startsWith('chat:')) { const sid = k.slice(5); const u = DB.users[sid], ch = chatOf(sid); if (u && ch) out[sid] = Object.assign({ name: u.name, cls: u.cls, num: u.num, grade: u.grade }, ch); }
   return out;
 }
 function pushChat(sid) {
@@ -501,20 +506,25 @@ wss.on('connection', ws => {
         if (!u) return;
         const L = LENDER[String(m.k || 'gold')]; if (!L) return;
         u.loanBy = u.loanBy || {};
-        if (u.loanBy[L.k]) return send(c, { t: 'loanerr', msg: L.name + '에 갚지 않은 대출이 있습니다.' });
+        const cur = u.loanBy[L.k];
         checkLate(u);
+        if (cur && Date.now() - cur.at > LOAN_TERM) return send(c, { t: 'loanerr', msg: L.name + '의 대출은 만기가 지났습니다. 먼저 갚아야 더 빌릴 수 있습니다.' });
         if (creditOf(u) < L.min) return send(c, { t: 'loanerr', msg: L.name + '은(는) 신용 등급 ' + gradeOf(L.min) + ' 이상에게만 빌려줍니다. (지금 ' + gradeOf(creditOf(u)) + '등급, ' + creditOf(u) + '점)' });
         if (u.bal >= 1 || u.pending) return send(c, { t: 'loanerr', msg: '포인트를 모두 잃었을 때만 대출을 받을 수 있습니다.' });
         if (Date.now() < nextLoanAt(u, L.k)) { const d = new Date(nextLoanAt(u, L.k)); return send(c, { t: 'loanerr', msg: L.name + '은(는) 하루에 한 번만 빌려줍니다. ' + (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ' 이후에 다시 빌릴 수 있습니다.' }); }
-        const ti = Math.min(loanCount(u, L.k), L.rates.length - 1), rate = L.rates[ti], amount = Math.floor(+m.amount), avail = limitOf(u);
+        const ti = Math.min(loanCount(u, L.k), L.rates.length - 1), rate = L.rates[ti], amount = Math.floor(+m.amount), avail = capOf(u, L) - (cur ? cur.principal : 0);
         if (!(amount >= LOAN_MIN)) return send(c, { t: 'loanerr', msg: '빌릴 금액을 ' + LOAN_MIN.toLocaleString() + 'P 이상으로 적으세요.' });
-        if (amount > avail) return send(c, { t: 'loanerr', msg: '한도를 넘었습니다. ' + gradeOf(creditOf(u)) + '등급은 대출소 한 곳에서 ' + limitOf(u).toLocaleString() + 'P까지 빌릴 수 있습니다.' });
+        if (amount > avail) return send(c, { t: 'loanerr', msg: '한도를 넘었습니다. ' + gradeOf(creditOf(u)) + '등급이 ' + L.name + '에서 빌릴 수 있는 한도는 ' + capOf(u, L).toLocaleString() + 'P이고, 지금 더 빌릴 수 있는 돈은 ' + Math.max(0, avail).toLocaleString() + 'P입니다.' });
         const n = loanCount(u, L.k) + 1, at = Date.now();
         if (activeLoans(u).length) addCredit(u, -5, '빚이 있는데 또 대출');
-        u.loanBy[L.k] = { principal: amount, rate, at, n, lim: limitOf(u) }; u.bal += amount;
+        if (cur) {
+          // 더 빌리기: 기한은 처음 빌린 때부터 그대로, 이자율은 새 단계로 전체 빚에 적용. 지금 이 순간의 빚은 (기존 빚 + 새로 빌린 돈)이 되도록 맞춘다.
+          const old = debtOne(cur, at); cur.principal += amount; cur.rate = rate; cur.n = n; cur.adj = 0; cur.adj = Math.max(0, debtOne(cur, at) - (old + amount));
+        } else u.loanBy[L.k] = { principal: amount, rate, at, n, lim: limitOf(u) };
+        u.bal += amount;
         u.loans = (u.loans || []).concat([{ lender: L.k, principal: amount, rate, at }]);
-        logEv(u, 'loan', L.name + ' ' + n + '번째 대출 (시간당 ' + Math.round(rate * 100) + '%)', amount);
-        store.saveUser(u); pushBal(u.sid, { loanMsg: L.name + '에서 ' + amount.toLocaleString() + 'P를 빌렸습니다. 24시간 안에 쓸 수 있고, 이자는 시간당 ' + Math.round(rate * 100) + '%입니다.' }); scheduleUsers(); scheduleRank();
+        logEv(u, 'loan', L.name + ' ' + n + '번째 대출' + (cur ? ' · 더 빌림' : '') + ' (시간당 ' + Math.round(rate * 100) + '%)', amount);
+        store.saveUser(u); pushBal(u.sid, { loanMsg: cur ? L.name + '에서 ' + amount.toLocaleString() + 'P를 더 빌렸습니다. 이곳 빚 전체의 이자가 시간당 ' + Math.round(rate * 100) + '%가 되었고, 기한은 그대로입니다.' : L.name + '에서 ' + amount.toLocaleString() + 'P를 빌렸습니다. 24시간 안에 쓸 수 있고, 이자는 시간당 ' + Math.round(rate * 100) + '%입니다.' }); scheduleUsers(); scheduleRank();
         break;
       }
       case 'repay': {

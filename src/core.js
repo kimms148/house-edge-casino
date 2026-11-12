@@ -194,7 +194,7 @@ function betRequest(g,bet){
 /* loans: 10,000P, 20% simple interest per hour, usable for 24 hours */
 const LOAN_TERM=24*3600*1000;
 const LOAN_AMOUNTS=[10000,50000,100000];
-const debtNow=l=>Math.max(0,Math.floor(l.principal*(1+(l.rate||.2)*Math.max(0,(Date.now()-l.at)/3600000)))-(l.paid||0));
+const debtNow=l=>Math.max(0,Math.floor(l.principal*(1+(l.rate||.2)*Math.max(0,(Date.now()-l.at)/3600000)))-(l.paid||0)-(l.adj||0));
 const myLenders=()=>(S.me&&S.me.lenders)||[];
 const activeOf=()=>myLenders().filter(L=>L.active);
 const totalDebt=()=>activeOf().reduce((s,L)=>s+debtNow(L.active),0);
