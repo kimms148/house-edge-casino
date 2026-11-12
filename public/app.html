@@ -156,6 +156,7 @@ main{max-width:1180px;margin:0 auto;padding-block:22px 60px;padding-left:max(16p
 .amt-row input{flex:1;font-family:var(--f-num);font-size:19px;padding:9px 11px}
 .quick{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .quick button,.choice{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 4px;font-size:13px}
+.quick button.all{color:#e08a80;border-color:#e08a8066}
 .quick button:hover,.choice:hover{border-color:var(--line2)}
 .choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:6px}
 .choice{padding:10px 6px;display:grid;gap:2px;text-align:center;position:relative}
@@ -679,10 +680,10 @@ details.more[open] summary{color:var(--cyan)}
           <div class="amt-row" style="margin-top:4px"><input id="betAmt" type="number" min="1" step="100" inputmode="numeric"><span class="num">P</span></div>
         </div>
         <div class="quick">
-          <button type="button" data-q="p100">+100</button>
-          <button type="button" data-q="p1000">+1000</button>
-          <button type="button" data-q="half" title="보유 포인트의 절반">절반</button>
-          <button type="button" data-q="max" title="보유 포인트 전부">최대</button>
+          <button type="button" data-q="10" title="보유 포인트의 10%">10%</button>
+          <button type="button" data-q="20" title="보유 포인트의 20%">20%</button>
+          <button type="button" data-q="50" title="보유 포인트의 50%">50%</button>
+          <button type="button" data-q="100" class="all" title="보유 포인트 전부">올인</button>
         </div>
         <div><div class="lbl" id="choiceLbl" style="margin-bottom:6px">선택</div><div class="choices" id="choices"></div></div>
         <div id="gExtra"></div>
@@ -1199,7 +1200,7 @@ function setBet(v){v=Math.floor(+v||0);if(v<1)v=1;if(S.bal>=1&&v>S.bal)v=Math.fl
 betIn.addEventListener('change',()=>setBet(betIn.value));
 betIn.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();setBet(betIn.value);play();}});
 document.querySelector('.quick').addEventListener('click',e=>{const b=e.target.closest('button[data-q]');if(!b||busy)return;const q=b.dataset.q;
-  if(q==='p100')setBet(S.bet+100);else if(q==='p1000')setBet(S.bet+1000);else if(q==='half')setBet(Math.floor(S.bal/2));else if(q==='max')setBet(S.bal);});
+  setBet(Math.floor(S.bal*(+q)/100));});
 
 /* ---------------- game framework ---------------- */
 const GAMES={};
@@ -2364,7 +2365,6 @@ function borrowForm(L,more){const cr=S.me.credit||{},lmin=cr.min||1000,avail=L.a
   if(loanAmt[L.k]==null||loanAmt[L.k]>avail)loanAmt[L.k]=avail;const amt=Math.max(0,Math.floor(+loanAmt[L.k]||0));
   const lock=!!L.locked,full=avail<lmin,off=lock||full||exp,can=S.bal<1&&!busy&&!off;
   return `<div class="row"><span>${more?'더 빌릴 금액':'빌릴 금액'} (${fmt(lmin)} ~ ${fmt(avail)})</span><span class="loan-in"><input type="number" data-amt="${L.k}" min="${lmin}" max="${avail}" step="1000" value="${amt||''}" aria-label="${L.name} 빌릴 금액" ${off?'disabled':''}>P</span></div>
-          <div class="loan-pct" role="group" aria-label="${L.name} 한도에서 빌릴 비율">${[[10,'10%'],[20,'20%'],[50,'50%'],[100,'올인']].map(([p,t])=>`<button type="button" class="${p===100?'all':''}" data-pct="${p}" data-k="${L.k}" data-max="${avail}" data-min="${lmin}" aria-pressed="${amt===Math.max(lmin,Math.floor(avail*p/100))}" ${off?'disabled':''}>${t}</button>`).join('')}</div>
           <div class="row"><span>${more?'더 빌리면 바뀌는 이자 (빚 전체)':'시간당 이자'}</span><b>시간당 ${Math.round(rate*100)}%</b></div>
           ${more?'':`<div class="row"><span>24시간 뒤 갚을 돈</span><b style="color:#e08a80" data-due="${L.k}">${fmt(amt*(1+rate*24))}</b></div>
           <div class="row"><span>필요한 신용 등급</span><b style="color:${lock?'#e08a80':'inherit'}">${L.min?L.minGrade+' 이상':'누구나'}</b></div>`}

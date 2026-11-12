@@ -468,7 +468,6 @@ function borrowForm(L,more){const cr=S.me.credit||{},lmin=cr.min||1000,avail=L.a
   if(loanAmt[L.k]==null||loanAmt[L.k]>avail)loanAmt[L.k]=avail;const amt=Math.max(0,Math.floor(+loanAmt[L.k]||0));
   const lock=!!L.locked,full=avail<lmin,off=lock||full||exp,can=S.bal<1&&!busy&&!off;
   return `<div class="row"><span>${more?'더 빌릴 금액':'빌릴 금액'} (${fmt(lmin)} ~ ${fmt(avail)})</span><span class="loan-in"><input type="number" data-amt="${L.k}" min="${lmin}" max="${avail}" step="1000" value="${amt||''}" aria-label="${L.name} 빌릴 금액" ${off?'disabled':''}>P</span></div>
-          <div class="loan-pct" role="group" aria-label="${L.name} 한도에서 빌릴 비율">${[[10,'10%'],[20,'20%'],[50,'50%'],[100,'올인']].map(([p,t])=>`<button type="button" class="${p===100?'all':''}" data-pct="${p}" data-k="${L.k}" data-max="${avail}" data-min="${lmin}" aria-pressed="${amt===Math.max(lmin,Math.floor(avail*p/100))}" ${off?'disabled':''}>${t}</button>`).join('')}</div>
           <div class="row"><span>${more?'더 빌리면 바뀌는 이자 (빚 전체)':'시간당 이자'}</span><b>시간당 ${Math.round(rate*100)}%</b></div>
           ${more?'':`<div class="row"><span>24시간 뒤 갚을 돈</span><b style="color:#e08a80" data-due="${L.k}">${fmt(amt*(1+rate*24))}</b></div>
           <div class="row"><span>필요한 신용 등급</span><b style="color:${lock?'#e08a80':'inherit'}">${L.min?L.minGrade+' 이상':'누구나'}</b></div>`}

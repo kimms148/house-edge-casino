@@ -316,7 +316,7 @@ function setBet(v){v=Math.floor(+v||0);if(v<1)v=1;if(S.bal>=1&&v>S.bal)v=Math.fl
 betIn.addEventListener('change',()=>setBet(betIn.value));
 betIn.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();setBet(betIn.value);play();}});
 document.querySelector('.quick').addEventListener('click',e=>{const b=e.target.closest('button[data-q]');if(!b||busy)return;const q=b.dataset.q;
-  if(q==='p100')setBet(S.bet+100);else if(q==='p1000')setBet(S.bet+1000);else if(q==='half')setBet(Math.floor(S.bal/2));else if(q==='max')setBet(S.bal);});
+  setBet(Math.floor(S.bal*(+q)/100));});
 
 /* ---------------- game framework ---------------- */
 const GAMES={};
