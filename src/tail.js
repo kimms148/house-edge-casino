@@ -609,7 +609,20 @@ function onRooms(m){roomSkew=(m.now||Date.now())-Date.now();ROOMLIST=m.list||[];
   const n=ROOMLIST.filter(r=>r.state==='wait').length;$('#pvpN').textContent=n?'열린 방 '+n+'개':'';
   const r=myRoom();
   if(r&&r.state==='race'&&(!raceRun||raceRun.id!==r.id)&&(!raceDone||raceDone.id!==r.id))startRoomRace(r);
-  paintVote();if(view==='rooms')renderRooms();}
+  roomInvites();paintVote();if(view==='rooms')renderRooms();}
+// a new room: everyone online who is not in a room gets an invitation card with the minimum bet
+const seenRooms=new Set();
+function roomInvites(){const box=$('#reqAlert'),mine=myRoom();
+  box.querySelectorAll('[data-room]').forEach(d=>{const x=ROOMLIST.find(r=>r.id===d.dataset.room);if(mine||!x||x.state!=='wait'||x.players.length>=x.cap)d.remove();});
+  for(const x of ROOMLIST){if(seenRooms.has(x.id))continue;seenRooms.add(x.id);
+    if(mine||x.state!=='wait'||x.players.length>=x.cap||x.host===S.me.sid)continue;
+    const h=x.players.find(p=>p.sid===x.host)||x.players[0]||{name:'?'};const d=document.createElement('div');d.className='room-invite';d.dataset.room=x.id;
+    d.innerHTML=`<b>${RICON[x.g]} 함께 ${RNAME[x.g]}에 참가하시겠습니까?</b><span>${esc(h.name)} 님이 방을 만들었습니다.</span><span>최소 베팅금 <b class="num">${fmt(x.min)}</b> · 최대 ${x.cap}명 · 이긴 한 명이 판돈을 모두 가져갑니다.</span><span class="ri-btns"><button type="button" class="btn primary" data-a="join">${fmt(x.min)} 걸고 참가</button><button type="button" class="btn" data-a="see">방 보기</button><button type="button" class="btn" data-a="x">닫기</button></span>`;
+    d.onclick=e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;
+      if(a==='join'){if(busy){toast('판이 끝난 뒤에 참가할 수 있습니다');return;}if(S.bal<x.min){toast('보유 포인트가 최소 베팅금보다 적습니다');return;}svSend({t:'room',op:'join',id:x.id,bet:x.min});show('rooms');}
+      else if(a==='see'){if(busy){toast('판이 끝난 뒤에 이동할 수 있습니다');return;}show('rooms');}
+      d.remove();};
+    box.appendChild(d);setTimeout(()=>d.remove(),60000);}}
 function paintRoomsAdm(){const el=$('#roomsAdm');if(!el)return;el.innerHTML=ROOMLIST.length?ROOMLIST.map(r=>`<div style="border:1px solid var(--sline);border-radius:6px;padding:7px 9px"><b>${RICON[r.g]} ${RNAME[r.g]}</b> · ${({wait:'모으는 중',vote:'시작 투표 중',race:'경주 중'})[r.state]} · 판돈 ${fmt(r.pot)} · 최소 ${fmt(r.min)}<div style="color:var(--smute);margin-top:3px">${r.players.map(p=>'<span class="namebtn" data-log="'+esc(p.sid)+'">'+esc(p.name)+'</span> '+fmt(p.bet)+(r.race&&r.race.winner===p.lane?' 🏆':'')).join(' · ')}</div></div>`).join(''):'<span class="hint" style="color:var(--smute)">열린 방이 없습니다.</span>';}
 function paintVote(){const r=myRoom(),vm=$('#voteModal');const need=!!(r&&r.state==='vote'&&S.me&&!r.vote.yes.includes(S.me.sid)&&!r.vote.no.includes(S.me.sid));
   vm.hidden=!need;if(!need)return;const n=r.players.length;
