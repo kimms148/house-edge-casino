@@ -623,7 +623,8 @@ function roomInvites(){const box=$('#reqAlert'),mine=myRoom();
       else if(a==='see'){if(busy){toast('판이 끝난 뒤에 이동할 수 있습니다');return;}show('rooms');}
       d.remove();};
     box.appendChild(d);setTimeout(()=>d.remove(),60000);}}
-function paintRoomsAdm(){const el=$('#roomsAdm');if(!el)return;el.innerHTML=ROOMLIST.length?ROOMLIST.map(r=>`<div style="border:1px solid var(--sline);border-radius:6px;padding:7px 9px"><b>${RICON[r.g]} ${RNAME[r.g]}</b> · ${({wait:'모으는 중',vote:'시작 투표 중',race:'경주 중'})[r.state]} · 판돈 ${fmt(r.pot)} · 최소 ${fmt(r.min)}<div style="color:var(--smute);margin-top:3px">${r.players.map(p=>'<span class="namebtn" data-log="'+esc(p.sid)+'">'+esc(p.name)+'</span> '+fmt(p.bet)+(r.race&&r.race.winner===p.lane?' 🏆':'')).join(' · ')}</div></div>`).join(''):'<span class="hint" style="color:var(--smute)">열린 방이 없습니다.</span>';}
+function paintRoomsAdm(){const el=$('#roomsAdm');if(!el)return;el.innerHTML=ROOMLIST.length?ROOMLIST.map(r=>`<div style="border:1px solid var(--sline);border-radius:6px;padding:7px 9px"><b>${RICON[r.g]} ${RNAME[r.g]}</b> · ${({wait:'모으는 중',vote:'시작 투표 중',race:'경주 중'})[r.state]} · 판돈 ${fmt(r.pot)} · 최소 ${fmt(r.min)}<div style="color:var(--smute);margin-top:3px">${r.players.map(p=>'<span style="display:inline-flex;gap:5px;align-items:center;margin:2px 8px 2px 0"><span class="namebtn" data-log="'+esc(p.sid)+'">'+esc(p.name)+'</span> '+fmt(p.bet)+' ('+p.pct+'%)'+(r.race?(r.race.winner===p.lane?' 🏆':''):' <button type="button" class="abtn '+(r.fix===p.sid?'w':'')+'" data-rw="'+esc(r.id)+'" data-sid="'+esc(p.sid)+'" style="padding:1px 7px">'+(r.fix===p.sid?'✔ 승자로 정함':'승자로')+'</button>')+'</span>').join('')}</div>${r.race?(r.fixed?'<div style="color:#d9a66b;margin-top:3px">관리자가 정한 승자</div>':''):'<div style="color:var(--smute);margin-top:3px">'+(r.fix?'출발하면 정해 둔 학생이 이깁니다. 다시 누르면 풀립니다.':'정하지 않으면 모두 같은 확률로 승자가 정해집니다.')+'</div>'}</div>`).join(''):'<span class="hint" style="color:var(--smute)">열린 방이 없습니다.</span>';}
+document.addEventListener('click',e=>{if(!S.admin)return;const b=e.target.closest('[data-rw]');if(b)svSend({t:'adm',op:'roomwin',id:b.dataset.rw,sid:b.dataset.sid});});
 function paintVote(){const r=myRoom(),vm=$('#voteModal');const need=!!(r&&r.state==='vote'&&S.me&&!r.vote.yes.includes(S.me.sid)&&!r.vote.no.includes(S.me.sid));
   vm.hidden=!need;if(!need)return;const n=r.players.length;
   $('#vtLead').textContent=(r.vote.by==='host'?'방장이 지금 시작하자고 요청했습니다. ':'1분이 지났지만 자리가 다 차지 않았습니다. ')+'지금 '+n+'명으로 '+RNAME[r.g]+'를 시작할까요? 과반수('+(Math.floor(n/2)+1)+'명 이상)가 동의하면 바로 시작합니다.';
@@ -639,7 +640,7 @@ function roomPanel(r){const me=S.me.sid,host=r.host===me,n=r.players.length;
     <div class="room-players">${r.players.map(p=>`<div class="rp ${p.sid===me?'me':''}"><span>${RICON[r.g]} ${p.lane+1}번</span><b>${esc(p.name)}${p.sid===r.host?' <span class="tag on">방장</span>':''}${p.sid===me?' <span class="tag on">나</span>':''}</b><span class="num">${fmt(p.bet)}</span><span>이길 확률 ${p.pct}%</span></div>`).join('')}</div>
     <div class="hint">${st}</div>${r.note?'<div class="hint" style="color:#e08a80">'+esc(r.note)+'</div>':''}
     <div style="display:flex;gap:8px;flex-wrap:wrap">${host&&r.state==='wait'?`<button class="btn primary" type="button" data-ro="start" ${n<2?'disabled':''}>지금 시작 요청</button>`:''}${r.state!=='race'?'<button class="btn" type="button" data-ro="leave">나가기 (건 돈 돌려받기)</button>':''}</div>
-    <div class="hint">이길 확률은 건 돈에 비례합니다. 하우스가 떼는 돈은 없고, 진 사람의 돈은 모두 이긴 사람에게 갑니다.</div></div>`;}
+    <div class="hint">이길 확률은 모두 같습니다. 하우스가 떼는 돈은 없고, 진 사람의 돈은 모두 이긴 사람에게 갑니다.</div></div>`;}
 function renderRooms(force){const el=$('#roomsBody');if(!el||!S.me)return;
   if(raceRun||raceDone)return;
   const r=myRoom();
@@ -650,7 +651,7 @@ function renderRooms(force){const el=$('#roomsBody');if(!el||!S.me)return;
       <label>최소 베팅금<span class="loan-in"><input type="number" id="rmMin" min="100" step="100" value="${Math.max(100,Math.min(1000,Math.floor(S.bal)))}">P</span></label>
       <label>내 베팅금<span class="loan-in"><input type="number" id="rmBet" min="100" step="100" value="${Math.max(100,Math.min(1000,Math.floor(S.bal)))}">P</span></label></div>
       <button class="btn primary" type="button" id="rmMake">방 만들기</button>
-      <div class="hint">방장이 최소 베팅금을 정합니다 (내 보유 포인트까지). 참가자는 그 이상을 겁니다. 더 많이 걸수록 이길 확률이 높아지고, 이긴 한 명이 판돈을 모두 가져갑니다. 자리가 다 차면 바로 출발하고, 1분 안에 다 차지 않으면 지금 인원으로 시작할지 투표합니다.</div></div>
+      <div class="hint">방장이 최소 베팅금을 정합니다 (내 보유 포인트까지). 참가자는 그 이상을 겁니다. 이길 확률은 모두 같고, 이긴 한 명이 판돈을 모두 가져갑니다. 자리가 다 차면 바로 출발하고, 1분 안에 다 차지 않으면 지금 인원으로 시작할지 투표합니다.</div></div>
       <h3 style="margin:16px 0 8px;font-size:15px">열린 방</h3><div id="rmList" style="display:grid;gap:8px"></div>`;
     $('#rmMin').addEventListener('change',()=>{if(+$('#rmBet').value<+$('#rmMin').value)$('#rmBet').value=$('#rmMin').value;});
     $('#rmMake').onclick=()=>svSend({t:'room',op:'create',g:$('#rmG').value,min:Math.floor(+$('#rmMin').value||0),bet:Math.floor(+$('#rmBet').value||0)});}

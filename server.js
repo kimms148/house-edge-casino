@@ -374,13 +374,14 @@ const roomOf = sid => [...ROOMS.values()].find(r => r.players.some(p => p.sid ==
 function roomView(r) {
   const pot = r.players.reduce((s, p) => s + p.bet, 0);
   return { id: r.id, g: r.g, host: r.host, min: r.min, cap: ROOM_CAP[r.g], state: r.state, pot, waitUntil: r.waitUntil, note: r.note || '',
-    players: r.players.map((p, i) => { const u = DB.users[p.sid]; return { sid: p.sid, name: u ? disp(u) : '?', lane: i, bet: p.bet, pct: pot ? Math.round(p.bet / pot * 1000) / 10 : 0 }; }),
+    players: r.players.map((p, i) => { const u = DB.users[p.sid]; return { sid: p.sid, name: u ? disp(u) : '?', lane: i, bet: p.bet, pct: Math.round(1000 / r.players.length) / 10 }; }),
     vote: r.vote ? { until: r.vote.until, by: r.vote.by, yes: r.vote.yes, no: r.vote.no } : null,
     race: r.race ? { winner: r.race.winner, startAt: r.race.startAt, dur: RACE_MS } : null };
 }
-const roomsMsg = () => ({ t: 'rooms', now: Date.now(), list: [...ROOMS.values()].map(roomView) });
+// 관리자에게만: 관리자가 정해 둔 승자(fix)를 함께 보낸다. 학생에게는 보내지 않는다.
+const roomsMsg = adm => ({ t: 'rooms', now: Date.now(), list: [...ROOMS.values()].map(r => adm ? Object.assign(roomView(r), { fix: r.fix || '', fixed: !!r.fixed }) : roomView(r)) });
 let roomsTimer = null;
-function pushRooms() { if (roomsTimer) return; roomsTimer = setTimeout(() => { roomsTimer = null; const m = JSON.stringify(roomsMsg()); for (const c of authed()) if (c.ws.readyState === 1) c.ws.send(m); }, 60); }
+function pushRooms() { if (roomsTimer) return; roomsTimer = setTimeout(() => { roomsTimer = null; const m = JSON.stringify(roomsMsg()), ma = JSON.stringify(roomsMsg(true)); for (const c of authed()) if (c.ws.readyState === 1) c.ws.send(c.admin ? ma : m); }, 60); }
 function roomArm(r) { clearTimeout(r.timer); const until = r.state === 'vote' ? r.vote.until : r.waitUntil; r.timer = setTimeout(() => roomTick(r), Math.max(50, until - Date.now())); }
 // 1분이 지났는데 다 모이지 않았으면 지금 인원으로 시작할지 묻는다. 혼자면 계속 기다린다.
 function roomTick(r) {
@@ -406,16 +407,17 @@ function roomLeave(u) {
     if (r.state === 'vote') { r.state = 'wait'; r.vote = null; r.note = '참가자가 나가서 투표를 취소했습니다.'; r.waitUntil = Date.now() + ROOM_WAIT; roomArm(r); } }
   pushRooms(); scheduleUsers(); scheduleRank(); return true;
 }
-// 이길 확률은 건 돈에 비례한다. 결과는 출발할 때 정해지고, 돈도 그때 정산한다(화면에는 경주가 끝난 뒤 알린다).
+// 이길 확률은 모두 같다(건 돈과 상관없음). 결과는 출발할 때 정해지고, 돈도 그때 정산한다(화면에는 경주가 끝난 뒤 알린다).
 function raceStart(r) {
   clearTimeout(r.timer); r.state = 'race'; r.vote = null; r.note = '';
   r.players = r.players.filter(p => DB.users[p.sid]);
-  const pot = r.players.reduce((s, p) => s + p.bet, 0); let x = Math.random() * pot, w = r.players.length - 1;
-  for (let i = 0; i < r.players.length; i++) { x -= r.players[i].bet; if (x < 0) { w = i; break; } }
+  const pot = r.players.reduce((s, p) => s + p.bet, 0); let w = Math.floor(Math.random() * r.players.length);
+  // 관리자가 승자를 정해 두었으면 그 학생이 이긴다 (조작된 판으로 기록)
+  const fi = r.fix ? r.players.findIndex(p => p.sid === r.fix) : -1; if (fi >= 0) { w = fi; r.fixed = true; }
   r.race = { winner: w, startAt: Date.now() + 2500 };
   const done = [];
   r.players.forEach((p, i) => { const u = DB.users[p.sid]; const pay = i === w ? pot : 0; u.roomStake = 0; u.bal += pay;
-    const h = record(u, r.g, p.bet, pay, false, 0); checkLate(u); const garn = pay ? garnish(u, pay - p.bet) : null; store.saveUser(u); done.push({ u, h, garn }); });
+    const h = record(u, r.g, p.bet, pay, !!r.fixed, 0); checkLate(u); const garn = pay ? garnish(u, pay - p.bet) : null; store.saveUser(u); done.push({ u, h, garn }); });
   pushRooms();
   setTimeout(() => { for (const d of done) { pushBal(d.u.sid, d.garn ? { h: d.h, garn: d.garn } : { h: d.h }); feedEvent(d.u, d.h); pushLog(d.u.sid); }
     ROOMS.delete(r.id); pushRooms(); scheduleUsers(); scheduleRank(); }, RACE_MS + 2500);
@@ -436,7 +438,7 @@ function login(c, payload) {
     const lu = DB.users[c.sid]; send(c, { t: 'notice', list: unreadNotices(lu), all: allNotices() });
     if (lu.inbox && lu.inbox.length) { const l = lu.inbox; lu.inbox = []; store.saveUser(lu); l.forEach((x, i) => setTimeout(() => pushBal(lu.sid, x), 900 + i * 3800)); }
   }
-  send(c, rankData(c.admin)); send(c, roomsMsg());
+  send(c, rankData(c.admin)); send(c, roomsMsg(c.admin));
   scheduleUsers();
 }
 
@@ -712,6 +714,13 @@ wss.on('connection', ws => {
           DB.meta.stable = freshStable(); store.saveMeta('stable', DB.meta.stable);
           pushMail(); for (const o of admins()) send(o, { t: 'chats', chats: chatsForAdmin() });
           ensurePractice(); scheduleUsers(); scheduleRank(); return ack(true, '학생 ' + sids.length + '명의 계정과 기록을 모두 삭제했습니다.');
+        }
+        if (m.op === 'roomwin') {
+          const r = ROOMS.get(String(m.id)); if (!r) return ack(false, '없어진 방입니다.');
+          if (r.state === 'race') return ack(false, '이미 출발해서 바꿀 수 없습니다.');
+          const sid = String(m.sid || ''); if (sid && !r.players.some(p => p.sid === sid)) return ack(false, '이 방에 없는 학생입니다.');
+          r.fix = r.fix === sid ? '' : sid; pushRooms();
+          return ack(true, r.fix ? (DB.users[r.fix] ? DB.users[r.fix].name : r.fix) + ' 학생이 이기도록 정했습니다.' : '승자 지정을 풀었습니다. 모두 같은 확률로 정해집니다.');
         }
         if (m.op === 'adminpw') {
           const np = String(m.pw || '');
