@@ -98,7 +98,7 @@ function raceGame(cfg){
       const comm=$('#comm');
       for(const c of['3','2','1','출발!']){comm.textContent=c;await wait(450);}
       let manip=r.manip;
-      const race=startRace({n:F.length,winner:r.o,close:nm(cfg.id)&&r.o!==pick?pick:null,base:cfg.base,spread:cfg.spread,kind:cfg.id,runners,lanes,
+      const race=startRace({n:F.length,winner:r.o,close:r.o!==pick&&nmHit(cfg.id,1)?pick:null,base:cfg.base,spread:cfg.spread,kind:cfg.id,runners,lanes,
         onLead:li=>{comm.textContent='선두: '+(li+1)+'번 '+F[li].name;liveText='선두 '+(li+1)+'번 '+F[li].name+' / 선택 '+(pick+1)+'번';pushPresence();},
         onFinish:w=>{stage.querySelector('.photo').classList.add('flash');lanes[w].classList.add('winner');comm.textContent='우승: '+(w+1)+'번 '+F[w].name;}});
       this.liveOverride=(want)=>{
@@ -175,12 +175,12 @@ function bacFrom(seq,draw5){
 }
 function cardEl(c,third){const red=c.s===1||c.s===2;const d=document.createElement('div');d.className='card deal'+(third?' third':'');
   d.innerHTML=`<div class="in"><div class="f ${red?'red':''}"><span class="r">${RANKS[c.r]}</span><span class="s">${SUITS[c.s]}</span></div><div class="b"></div></div>`;return d;}
-GAMES.baccarat={id:'baccarat',shoe:[],mode:'bet',choiceLabel:'베팅 위치',
+GAMES.baccarat={id:'baccarat',shoe:[],get mode(){return 'bet';},set mode(v){},choiceLabel:'베팅 위치',
   choices(){return this.mode==='play'?[]:[{label:'플레이어',sub:'2x'},{label:'뱅커',sub:'1.95x'},{label:'타이',sub:'9x'}];},
   newShoe(){const s=[];for(let k=0;k<8;k++)for(let su=0;su<4;su++)for(let r=1;r<=13;r++)s.push({r,s:su});this.shoe=shuffle(s);},
   mount(st,extra){if(this.shoe.length<60)this.newShoe();
     st.innerHTML=`<div class="bac"><div class="zone" id="zP"><h3>플레이어</h3><div class="score" id="sP">–</div><div class="hand-cards" id="cP"></div></div><div class="zone" id="zB"><h3>뱅커</h3><div class="score" id="sB">–</div><div class="hand-cards" id="cB"></div></div><div class="bac-msg" id="bacMsg"></div><div class="bj-act" id="bacAct" hidden><button type="button" class="btn" data-a="draw">한 장 더 받기</button><button type="button" class="btn" data-a="stand">멈추기</button></div><div class="shoe-info" id="shoeInfo"></div></div>`;
-    this.info();extra.innerHTML=`<div class="seg" role="group" aria-label="바카라 방식" style="margin-bottom:8px"><button type="button" data-m="bet" aria-pressed="${this.mode==='bet'}">승부 맞히기</button><button type="button" data-m="play" aria-pressed="${this.mode==='play'}">직접 플레이</button></div>
+    this.info();extra.innerHTML=`
       <button type="button" class="btn" id="bacManualBtn" style="width:100%;margin-bottom:8px">바카라 설명서</button>
       <div class="hint">${this.mode==='play'?'당신이 플레이어 자리에 앉아 뱅커(하우스)와 겨룹니다. 내 카드는 직접 눌러서 엽니다. 이기면 2배, 비기면 원금 반환. 합이 0~4면 자동으로 한 장 더 받고, 6~7이면 멈추며, <b>합이 5일 때만</b> 더 받을지 직접 고릅니다. 뱅커는 정해진 규칙대로 받습니다. 고르는 도중에 나가면 한 장 더 받은 것으로 정산됩니다.':'타이가 나오면 플레이어·뱅커 베팅은 원금을 돌려받습니다. 뱅커 승리 배당에는 5% 수수료가 붙습니다.'}</div>`;
     extra.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{if(busy)return;this.mode=b.dataset.m;choice=null;renderChoices();this.mount(stage,$('#gExtra'));setPlayBtn();});
@@ -263,7 +263,7 @@ GAMES.slot={id:'slot',vis:null,playLabel:'스핀',
     const r=resolve('slot',bet,()=>[pickSym(),pickSym(),pickSym()],o=>slotPay(o,bet));
     const o=r.o;const mach=$('#mach');mach.classList.remove('won');mach.classList.add('spin');
     let nearMiss=false;
-    if(nm('slot')&&r.pay<bet&&rnd()<.6){o[0]=4;o[1]=4;if(o[2]===4)o[2]=3;nearMiss=true;}
+    if(r.pay<bet&&nmHit('slot',.6)){o[0]=4;o[1]=4;if(o[2]===4)o[2]=3;nearMiss=true;}
     const final=o.map(v=>v);
     const vis=[0,1,2].map(i=>[nearMiss&&i===2?4:pickSym(),final[i],pickSym()]);
     const sz=$('#reel0').clientWidth;const proms=[];

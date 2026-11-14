@@ -46,6 +46,7 @@
   </nav>
   <div class="wallet">
     <button id="installBtn" class="install" type="button" hidden><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>앱 설치</button>
+    <button id="noticeBtn" class="install" type="button" data-role="player" aria-label="공지 보기" title="공지 보기" style="position:relative"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M3 10v4h3l7 5V5L6 10H3z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span class="badge" id="noticeCnt" hidden>0</span></button>
     <div class="bal" id="bal" data-role="player"><span class="chip"></span><span class="num" id="balNum">0P</span><span class="debt-tag" id="debtTag" hidden></span></div>
     <div class="who"><span id="whoText"></span><button class="btn" id="logoutBtn" type="button">로그아웃</button></div>
   </div>
@@ -189,6 +190,7 @@
       <div class="chat-box">
         <div class="chat-head"><b id="admChatTitle">대화를 고르세요</b><span class="abtns"><span class="hint" id="admChatState" style="color:var(--smute)"></span><button type="button" class="abtn l" id="admChatClose" hidden>대화 끝내기</button></span></div>
         <div class="chat-log" id="admChatLog"></div>
+        <div class="typing" id="admTyping" hidden aria-live="polite"><span></span><span></span><span></span><small>학생이 입력하는 중</small></div>
         <form class="chat-form" id="admChatForm"><input type="text" id="admChatIn" maxlength="500" placeholder="학생에게 보낼 메시지" autocomplete="off" disabled><button class="abtn" type="submit" style="padding:6px 14px">보내기</button></form>
       </div>
     </div>
@@ -203,6 +205,11 @@
 </div>
 
 <div id="toast"></div>
+<div id="noticeBoard" class="modal" hidden><div class="box" role="dialog" aria-modal="true" aria-labelledby="nbT" style="max-width:560px;align-self:start">
+  <div class="eyebrow">NOTICE</div><h2 id="nbT" style="font-size:22px">공지</h2>
+  <div id="nbList" style="display:grid;gap:10px"></div>
+  <div><button class="btn primary" type="button" id="nbClose">닫기</button></div>
+</div></div>
 <div id="reqAlert" aria-live="assertive"></div>
 <div id="noticeModal" class="modal notice" hidden><div class="box" role="alertdialog" aria-modal="true" aria-labelledby="ntT" style="max-width:520px">
   <div class="eyebrow">NOTICE</div><h2 id="ntT" style="font-size:22px">관리자 공지</h2>
@@ -218,10 +225,12 @@
   <div class="tut-foot"><label><input type="checkbox" id="tutSkip">이 게임 설명 다시 보지 않기</label><button class="btn primary" type="button" id="tutClose">시작하기</button></div>
 </div></div>
 <div id="logModal" class="modal admin-scope" hidden style="border:0;border-radius:0;background:#000b"><div class="box" role="dialog" aria-modal="true" aria-labelledby="logT" style="max-width:860px;background:var(--steel);border-color:var(--sline)">
-  <div class="view-head" style="margin:0"><div><div class="eyebrow">STUDENT LOG</div><h2 id="logT">학생 로그</h2></div><button class="abtn" type="button" id="logClose" style="padding:6px 14px">닫기</button></div>
+  <div class="view-head" style="margin:0"><div><div class="eyebrow">STUDENT</div><h2 id="logT">학생 정보</h2></div><span class="abtns"><button class="abtn" type="button" id="logBig" style="padding:6px 14px">크게 보기</button><button class="abtn" type="button" id="logClose" style="padding:6px 14px">닫기</button></span></div>
   <div class="akpis" id="logKpis" style="margin:0"></div>
+  <div><div class="sub" style="color:var(--smute);font-size:12px;margin-bottom:4px">돈의 변동 (보유 포인트, 오래된 기록 → 지금)</div><canvas id="logChart" style="width:100%;height:200px;display:block;background:var(--steel2);border:1px solid var(--sline);border-radius:6px"></canvas></div>
+  <details class="sub-more" id="logGamesBox" open><summary>게임별 전적</summary><div class="tbl-wrap" style="margin-top:6px"><table class="t" style="min-width:0" id="logGames"></table></div></details>
   <div class="filters" style="margin:0"><select id="logFilter"><option value="">전체</option><option value="game">게임만</option><option value="money">돈 변동만 (지급·회수·대출)</option><option value="manip">조작된 판만</option></select><select id="logGame"><option value="">모든 게임</option></select><span class="hint" id="logCount" style="align-self:center;color:var(--smute)"></span></div>
-  <div class="tbl-wrap" style="max-height:min(56vh,520px);overflow:auto"><table class="t" style="min-width:0"><thead><tr><th>시각</th><th>내용</th><th class="n">베팅</th><th class="n">받은 돈</th><th class="n">변동</th><th class="n">잔액</th></tr></thead><tbody id="logBody"></tbody></table></div>
+  <div class="tbl-wrap" id="logWrap" style="max-height:min(40vh,420px);overflow:auto"><table class="t" style="min-width:0"><thead><tr><th>시각</th><th>내용</th><th class="n">베팅</th><th class="n">받은 돈</th><th class="n">변동</th><th class="n">잔액</th></tr></thead><tbody id="logBody"></tbody></table></div>
 </div></div>
 <div id="revealModal" class="modal" hidden></div>
 <div id="bacManual" class="modal" hidden><div class="box manual" role="dialog" aria-modal="true" aria-labelledby="bmT" style="max-width:680px">
@@ -242,9 +251,7 @@
   <h3>5. 승부 맞히기 (기본 방식)</h3>
   <table class="paytable"><tr><td>플레이어에 걸어 적중</td><td>2배</td></tr><tr><td>뱅커에 걸어 적중 (수수료 5%)</td><td>1.95배</td></tr><tr><td>타이에 걸어 적중</td><td>9배</td></tr><tr><td>플레이어·뱅커에 걸었는데 타이</td><td>원금 반환</td></tr></table>
   <p>뱅커는 세 번째 카드 규칙 덕분에 플레이어보다 조금 더 자주 이깁니다. 그래서 뱅커 쪽 배당에만 수수료가 붙습니다. 타이는 배당이 커 보이지만 약 10판에 1판만 나옵니다.</p>
-  <h3>6. 직접 플레이</h3>
-  <ul><li>내가 플레이어 자리에 앉아 뱅커(하우스)와 겨룹니다. 어디에 걸지 고르지 않습니다.</li><li>내 카드 두 장은 엎어져서 나옵니다. <b>카드를 눌러서</b> 한 장씩 엽니다.</li><li>합이 0 ~ 4면 자동으로 한 장 더 받고, 6 ~ 7이면 멈춥니다.</li><li><b>합이 5일 때만</b> [한 장 더 받기]와 [멈추기] 중에 직접 고릅니다. 20초 안에 고르지 않으면 한 장 더 받습니다.</li><li>이기면 2배, 비기면 원금 반환, 지면 베팅을 잃습니다.</li><li>고르는 도중에 나가면 한 장 더 받은 것으로 정산됩니다.</li></ul>
-  <h3>7. 용어</h3>
+  <h3>6. 용어</h3>
   <table class="paytable"><tr><td>슈</td><td>여러 벌의 카드를 섞어 담아 둔 통</td></tr><tr><td>내추럴</td><td>처음 2장의 합이 8 또는 9</td></tr><tr><td>타이</td><td>양쪽 점수가 같은 무승부</td></tr><tr><td>수수료(커미션)</td><td>뱅커 승리 배당에서 하우스가 떼는 5%</td></tr></table>
   <div><button class="btn primary" type="button" id="bmClose">닫기</button></div>
 </div></div>

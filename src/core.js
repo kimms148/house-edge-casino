@@ -32,10 +32,14 @@ const myBal=()=>S.me?(S.bal+(S.curBet||0)):null;
 function myRounds(g){const s=S.stats||{};return{total:s.rounds||0,per:(s.games&&s.games[g]&&s.games[g].n)||0};}
 // near-miss on/off per game (older configs used one switch for the slot machine)
 const nm=g=>CFG.nearMiss&&typeof CFG.nearMiss==='object'?!!CFG.nearMiss[g]:(g==='slot'&&!!CFG.nearMiss);
+// rules (by rounds played, by points held) add to or subtract from the original chance: −20 means 20 points lower
+function ruleAdj(g){if(!S.me)return 0;let a=0;const br=balRule(g,myBal());if(br&&isFinite(br.v))a+=br.v;const rc=myRounds(g);const sr=schedRule(g,rc.total,rc.per);if(sr&&isFinite(sr.v))a+=sr.v;return a/100;}
 function oddsP(k,def){
   const g=Object.keys(DIRECT).find(x=>DIRECT[x]===k);
-  if(g&&S.me){const br=balRule(g,myBal());if(br&&isFinite(br.v))return Math.max(0,Math.min(1,br.v/100));const rc=myRounds(g);const sr=schedRule(g,rc.total,rc.per);if(sr&&isFinite(sr.v))return Math.max(0,Math.min(1,sr.v/100));}
-  const v=CFG.odds&&CFG.odds[k];return(typeof v==='number'&&v>=0&&v<=1)?v:def;}
+  const v=CFG.odds&&CFG.odds[k];const base=(typeof v==='number'&&v>=0&&v<=1)?v:def;
+  return g?Math.max(0,Math.min(1,base+ruleAdj(g))):base;}
+// near-miss fires with the chance the admin set (otherwise each game's own default)
+const nmHit=(g,def)=>nm(g)&&rnd()<(CFG.nmP!=null&&CFG.nmP!==''&&isFinite(+CFG.nmP)?+CFG.nmP/100:def);
 function save(){prefs.bet=S.bet;prefs.crashHist=S.crashHist;LS.set('he.prefs',prefs);}
 
 const META={
@@ -53,7 +57,7 @@ const META={
 const GIDS=Object.keys(META);
 
 /* ---------------- rigging config ---------------- */
-const DEF_CFG={v:0,global:0,games:{},players:{},lure:{on:false,rounds:10,boost:0.5},nearMiss:false,reveal:false};
+const DEF_CFG={v:0,rel:true,global:0,games:{},players:{},lure:{on:false,rounds:10,boost:0.5},nearMiss:false,reveal:false};
 let CFG=JSON.parse(JSON.stringify(DEF_CFG));
 let force=null;
 function biasFor(g,key,rounds,per,bal){
@@ -138,7 +142,8 @@ function onServer(m){
     case 'nickerr':$('#nickErr').textContent=m.msg;break;
     case 'invinfo':if(S.me)S.me.inviteReward=m.inviteReward;break;
     case 'reqnew':if(S.admin)reqAlert(m);break;
-    case 'notice':NQ=m.list||[];noticePump();break;
+    case 'notice':NQ=m.list||[];if(m.all)NALL=m.all;noticePump();paintNoticeBtn();break;
+    case 'typing':if(S.admin)chatTyping(m.sid);break;
     case 'notices':if(S.admin){NOTICES=m.list||[];renderNotices();}break;
     case 'autherr':{const el=m.where==='signup'?$('#suErr'):$('#liErr');el.textContent=m.msg;break;}
     case 'kicked':toast('계정이 삭제되었습니다');doLogout(true);break;
@@ -152,7 +157,7 @@ function onServer(m){
       if(!busy)updateBal();else shownBalPending=true;
       if('invites' in m)S.me.invites=m.invites;if(m.credit)S.me.credit=m.credit;
       if(m.garn)setTimeout(()=>toast('딴 돈의 '+m.garn.pct+'%인 '+fmt(m.garn.amount)+'가 '+m.garn.names.join(', ')+'(으)로 자동 상환되었습니다'+(m.garn.closed.length?' · '+m.garn.closed.join(', ')+' 빚을 다 갚았습니다':'')),1400);
-      if(m.by==='invite'){if(m.delta>0)giftArrive(m.delta,(m.friend||'친구')+' 님이 내 초대로 가입했습니다');else toast((m.friend||'친구')+' 님이 내 초대로 가입했습니다');}
+      if(m.by==='invite'){const cu=m.creditUp?' · 신용 점수 +'+m.creditUp:'';if(m.delta>0)giftArrive(m.delta,'친구 초대 보상입니다'+cu);else adminNote((m.friend||'친구')+' 님이 내 초대로 가입했습니다'+cu);}
       if(m.by==='admin'){if(m.delta>0)giftArrive(m.delta);else if(m.delta<0)adminNote('관리자가 '+fmt(-m.delta)+'를 회수했습니다');else if(!('delta' in m)&&!m.loanMsg)toast('관리자가 포인트를 조정했습니다');}
       if(view==='stats')renderStats();
       break;
@@ -265,7 +270,7 @@ function doLogout(local){
 $('#logoutBtn').onclick=()=>{if(busy){toast('판이 끝난 뒤에 로그아웃할 수 있습니다');return;}doLogout(false);};
 
 /* ---------------- views ---------------- */
-let view='lobby',cur=null,busy=false,choice=null,RANK=null,USERS=[],REQS=[],INBOX=[],rigBuilt=false,NQ=[],NOTICES=[],reqGreeted=false;
+let view='lobby',cur=null,busy=false,choice=null,RANK=null,USERS=[],REQS=[],INBOX=[],rigBuilt=false,NQ=[],NALL=[],NOTICES=[],reqGreeted=false;
 function show(v){
   if(busy&&v!=='game'){toast('판이 끝난 뒤에 이동할 수 있습니다');return;}
   if(!S.admin&&S.chat&&S.chat.open&&v!=='chat'){toast('관리자와 대화가 끝날 때까지 다른 화면으로 갈 수 없습니다');v='chat';}
@@ -381,4 +386,15 @@ function showResult(bet,pay,text){
   el.className='result '+(net>0?'win':net<0?(pay>0?'push':'lose'):'push');
   el.innerHTML=`<b>${esc(text||'')}${text?' · ':''}${pay>0?(net>0?'당첨 ':net===0?'원금 반환 ':'일부 당첨 ')+fmt(pay):'꽝 '+sfmt(-bet)}</b>`;
 }
-function banner(text,cls){const b=document.createElement('div');b.className='banner show '+cls;b.textContent=text;stage.appendChild(b);setTimeout(()=>b.remove(),1700);}
+function banner(text,cls){const b=document.createElement('div');b.className='banner show '+cls;b.textContent=text;stage.appendChild(b);setTimeout(()=>b.remove(),cls==='win'?2300:1700);if(cls==='win')winFx();}
+// winning: a flash, a ring of light, confetti and coins over the stage
+function winFx(){
+  if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  const fx=document.createElement('div');fx.className='winfx';fx.innerHTML='<i class="wf-flash"></i><i class="wf-ring"></i><i class="wf-ring r2"></i><i class="wf-rays"></i>';stage.appendChild(fx);
+  const W=stage.clientWidth||600,H=stage.clientHeight||400,cols=['#e9c46a','#f4a261','#e76f51','#74c79a','#8ecae6','#f1e3b0','#d67ab1'];
+  for(let i=0;i<70;i++){const p=document.createElement('i');const coin=i%5===0;p.className=coin?'wf-coin':'wf-bit';if(!coin){p.style.background=cols[i%cols.length];p.style.width=(5+rnd()*6)+'px';p.style.height=(8+rnd()*8)+'px';}
+    const side=i%2?1:-1,x0=W/2+side*rnd()*40,y0=H*.55,ang=(-Math.PI/2)+side*(.15+rnd()*1.1),v=180+rnd()*(W*.55),dx=Math.cos(ang)*v,dy=Math.sin(ang)*v;
+    p.style.left=x0+'px';p.style.top=y0+'px';fx.appendChild(p);
+    p.animate([{transform:'translate(0,0) rotate(0deg)',opacity:1},{transform:`translate(${dx*.7}px,${dy}px) rotate(${side*(200+rnd()*300)}deg)`,opacity:1,offset:.45},{transform:`translate(${dx}px,${dy+H*.9}px) rotate(${side*(500+rnd()*500)}deg)`,opacity:0}],{duration:1500+rnd()*900,delay:rnd()*180,easing:'cubic-bezier(.2,.7,.4,1)',fill:'forwards'});}
+  setTimeout(()=>fx.remove(),2700);
+}

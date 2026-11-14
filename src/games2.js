@@ -19,7 +19,7 @@ GAMES.blackjack={id:'blackjack',mode:'play',shoe:[],choiceLabel:'누가 이길�
   draw(sh,hand,good,bad,st,isPlayer){
     let c=sh.pop();
     // near-miss: when the player busts, make it bust by exactly 22 if such a card is close in the shoe
-    if(isPlayer&&nm('blackjack')&&bjScore(hand.concat([c]))<0&&bjVal(hand).t<=21){const need=22-bjVal(hand).t;
+    if(isPlayer&&nm('blackjack')&&bjScore(hand.concat([c]))<0&&bjVal(hand).t<=21&&nmHit('blackjack',1)){const need=22-bjVal(hand).t;
       for(let i=sh.length-1;i>=Math.max(0,sh.length-12);i--){const v=sh[i].r===1?1:Math.min(10,sh[i].r);if(v===need){const alt=sh.splice(i,1)[0];sh.unshift(c);c=alt;break;}}}
     const g=rnd()<good,b=!g&&rnd()<bad;
     if(g||b){const c2=sh.pop();const s1=bjScore(hand.concat([c])),s2=bjScore(hand.concat([c2]));
@@ -141,14 +141,13 @@ GAMES.roulette={id:'roulette',angle:0,choiceLabel:'베팅 종류',
   },
   async play(bet,pick){
     const bt=RBETS[pick],x=this.num();
-    const rc=myRounds('roulette'),sr=schedRule('roulette',rc.total,rc.per);
-    const br=balRule('roulette',myBal()),bsr=br&&isFinite(br.v)?br:sr;
-    const gen=()=>{const p=bsr&&isFinite(bsr.v)?Math.max(0,Math.min(1,bsr.v/100)):sr&&isFinite(sr.v)?Math.max(0,Math.min(1,sr.v/100)):CFG.roul&&CFG.roul[bt.k];
+    const adj=ruleAdj('roulette');
+    const gen=()=>{const set=CFG.roul&&CFG.roul[bt.k];const has=typeof set==='number'&&set>=0&&set<=1;const p=has||adj?Math.max(0,Math.min(1,(has?set:rOfficial(bt))+adj)):null;
       if(typeof p==='number'&&p>=0&&p<=1){const want=rnd()<p;const pool=[...Array(37).keys()].filter(n=>!!bt.win(n,x)===want);return pool.length?pool[Math.floor(rnd()*pool.length)]:Math.floor(rnd()*37);}
       return Math.floor(rnd()*37);};
     const r=resolve('roulette',bet,gen,n=>bt.win(n,x)?bet*bt.pay:0);let n=r.o;
     // near-miss: a losing ball stops right next to what the player wanted
-    if(nm('roulette')&&!bt.win(n,x)&&rnd()<.75){const i=RW.indexOf(x);
+    if(!bt.win(n,x)&&nmHit('roulette',.75)){const i=RW.indexOf(x);
       const near={num:[RW[(i+1)%37],RW[(i+36)%37]],low:[19],high:[18],d1:[13],d2:[12,25],d3:[24],red:[0],black:[0],odd:[0],even:[0]}[bt.k]||[];
       const ok=near.filter(v=>!bt.win(v,x));if(ok.length)n=ok[Math.floor(rnd()*ok.length)];}
     if(bt.k==='num'&&curBetInfo)curBetInfo.pick='숫자 '+x;

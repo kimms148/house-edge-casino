@@ -34,7 +34,7 @@ function renderRank(){
   $('#classTabs').innerHTML=[0,1,2,3,4,5,6,7].map(k=>`<button type="button" data-c="${k}" aria-pressed="${k===rankCls}">${k?k+'반':'전체'}</button>`).join('');
   const list=rankCls===0?(RANK.all||[]):(RANK.byClass[rankCls]||[]);
   tbl.innerHTML=`<thead><tr><th>순위</th><th>${rankCls===0?'반 · 번호':'번호'}</th><th>이름</th><th class="n">자산</th><th class="n">수익률</th><th class="n">판수</th></tr></thead><tbody>${
-    list.length?list.map((u,i)=>`<tr class="${S.me&&u.sid===S.me.sid?'me':''}"><td><span class="medal ${i<3?'m'+(i+1):''}">${i+1}</span></td><td>${rankCls===0?u.grade+'학년 '+u.cls+'반 '+u.num+'번':u.grade+'학년 '+u.num+'번'}</td><td>${esc(u.name)}${u.real?' <span class="hint">('+esc(u.real)+')</span>':''}${S.me&&u.sid===S.me.sid?' <span class="tag on">나</span>':''}</td><td class="n">${fmt(u.bal)}${u.debt?' <span class="debt-tag">빚 '+fmt(u.debt)+'</span>':''}</td><td class="n ${u.rate>=0?'pos':'neg'}">${pfmt(u.rate)}</td><td class="n">${u.rounds}</td></tr>`).join('')
+    list.length?list.map((u,i)=>`<tr class="${S.me&&u.sid===S.me.sid?'me':''}"><td><span class="medal ${i<3?'m'+(i+1):''}">${i+1}</span></td><td>${rankCls===0?u.grade+'학년 '+u.cls+'반 '+u.num+'번':u.grade+'학년 '+u.num+'번'}</td><td>${S.admin?'<span class="namebtn" data-log="'+esc(u.sid)+'" role="button" tabindex="0">'+esc(u.name)+'</span>':esc(u.name)}${u.real?' <span class="hint">('+esc(u.real)+')</span>':''}${S.me&&u.sid===S.me.sid?' <span class="tag on">나</span>':''}</td><td class="n">${fmt(u.bal)}${u.debt?' <span class="debt-tag">빚 '+fmt(u.debt)+'</span>':''}</td><td class="n ${u.rate>=0?'pos':'neg'}">${pfmt(u.rate)}</td><td class="n">${u.rounds}</td></tr>`).join('')
     :`<tr><td colspan="6" class="hint" style="text-align:center;padding:20px">${rankCls?rankCls+'반에는 ':''}아직 가입한 학생이 없습니다.</td></tr>`}</tbody>`;
 }
 $('#classBoard').addEventListener('click',e=>{const b=e.target.closest('[data-c]');if(b){rankCls=+b.dataset.c;renderRank();}});
@@ -113,9 +113,11 @@ function saveCfg(){CFG.v=Date.now();clearTimeout(rigTimer);rigTimer=setTimeout((
 function buildRigPanel(){
   const el=$('#rigList');
   el.innerHTML=`
-  <div><label for="rgGlobal">전체 학생 승률 조정</label><div class="slider-row"><input type="range" id="rgGlobal" min="-100" max="100" step="5"><output id="rgGlobalV"></output></div>
-  <div class="sub">음수: 학생이 이긴 판을 그 확률로 패배로 바꿉니다. 양수: 진 판을 승리로 바꿉니다.</div></div>
-  <div><div style="font-size:13px;margin-bottom:6px">게임별 확률</div>
+  <div><label for="rgGlobal">게임 전체 승률</label><div class="slider-row"><input type="range" id="rgGlobal" min="-100" max="100" step="5"><output id="rgGlobalV"></output></div>
+  <div class="sub">다른 설정과 상관없이 학생이 당첨될 확률을 올리거나 내립니다. −30%면 이긴 판 10판 중 3판을 패배로, +30%면 진 판 10판 중 3판을 승리로 바꿉니다.</div></div>
+  <div><div style="font-size:13px;margin-bottom:6px">게임별 승률</div>${GIDS.map(g=>`<div class="slider-row"><label for="rg_${g}" style="width:84px;font-size:12px">${META[g].name}</label><input type="range" id="rg_${g}" min="-100" max="100" step="5"><output id="rg_${g}V"></output></div>`).join('')}
+  <div class="sub">게임 전체 승률에 더해집니다.</div></div>
+  <div><div style="font-size:13px;margin-bottom:6px">기본 확률 · 그래프 상한</div>
     <div class="odds-grid">
       <label for="od_coin">동전 적중</label><span class="cell"><input type="number" id="od_coin" min="0" max="100" step="1" placeholder="50">%</span>
       <label for="od_rpsWin">가위바위보</label><span class="cell">승 <input type="number" id="od_rpsWin" min="0" max="100" step="1" placeholder="33">% 무 <input type="number" id="od_rpsDraw" min="0" max="100" step="1" placeholder="33">%</span>
@@ -139,14 +141,14 @@ function buildRigPanel(){
   <details class="sub-more"><summary>룰렛 당첨 확률</summary><div class="odds-grid" style="margin-top:6px">${RBETS.map(b=>`<label for="ro_${b.k}">${b.label}</label><span class="cell"><input type="number" id="ro_${b.k}" min="0" max="100" step="0.5" placeholder="${(rOfficial(b)*100).toFixed(2)}">% <span class="sub">공식 ${(rOfficial(b)*100).toFixed(2)}%</span></span>`).join('')}</div>
   <div class="sub" style="margin-top:4px">비워 두면 공식 확률입니다. 학생 화면에는 항상 공식 확률이 표시됩니다.</div>
   <div class="abtns" style="margin-top:6px"><button type="button" class="abtn" id="roReset">룰렛 확률 원래대로</button></div></details>
-  <details class="sub-more"><summary>게임별 추가 조작 (결과 재추첨)</summary>${GIDS.map(g=>`<div class="slider-row"><label for="rg_${g}" style="width:84px;font-size:12px">${META[g].name}</label><input type="range" id="rg_${g}" min="-100" max="100" step="5"><output id="rg_${g}V"></output></div>`).join('')}</details>
-  <div class="toggle" style="display:block"><label>판수별 확률</label><div class="sub">학생마다 판수를 세서, 정한 판수까지는 앞 값을, 그다음부터는 뒤 값을 씁니다. 동전·홀짝·가위바위보·룰렛은 <b>승리 확률 %</b>, 나머지 게임과 '전체'는 <b>승률 조정 %</b>(−100~+100, 위 슬라이더와 같은 뜻)입니다.</div>
+  <div class="toggle" style="display:block"><label>판수별 확률</label><div class="sub">학생마다 판수를 세서, 정한 판수까지는 앞 값을, 그다음부터는 뒤 값을 <b>원래 확률에 더하거나 뺍니다</b>. −20이라고 적으면 원래 확률에서 20만큼 깎입니다 (동전 50% → 30%). 동전·홀짝·가위바위보·룰렛은 확률에서 그대로 빼고, 나머지 게임과 '전체'는 그 비율만큼 이긴 판을 패배로(또는 진 판을 승리로) 바꿉니다.</div>
     <div id="schedList" style="display:grid;gap:6px;margin-top:6px"></div>
     <div class="abtns" style="margin-top:6px"><button type="button" class="abtn" id="schedAdd">규칙 추가</button></div></div>
-  <div class="toggle" style="display:block"><label>보유 포인트별 확률</label><div class="sub">학생이 베팅할 때 가진 포인트에 따라 확률을 바꿉니다. 예: 50,000P 이상이면 동전 승리 확률 30%. 같은 게임에 규칙이 여러 개 맞으면 기준선이 학생 포인트에 가장 가까운 규칙을 씁니다. 판수별 확률보다 먼저 적용됩니다. 단위는 판수별 확률과 같습니다.</div>
+  <div class="toggle" style="display:block"><label>보유 포인트별 확률</label><div class="sub">학생이 베팅할 때 가진 포인트에 따라 확률을 바꿉니다. 예: 50,000P 이상이면 동전 −20 (50% → 30%). 같은 게임에 규칙이 여러 개 맞으면 기준선이 학생 포인트에 가장 가까운 규칙을 씁니다. 판수별 확률과 함께 맞으면 둘을 더합니다. 적는 방법은 판수별 확률과 같습니다.</div>
     <div id="balrList" style="display:grid;gap:6px;margin-top:6px"></div>
     <div class="abtns" style="margin-top:6px"><button type="button" class="abtn" id="balrAdd">규칙 추가</button></div></div>
   <div class="toggle" style="display:block"><label>니어미스 연출</label><div class="sub">진 판을 '아깝게 놓친 것처럼' 보여 줍니다. 결과(승패·금액)는 바뀌지 않습니다.</div>
+    <div class="abtns" style="margin-top:6px"><label for="nmP" style="font-size:12px">연출이 터질 확률</label><input type="number" id="nmP" min="0" max="100" step="5" placeholder="기본" style="width:70px"><span class="sub">% (진 판 중에서. 비우면 게임별 기본값: 슬롯 60, 룰렛 75, 나머지 100)</span></div>
     <div class="pause-grid" style="margin-top:6px">
       <label title="진 판을 7·7·(빗나감)으로"><input type="checkbox" class="nmc" data-g="slot">슬롯 (7·7·빗나감)</label>
       <label title="고른 숫자 바로 옆 칸에 멈춤"><input type="checkbox" class="nmc" data-g="roulette">룰렛 (바로 옆 칸)</label>
@@ -161,13 +163,14 @@ function buildRigPanel(){
   GIDS.forEach(g=>bind('#rg_'+g,e=>{CFG.games[g]=e.target.value/100;$('#rg_'+g+'V').textContent=biasText(CFG.games[g]);saveCfg();refreshEff();}));
   // old single "lure" switch becomes a schedule rule
   if(CFG.lure&&CFG.lure.on&&!(CFG.sched&&CFG.sched.length)){CFG.sched=[{g:'all',n:CFG.lure.rounds,a:Math.round(CFG.lure.boost*100),b:0}];CFG.lure.on=false;saveCfg();}
-  $('#schedAdd').onclick=()=>{CFG.sched=(CFG.sched||[]).concat([{g:'coin',n:10,a:70,b:30}]);saveCfg();paintSched();refreshEff();};
+  $('#schedAdd').onclick=()=>{CFG.sched=(CFG.sched||[]).concat([{g:'coin',n:10,a:20,b:-20}]);saveCfg();paintSched();refreshEff();};
   $('#schedList').addEventListener('change',readSched);
-  $('#balrAdd').onclick=()=>{CFG.balr=(CFG.balr||[]).concat([{g:'coin',op:'ge',x:50000,v:30}]);saveCfg();paintBalr();refreshEff();};
+  $('#balrAdd').onclick=()=>{CFG.balr=(CFG.balr||[]).concat([{g:'coin',op:'ge',x:50000,v:-20}]);saveCfg();paintBalr();refreshEff();};
   $('#balrList').addEventListener('change',readBalr);
   $('#balrList').addEventListener('click',e=>{const b=e.target.closest('[data-del]');if(!b)return;CFG.balr.splice(+b.dataset.del,1);saveCfg();paintBalr();refreshEff();});
   $('#schedList').addEventListener('click',e=>{const b=e.target.closest('[data-del]');if(!b)return;CFG.sched.splice(+b.dataset.del,1);saveCfg();paintSched();refreshEff();});
   document.querySelectorAll('.nmc').forEach(cb=>cb.addEventListener('change',()=>{const o={};document.querySelectorAll('.nmc').forEach(x=>{if(x.checked)o[x.dataset.g]=true;});CFG.nearMiss=o;saveCfg();}));
+  $('#nmP').addEventListener('change',e=>{const v=e.target.value.trim();if(v==='')delete CFG.nmP;else{CFG.nmP=Math.max(0,Math.min(100,Math.round(+v||0)));e.target.value=CFG.nmP;}saveCfg();});
   paintSched();paintBalr();
   $('#rgReveal').addEventListener('change',e=>{CFG.reveal=e.target.checked;saveCfg();toast(CFG.reveal?'모든 학생에게 공개합니다':'공개를 껐습니다');});
   const oddsIds={coin:'od_coin',rpsWin:'od_rpsWin',rpsDraw:'od_rpsDraw',oddeven:'od_oddeven'};
@@ -194,14 +197,14 @@ function buildRigPanel(){
   $('#rigReset').onclick=()=>{const keep=CFG.reveal,keepP=CFG.paused,keepO=CFG.odds,keepC=CFG.crashCap;CFG=JSON.parse(JSON.stringify(DEF_CFG));CFG.reveal=keep;CFG.paused=keepP;CFG.odds=keepO;CFG.crashCap=keepC;saveCfg();syncRigPanel();refreshEff();sendCmd('all','clearforce');};
   syncRigPanel();
 }
-const unitOf=g=>DIRECT[g]?'% 승리 확률':'% 승률 조정';
+const unitOf=g=>'% (＋올림 / −깎음)';
 function paintSched(){const el=$('#schedList');if(!el)return;const list=CFG.sched||[];
   el.innerHTML=list.length?list.map((r,i)=>`<div class="abtns" data-i="${i}" style="background:var(--steel);border:1px solid var(--sline);border-radius:6px;padding:6px">
     <select data-k="g" style="background:var(--steel2);border:1px solid var(--sline);color:var(--sink);border-radius:4px;font-size:12px;padding:2px 4px"><option value="all">전체 게임</option>${GIDS.map(g=>`<option value="${g}" ${r.g===g?'selected':''}>${META[g].name}</option>`).join('')}</select>
     <span style="font-size:12px">처음</span><input type="number" data-k="n" min="0" max="10000" value="${r.n}" style="width:56px"><span style="font-size:12px">판까지</span>
     <input type="number" data-k="a" value="${r.a}" style="width:56px"><span style="font-size:12px">→ 그 뒤</span><input type="number" data-k="b" value="${r.b}" style="width:56px">
     <span class="sub">${unitOf(r.g)}</span><button type="button" class="abtn l" data-del="${i}" aria-label="규칙 삭제">삭제</button></div>`).join('')
-    :'<div class="sub">규칙이 없습니다. 예: 동전 처음 10판까지 70% → 그 뒤 30%</div>';
+    :'<div class="sub">규칙이 없습니다. 예: 동전 처음 10판까지 +20 → 그 뒤 −20</div>';
   list.forEach((r,i)=>{const s=el.querySelector(`[data-i="${i}"] select`);if(s)s.value=r.g;});}
 function paintBalr(){const el=$('#balrList');if(!el)return;const list=CFG.balr||[];const sel='background:var(--steel2);border:1px solid var(--sline);color:var(--sink);border-radius:4px;font-size:12px;padding:2px 4px';
   el.innerHTML=list.length?list.map((r,i)=>`<div class="abtns" data-i="${i}" style="background:var(--steel);border:1px solid var(--sline);border-radius:6px;padding:6px">
@@ -209,13 +212,13 @@ function paintBalr(){const el=$('#balrList');if(!el)return;const list=CFG.balr||
     <span style="font-size:12px">보유</span><input type="number" data-k="x" min="0" step="1000" value="${r.x}" style="width:84px"><span style="font-size:12px">P</span>
     <select data-k="op" style="${sel}"><option value="ge">이상이면</option><option value="lt">미만이면</option></select>
     <input type="number" data-k="v" value="${r.v}" style="width:56px"><span class="sub">${unitOf(r.g)}</span><button type="button" class="abtn l" data-del="${i}" aria-label="규칙 삭제">삭제</button></div>`).join('')
-    :'<div class="sub">규칙이 없습니다. 예: 동전 · 보유 50,000P 이상이면 30%</div>';
+    :'<div class="sub">규칙이 없습니다. 예: 동전 · 보유 50,000P 이상이면 −20</div>';
   list.forEach((r,i)=>{const row=el.querySelector(`[data-i="${i}"]`);if(!row)return;row.querySelector('[data-k="g"]').value=r.g;row.querySelector('[data-k="op"]').value=r.op==='lt'?'lt':'ge';});}
 function readBalr(){const rows=[...document.querySelectorAll('#balrList [data-i]')];
-  CFG.balr=rows.map(row=>{const v=k=>row.querySelector(`[data-k="${k}"]`).value;const g=v('g');const lim=DIRECT[g]?[0,100]:[-100,100];return{g,op:v('op')==='lt'?'lt':'ge',x:Math.max(0,Math.floor(+v('x')||0)),v:Math.max(lim[0],Math.min(lim[1],Math.round(+v('v')||0)))};});
+  CFG.balr=rows.map(row=>{const v=k=>row.querySelector(`[data-k="${k}"]`).value;const g=v('g');const lim=[-100,100];return{g,op:v('op')==='lt'?'lt':'ge',x:Math.max(0,Math.floor(+v('x')||0)),v:Math.max(lim[0],Math.min(lim[1],Math.round(+v('v')||0)))};});
   saveCfg();paintBalr();refreshEff();}
 function readSched(){const rows=[...document.querySelectorAll('#schedList [data-i]')];
-  CFG.sched=rows.map(row=>{const v=k=>row.querySelector(`[data-k="${k}"]`).value;const g=v('g');const lim=DIRECT[g]?[0,100]:[-100,100];const c=x=>Math.max(lim[0],Math.min(lim[1],Math.round(+x||0)));return{g,n:Math.max(0,Math.floor(+v('n')||0)),a:c(v('a')),b:c(v('b'))};});
+  CFG.sched=rows.map(row=>{const v=k=>row.querySelector(`[data-k="${k}"]`).value;const g=v('g');const lim=[-100,100];const c=x=>Math.max(lim[0],Math.min(lim[1],Math.round(+x||0)));return{g,n:Math.max(0,Math.floor(+v('n')||0)),a:c(v('a')),b:c(v('b'))};});
   saveCfg();paintSched();refreshEff();}
 function syncRigPanel(){
   if(!$('#rgGlobal'))return;const act=document.activeElement;
@@ -225,6 +228,7 @@ function syncRigPanel(){
   document.querySelectorAll('.nmc').forEach(x=>{x.checked=nm(x.dataset.g);});
   if(!$('#schedList').contains(act))paintSched();
   if(!$('#balrList').contains(act))paintBalr();
+  if($('#nmP')!==act)$('#nmP').value=CFG.nmP!=null&&CFG.nmP!==''?CFG.nmP:'';
   if($('#od_cmin')!==act)$('#od_cmin').value=+CFG.crashMin>=1?CFG.crashMin:'';
   const od=CFG.odds||{};for(const [k,id] of [['coin','od_coin'],['rpsWin','od_rpsWin'],['rpsDraw','od_rpsDraw'],['oddeven','od_oddeven']]){const el=$('#'+id);if(el&&el!==act)el.value=typeof od[k]==='number'?Math.round(od[k]*1000)/10:'';}
   if($('#od_crash')!==act)$('#od_crash').value=CFG.crashCap>=1.01?CFG.crashCap:'';
@@ -271,6 +275,12 @@ function noticePump(){const m=$('#noticeModal');
   ntTimer=setInterval(()=>{left--;if(left<=0){clearInterval(ntTimer);b.disabled=false;b.textContent='확인했습니다';b.focus();}else b.textContent='확인했습니다 ('+left+')';},1000);}
 $('#ntOk').onclick=()=>{if(!ntCur||$('#ntOk').disabled)return;if(!svSend({t:'noticeack',id:ntCur})){toast('서버에 연결된 뒤에 다시 누르세요');return;}NQ=NQ.filter(n=>n.id!==ntCur);ntCur=null;$('#noticeModal').hidden=true;noticePump();};
 setInterval(noticePump,700);
+function paintNoticeBtn(){const n=(NALL||[]).length;const c=$('#noticeCnt');if(c){c.hidden=!n;c.textContent=n;}}
+function openNoticeBoard(){const when=t=>new Date(t).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  $('#nbList').innerHTML=(NALL||[]).length?NALL.map(n=>`<div class="nb-item"><small>${when(n.at)}</small><div>${esc(n.text)}</div></div>`).join(''):'<div class="hint">올라온 공지가 없습니다.</div>';
+  $('#noticeBoard').hidden=false;$('#noticeBoard').scrollTop=0;}
+$('#noticeBtn').onclick=openNoticeBoard;$('#nbClose').onclick=()=>{$('#noticeBoard').hidden=true;};
+$('#noticeBoard').addEventListener('click',e=>{if(e.target.id==='noticeBoard')e.currentTarget.hidden=true;});
 function renderNotices(){const el=$('#ntList');if(!el)return;
   el.innerHTML=NOTICES.length?NOTICES.map(n=>`<div class="nt-item"><div class="nt-text">${esc(n.text)}</div><div class="nt-foot"><span>${new Date(n.at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} · <b>읽음 ${n.read} / ${n.total}명</b></span><button type="button" class="abtn l" data-ntdel="${esc(n.id)}">삭제</button></div>${n.unread.length?`<details><summary>안 읽은 학생 ${n.total-n.read}명</summary><div class="nt-un">${n.unread.map(esc).join(', ')}</div></details>`:n.total?'<div class="nt-un">모두 읽었습니다.</div>':''}</div>`).join(''):'<div class="hint" style="color:var(--smute)">보낸 공지가 없습니다.</div>';}
 $('#ntText').addEventListener('input',()=>{$('#ntCount').textContent=$('#ntText').value.length+' / 500';});
@@ -308,7 +318,7 @@ $('#nickClose').onclick=()=>{$('#nickModal').hidden=true;};
 $('#nickForm').addEventListener('submit',e=>{e.preventDefault();const v=$('#nickIn').value.trim();if(v&&!/^[가-힣A-Za-z0-9_]{2,10}$/.test(v)){$('#nickErr').textContent='닉네임은 한글·영문·숫자 2~10자로 입력하세요.';return;}if(v&&S.bal<nickCost()){$('#nickErr').textContent='닉네임을 바꾸려면 '+fmt(nickCost())+'가 필요합니다. (보유 '+fmt(S.bal)+')';return;}$('#nickErr').textContent='';svSend({t:'nick',nick:v});});
 function makeRow(u){
   const tr=document.createElement('div');tr.className='pcard';const sid=u.sid;
-  tr.innerHTML=`<div class="pc-top"><span class="odot"></span><b class="pc-name"></b><span class="pc-id"></span><span class="pc-st"></span></div>
+  tr.innerHTML=`<div class="pc-top"><span class="odot"></span><b class="pc-name" data-log="${sid}" role="button" tabindex="0" title="눌러서 전적·조작 내역 보기"></b><span class="pc-id"></span><span class="pc-st"></span></div>
   <div class="pc-money"><b class="bl"></b><span class="pc-rate rt"></span><span class="pc-loan"></span></div>
   <div class="pc-live" hidden></div>
   <div class="pc-meta"></div>
@@ -365,17 +375,35 @@ function makeRow(u){
 /* one student's log (admin) */
 let logSid=null,logData=null;
 function openLog(sid){logSid=sid;logData=null;$('#logBody').innerHTML='<tr><td colspan="6" class="empty-note">불러오는 중…</td></tr>';$('#logKpis').innerHTML='';
-  const u=(USERS||[]).find(x=>x.sid===sid);$('#logT').textContent=u?`${u.cls}반 ${u.num}번 ${u.name} 로그`:'학생 로그';
+  const u=(USERS||[]).find(x=>x.sid===sid);$('#logT').textContent=u?`${u.cls}반 ${u.num}번 ${u.name}${u.nick?' ('+u.nick+')':''}`:'학생 정보';
   $('#logGame').innerHTML='<option value="">모든 게임</option>'+GIDS.map(g=>`<option value="${g}">${META[g].name}</option>`).join('');
   $('#logModal').hidden=false;svSend({t:'adm',op:'userlog',sid});}
 function closeLog(){$('#logModal').hidden=true;logSid=null;svSend({t:'adm',op:'userlogclose'});}
 $('#logClose').onclick=closeLog;
+$('#logBig').onclick=()=>{const bx=$('#logModal .box');const on=bx.classList.toggle('big');$('#logBig').textContent=on?'작게 보기':'크게 보기';$('#logChart').style.height=on?'320px':'200px';$('#logWrap').style.maxHeight=on?'none':'min(40vh,420px)';if(logData)renderLog(logData);};
+// in the admin screens, pressing a student's name anywhere opens that student's window
+document.addEventListener('click',e=>{if(!S.admin)return;const b=e.target.closest('[data-log]');if(b&&!b.closest('#feed')){e.stopPropagation();openLog(b.dataset.log);}});
+function lineChart(cv,pts,H,label){const dpr=window.devicePixelRatio||1;const W=cv.clientWidth;if(!W)return;cv.width=W*dpr;cv.height=H*dpr;const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,W,H);c.font='11px DM Mono, monospace';
+  if(pts.length<2){c.fillStyle='#8a857c';c.fillText('아직 기록이 없습니다.',16,H/2);return;}
+  const L=78,R=14,T=14,B=24;let mn=Math.min(...pts),mx=Math.max(...pts);if(mn===mx){mn-=100;mx+=100;}const pad=(mx-mn)*.08;mn=Math.max(0,mn-pad);mx+=pad;
+  const X=i=>L+(W-L-R)*i/(pts.length-1),Y=v=>T+(H-T-B)*(mx-v)/(mx-mn);
+  c.strokeStyle='#ffffff14';c.fillStyle='#8a857c';for(let k=0;k<=4;k++){const v=mn+(mx-mn)*k/4;c.beginPath();c.moveTo(L,Y(v));c.lineTo(W-R,Y(v));c.stroke();c.fillText(fmt(Math.round(v)),4,Y(v)+4);}
+  c.fillText(label[0],L,H-7);c.fillText(label[1],W-R-c.measureText(label[1]).width,H-7);
+  const g=c.createLinearGradient(0,T,0,H-B);g.addColorStop(0,'#d9a66b55');g.addColorStop(1,'#d9a66b00');
+  c.beginPath();c.moveTo(X(0),Y(pts[0]));for(let i=1;i<pts.length;i++)c.lineTo(X(i),Y(pts[i]));c.strokeStyle='#d9a66b';c.lineWidth=2;c.stroke();
+  c.lineTo(X(pts.length-1),H-B);c.lineTo(X(0),H-B);c.closePath();c.fillStyle=g;c.fill();c.lineWidth=1;
+  c.beginPath();c.arc(X(pts.length-1),Y(pts[pts.length-1]),3.5,0,7);c.fillStyle='#f1d9b0';c.fill();}
 $('#logModal').addEventListener('click',e=>{if(e.target.id==='logModal')closeLog();});
 $('#logFilter').addEventListener('change',()=>logData&&renderLog(logData));
 $('#logGame').addEventListener('change',()=>logData&&renderLog(logData));
 function renderLog(m){
   if(m.sid!==logSid)return;logData=m;const st=m.stats||{};
   $('#logKpis').innerHTML=`<div class="akpi"><span>지금 잔액</span><b>${fmt(m.bal)}</b></div><div class="akpi"><span>판수 · 승률</span><b>${st.rounds||0} · ${st.rounds?Math.round(st.wins/st.rounds*100):0}%</b></div><div class="akpi"><span>총 베팅</span><b>${fmt(st.wag||0)}</b></div><div class="akpi"><span>게임 손익</span><b class="${(st.net||0)>=0?'pos':'neg'}">${sfmt(st.net||0)}</b></div><div class="akpi"><span>조작된 판</span><b>${st.manip||0}</b><small>${st.md?'조작으로 '+sfmt(st.md):''}</small></div>`;
+  // money over time: walk back from the balance now through every game result and money event
+  {const all=(m.hist||[]).map(h=>({t:h.t,d:h.p-h.b})).concat((m.events||[]).map(e=>({t:e.t,d:e.d||0,b:e.b}))).sort((a,b)=>b.t-a.t);
+    let bal=m.bal;const pts=[bal];for(const r of all){if(r.b!=null)bal=r.b;bal-=r.d;pts.push(Math.max(0,bal));}pts.reverse();
+    const d0=all.length?new Date(all[all.length-1].t):null;lineChart($('#logChart'),pts,$('#logModal .box').classList.contains('big')?320:200,[d0?(d0.getMonth()+1)+'/'+d0.getDate()+' '+String(d0.getHours()).padStart(2,'0')+':'+String(d0.getMinutes()).padStart(2,'0'):'','지금 '+fmt(m.bal)]);}
+  $('#logGames').innerHTML='<thead><tr><th>게임</th><th class="n">판 수</th><th class="n">승률</th><th class="n">베팅액</th><th class="n">손익</th><th class="n">조작된 판</th></tr></thead><tbody>'+GIDS.map(g=>{const r=(st.games&&st.games[g])||{n:0,w:0,net:0,wag:0};const mh=(m.hist||[]).filter(h=>h.g===g&&h.m).length;return r.n?`<tr><td>${META[g].name}</td><td class="n">${r.n}</td><td class="n">${(r.w/r.n*100).toFixed(1)}%</td><td class="n">${fmt(r.wag)}</td><td class="n ${r.net>=0?'pos':'neg'}">${sfmt(r.net)}</td><td class="n">${mh||'–'}</td></tr>`:'';}).join('')+'</tbody>';
   const f=$('#logFilter').value,gf=$('#logGame').value;
   let rows=(m.hist||[]).map(h=>({t:h.t,game:h.g,b:h.b,p:h.p,d:h.p-h.b,m:h.m,md:h.d}));
   rows=rows.concat((m.events||[]).map(e=>({t:e.t,ev:e,d:e.d,bal:e.b})));
@@ -405,7 +433,7 @@ function renderInbox(){
   el.innerHTML='';
   for(const m of list){const d=document.createElement('div');d.className='mitem'+(m.read?'':' unread');
     d.innerHTML=`<div class="meta"><span><b style="color:var(--sink);font-weight:500"></b> · ${m.grade||''}학년 ${m.cls}반 ${m.num}번 · ${dt(m.t)}</span><span class="abtns"><button type="button" class="abtn" data-a="read">${m.read?'안 읽음으로':'읽음 표시'}</button><button type="button" class="abtn l" data-a="del">삭제</button></span></div><p></p>`;
-    d.querySelector('.meta b').textContent=m.name;d.querySelector('p').textContent=m.body;
+    d.querySelector('.meta b').textContent=m.name;if(m.sid){d.querySelector('.meta b').dataset.log=m.sid;d.querySelector('.meta b').classList.add('namebtn');}d.querySelector('p').textContent=m.body;
     let arm=0;d.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;
       if(b.dataset.a==='read')svSend({t:'adm',op:'mailread',id:m.id});
       else{if(Date.now()-arm>3000){arm=Date.now();b.textContent='한 번 더 누르면 삭제';return;}svSend({t:'adm',op:'maildel',id:m.id});}});
@@ -436,6 +464,10 @@ function buildOps(){
   <div><label for="opInv">친구 초대 보상</label><div class="abtns" style="margin-top:4px"><input type="number" id="opInv" min="0" step="500"><button type="button" class="abtn" id="opInvSave">저장</button></div><div class="sub">초대 링크로 가입한 친구를 승인하면 링크 주인에게 이만큼 지급합니다. 0이면 보상 없이 횟수만 셉니다.</div></div>
   <div><label for="opGarn">대출 자동 상환 비율 (%)</label><div class="abtns" style="margin-top:4px"><input type="number" id="opGarn" min="0" max="100" step="5"><button type="button" class="abtn" id="opGarnSave">저장</button></div><div class="sub">빚이 있는 학생이 게임에서 이기면 딴 돈(순이익)의 이만큼이 자동으로 대출소에 갑니다. 0이면 끕니다.</div></div>
   <div class="toggle" style="display:block"><label for="opAllAmt">한꺼번에 지급 · 회수</label><div class="abtns" style="margin-top:4px"><select id="opAllCls" style="background:var(--steel);border:1px solid var(--sline);color:var(--sink);border-radius:4px;padding:3px 6px;font-size:12px"><option value="0">전체</option>${[1,2,3,4,5,6,7].map(k=>`<option value="${k}">${k}반</option>`).join('')}</select><input type="number" id="opAllAmt" min="1" step="1000" placeholder="금액"><button type="button" class="abtn w" id="opAllGive">지급</button><button type="button" class="abtn l" id="opAllTake">회수</button></div></div>`;
+  $('#opsList').insertAdjacentHTML('beforeend',`<div><label for="opInvCr">친구 초대 신용 점수</label><div class="abtns" style="margin-top:4px"><input type="number" id="opInvCr" min="0" max="50" step="1"><button type="button" class="abtn" id="opInvCrSave">저장</button></div><div class="sub">초대한 친구의 가입을 승인하면 링크 주인의 신용 점수가 이만큼 오릅니다. 0이면 오르지 않습니다.</div></div>
+  <div class="toggle" style="display:block"><label for="opPwCur">관리자 비밀번호 변경</label><div class="abtns" style="margin-top:4px"><input type="password" id="opPwCur" placeholder="지금 비밀번호" autocomplete="current-password" style="width:120px"><input type="password" id="opPwNew" placeholder="새 비밀번호 (6자 이상)" autocomplete="new-password" style="width:150px"><input type="password" id="opPwNew2" placeholder="새 비밀번호 확인" autocomplete="new-password" style="width:130px"><button type="button" class="abtn" id="opPwSave">변경</button></div><div class="sub">다음 로그인부터 새 비밀번호를 씁니다. 잊어버리면 되돌릴 수 없으니 적어 두세요.</div></div>`);
+  $('#opInvCrSave').onclick=()=>{const v=Math.floor(+$('#opInvCr').value);if(!(v>=0&&v<=50)||$('#opInvCr').value===''){toast('0~50 사이로 입력하세요');return;}svSend({t:'adm',op:'settings',inviteCredit:v});};
+  $('#opPwSave').onclick=()=>{const a=$('#opPwCur').value,b=$('#opPwNew').value,c=$('#opPwNew2').value;if(!a||!b){toast('지금 비밀번호와 새 비밀번호를 입력하세요');return;}if(b.length<6){toast('새 비밀번호는 6자 이상이어야 합니다');return;}if(b!==c){toast('새 비밀번호 확인이 일치하지 않습니다');return;}if(svSend({t:'adm',op:'adminpw',cur:a,pw:b})){$('#opPwCur').value=$('#opPwNew').value=$('#opPwNew2').value='';}};
   $('#opsList').insertAdjacentHTML('beforeend',`<div class="toggle" style="display:block"><label>모든 학생 계정 삭제</label><div class="sub">가입한 학생과 가입 요청, 포인트·기록·대출·대화·건의를 전부 지웁니다. 되돌릴 수 없습니다. 확률 설정과 운영 설정은 그대로 둡니다.</div><div class="abtns" style="margin-top:4px"><button type="button" class="abtn l" id="opDelAll">모든 학생 삭제…</button></div></div>`);
   if(window.Notification){$('#opsList').insertAdjacentHTML('afterbegin',`<div><label>가입 요청 알림</label><div class="sub">새 가입 요청이 오면 어느 화면에 있든 오른쪽 위에 알림 카드가 뜨고 소리가 납니다. 다른 탭을 보고 있을 때도 알림을 받으려면 브라우저 알림을 켜세요.</div><div class="abtns" style="margin-top:4px"><button type="button" class="abtn" id="opNotif"></button></div><div style="border-top:1px solid var(--sline);margin-top:10px"></div></div>`);
     const pn=()=>{const p=Notification.permission;$('#opNotif').textContent=p==='granted'?'브라우저 알림 켜짐':p==='denied'?'브라우저에서 알림이 차단됨':'브라우저 알림 켜기';$('#opNotif').disabled=p!=='default';};pn();
@@ -452,7 +484,7 @@ function buildOps(){
   $('#opAllGive').onclick=()=>all(false);$('#opAllTake').onclick=()=>all(true);
   syncOps();
 }
-function syncOps(){const el=$('#opStart');if(el&&el!==document.activeElement)el.value=SETTINGS.startBal;const gn=$('#opGarn');if(gn&&gn!==document.activeElement)gn.value=SETTINGS.garnish==null?30:SETTINGS.garnish;const iv=$('#opInv');if(iv&&iv!==document.activeElement)iv.value=SETTINGS.inviteReward==null?1000:SETTINGS.inviteReward;}
+function syncOps(){const el=$('#opStart');if(el&&el!==document.activeElement)el.value=SETTINGS.startBal;const gn=$('#opGarn');if(gn&&gn!==document.activeElement)gn.value=SETTINGS.garnish==null?30:SETTINGS.garnish;const iv=$('#opInv');if(iv&&iv!==document.activeElement)iv.value=SETTINGS.inviteReward==null?1000:SETTINGS.inviteReward;const ic=$('#opInvCr');if(ic&&ic!==document.activeElement)ic.value=SETTINGS.inviteCredit==null?5:SETTINGS.inviteCredit;}
 
 /* ---------------- loan (player): three lenders ---------------- */
 const LENDER_ART={
@@ -468,11 +500,12 @@ const loanAmt={};
 function borrowForm(L,more){const cr=S.me.credit||{},lmin=cr.min||1000,avail=L.avail==null?(cr.avail==null?500000:cr.avail):L.avail,cnt=L.count||0,rate=L.rates[Math.min(cnt,2)],a=L.active,exp=!!(a&&a.at+LOAN_TERM<=Date.now());
   if(loanAmt[L.k]==null||loanAmt[L.k]>avail)loanAmt[L.k]=avail;const amt=Math.max(0,Math.floor(+loanAmt[L.k]||0));
   const lock=!!L.locked,full=avail<lmin,off=lock||full||exp,can=!busy&&!off;
-  return `<div class="row"><span>${more?'더 빌릴 금액':'빌릴 금액'} (${fmt(lmin)} ~ ${fmt(avail)})</span><span class="loan-in"><input type="number" data-amt="${L.k}" min="${lmin}" max="${avail}" step="1000" value="${amt||''}" aria-label="${L.name} 빌릴 금액" ${off?'disabled':''}>P</span></div>
+  return `<div class="row"><span>${more?'더 빌릴 금액':'빌릴 금액'} <b style="color:var(--brass2)">최대 ${fmt(avail)}</b></span><span class="loan-in"><input type="number" data-amt="${L.k}" min="${lmin}" max="${avail}" step="1000" value="${amt||''}" aria-label="${L.name} 빌릴 금액" ${off?'disabled':''}>P</span></div>
           <div class="row"><span>${more?'더 빌리면 바뀌는 이자 (빚 전체)':'시간당 이자'}</span><b>시간당 ${Math.round(rate*100)}%</b></div>
           ${more?'':`<div class="row"><span>24시간 뒤 갚을 돈</span><b style="color:#e08a80" data-due="${L.k}">${fmt(amt*(1+rate*24))}</b></div>
           <div class="row"><span>필요한 신용 등급</span><b style="color:${lock?'#e08a80':'inherit'}">${L.min?L.minGrade+' 이상':'누구나'}</b></div>`}
           <div class="row"><span>이 대출소 한도 (등급 한도 × ${L.mult||1})</span><b>${fmt(L.cap==null?avail:L.cap)}</b></div>
+          <div class="hint" style="text-align:right">최소 ${fmt(lmin)}부터 · <button type="button" class="linkbtn" data-fill="${L.k}" data-max="${avail}" ${off?'disabled':''}>최대 금액 넣기</button></div>
           <button class="btn ${more?'':'primary'}" type="button" data-loan="${L.k}" data-rate="${rate}" data-max="${avail}" ${can?'':'disabled'}>${lock?'신용 등급 부족':exp?'만기 지남 · 먼저 갚기':full?'한도를 모두 썼습니다':more?'더 빌리기':'빌리기'}</button>
           <div class="hint">${lock?'지금 등급('+(cr.grade||'B')+')으로는 여기서 빌릴 수 없습니다.':exp?'만기가 지난 대출은 갚아야 더 빌릴 수 있습니다.':full?'이 대출소의 한도('+fmt(L.cap||0)+')를 모두 빌렸습니다.':can?(more?'기한은 처음 빌린 때부터 24시간 그대로입니다.':''):'판이 끝난 뒤에 빌릴 수 있습니다.'}</div>`;}
 function renderLoan(){
@@ -502,6 +535,7 @@ function renderLoan(){
   };
   paint();loanTimer=setInterval(()=>{if(view!=='loan'){clearInterval(loanTimer);return;}if(!el.contains(document.activeElement))paint();},1000);
 }
+$('#loanCard').addEventListener('click',e=>{const b=e.target.closest('[data-fill]');if(!b||b.disabled)return;const i=$('#loanCard').querySelector('[data-amt="'+b.dataset.fill+'"]');if(i){i.value=b.dataset.max;i.dispatchEvent(new Event('input',{bubbles:true}));}});
 $('#loanCard').addEventListener('click',e=>{const b=e.target.closest('[data-pct]');if(!b||b.disabled)return;const i=$('#loanCard').querySelector('[data-amt="'+b.dataset.k+'"]');if(!i)return;
   i.value=Math.max(+b.dataset.min,Math.floor(+b.dataset.max*(+b.dataset.pct)/100));i.dispatchEvent(new Event('input',{bubbles:true}));});
 $('#loanCard').addEventListener('input',e=>{const i=e.target.closest('[data-amt]');if(!i)return;const k=i.dataset.amt;loanAmt[k]=Math.max(0,Math.floor(+i.value||0));
@@ -530,7 +564,10 @@ function renderChat(){
 }
 $('#chatForm').addEventListener('submit',e=>{e.preventDefault();const v=$('#chatIn').value.trim();if(!v)return;if(svSend({t:'chat',body:v}))$('#chatIn').value='';else toast('서버에 연결되어 있지 않습니다');});
 
-let admChat=null;
+let admChat=null;const typingAt={};let typingTimer=null;
+function chatTyping(sid){typingAt[sid]=Date.now();paintTyping();clearTimeout(typingTimer);typingTimer=setTimeout(paintTyping,3200);}
+function paintTyping(){const el=$('#admTyping');if(!el)return;const on=!!admChat&&Date.now()-(typingAt[admChat]||0)<3000;el.hidden=!on;if(on){const lg=$('#admChatLog');lg.scrollTop=lg.scrollHeight;}}
+let typeSent=0;$('#chatIn').addEventListener('input',()=>{if($('#chatIn').value&&Date.now()-typeSent>1200){typeSent=Date.now();svSend({t:'typing'});}});
 function renderChats(){
   const list=Object.entries(CHATS||{}).filter(([,c])=>c&&Array.isArray(c.msgs));const unread=list.reduce((a,[,c])=>a+(c.unread||0),0);
   const bd=$('#chatBadge');bd.hidden=!unread;bd.textContent=unread;
@@ -551,9 +588,11 @@ function renderChats(){
     b.onclick=()=>{admChat=sid;renderChats();};cl.appendChild(b);}}
   const c=admChat&&CHATS[admChat];const u=admChat&&(USERS||[]).find(x=>x.sid===admChat);
   $('#admChatTitle').textContent=admChat?((u?u.cls+'반 '+u.num+'번 '+u.name:(c?c.name:admChat))):'대화를 고르세요';
+  if(admChat){$('#admChatTitle').dataset.log=admChat;$('#admChatTitle').className='namebtn';}else{delete $('#admChatTitle').dataset.log;$('#admChatTitle').className='';}
   $('#admChatIn').disabled=!admChat;$('#admChatClose').hidden=!(c&&c.open);
   $('#admChatState').textContent=!admChat?'':c&&c.open?(u&&u.pending?'학생이 판을 끝내면 대화 화면으로 넘어갑니다':'대화 중 · 학생은 게임을 할 수 없습니다'):'메시지를 보내면 대화가 시작됩니다';
-  paintLog($('#admChatLog'),c?c.msgs:[],'admin',admChat);
+  if(c&&c.msgs.length&&(c.msgs.at(-1)||{}).from==='user'&&Date.now()-(c.msgs.at(-1).t||0)<1500)typingAt[admChat]=0;
+  paintLog($('#admChatLog'),c?c.msgs:[],'admin',admChat);paintTyping();
   if(c&&c.unread)svSend({t:'adm',op:'chatseen',sid:admChat});
 }
 $('#chatPick').addEventListener('change',e=>{if(e.target.value){admChat=e.target.value;e.target.blur();renderChats();$('#admChatIn').closest('.chat-box').scrollIntoView({block:'nearest'});$('#admChatIn').focus();toast('대화 상대를 골랐습니다. 메시지를 적어 보내세요');}});

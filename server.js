@@ -73,6 +73,8 @@ const sha = s => crypto.createHash('sha256').update(String(s)).digest('hex');
 const hashPw = (pw, salt) => crypto.scryptSync(String(pw), salt, 32).toString('hex');
 function eqHex(a, b) { const x = Buffer.from(a, 'hex'), y = Buffer.from(b, 'hex'); return x.length === y.length && crypto.timingSafeEqual(x, y); }
 function eqStr(a, b) { return eqHex(sha(a), sha(b)); }
+// 관리자 비밀번호: 콘솔에서 바꾸면 해시로 저장한다. 바꾼 적이 없으면 처음 정해진 비밀번호를 쓴다.
+const adminPwOk = pw => { const a = DB.meta.adminPw; return a && a.salt ? eqHex(hashPw(pw, a.salt), a.hash) : eqStr(pw, MANAGER_PW); };
 
 // 학번 5자리: [학년][반 2자리][번호 2자리] — 20319 = 2학년 3반 19번
 function parseSid(sid) {
@@ -192,7 +194,7 @@ function loanSummary(u) {
   return { principal: act.reduce((s, l) => s + l.principal, 0), debt: act.reduce((s, l) => s + debtOne(l), 0), expired: act.some(l => Date.now() - l.at > LOAN_TERM), count: act.length,
     list: act.map(l => ({ k: l.k, name: LENDER[l.k].name, n: l.n, principal: l.principal, rate: l.rate, debt: debtOne(l), expired: Date.now() - l.at > LOAN_TERM })) };
 }
-const settings = () => Object.assign({ startBal: START, inviteReward: 1000, garnish: 30 }, DB.meta.settings || {});
+const settings = () => Object.assign({ startBal: START, inviteReward: 1000, garnish: 30, inviteCredit: 5 }, DB.meta.settings || {});
 const userStart = u => u.start || START;
 function debtOf(u, now) { return activeLoans(u).reduce((s, l) => s + debtOne(l, now), 0); }
 const loanExpired = u => activeLoans(u).some(l => Date.now() - l.at > LOAN_TERM);
@@ -301,6 +303,7 @@ function scheduleUsers() {
 }
 // 전체 공지: 학생은 [확인했습니다]를 누를 때까지 화면을 가리는 창으로 본다. 누가 읽었는지 학생별로 기록한다.
 const notices = () => DB.meta.notices || [];
+const allNotices = () => notices().slice().reverse().map(n => ({ id: n.id, text: n.text, at: n.at }));
 const unreadNotices = u => notices().filter(n => !(u.nack || []).includes(n.id)).map(n => ({ id: n.id, text: n.text, at: n.at }));
 function noticesMsg() {
   const us = approvedUsers();
@@ -308,7 +311,7 @@ function noticesMsg() {
 }
 let noticeTimer = null;
 function scheduleNotices() { if (noticeTimer) return; noticeTimer = setTimeout(() => { noticeTimer = null; const m = noticesMsg(); for (const c of admins()) send(c, m); }, 300); }
-function pushNotices() { for (const o of conns) if (o.sid && DB.users[o.sid]) send(o, { t: 'notice', list: unreadNotices(DB.users[o.sid]) }); scheduleNotices(); }
+function pushNotices() { for (const o of conns) if (o.sid && DB.users[o.sid]) send(o, { t: 'notice', list: unreadNotices(DB.users[o.sid]), all: allNotices() }); scheduleNotices(); }
 const mailList = () => Object.values(DB.mail).sort((a, b) => b.t - a.t);
 function pushMail() { const m = { t: 'mail', list: mailList() }; for (const c of admins()) send(c, m); }
 const myMail = sid => mailList().filter(m => m.sid === sid).slice(0, 30).map(m => ({ id: m.id, body: m.body, t: m.t, read: !!m.read }));
@@ -340,7 +343,8 @@ function approve(nu) {
   if (iv && isApproved(iv) && !nu.refPaid) {
     nu.refPaid = true; const r = settings().inviteReward; iv.invites = (iv.invites || 0) + 1;
     if (r > 0) { iv.bal += r; logEv(iv, 'give', '친구 초대 보상 (' + nu.name + ')', r); }
-    store.saveUser(iv); pushBal(iv.sid, { by: 'invite', delta: r, invites: iv.invites, friend: disp(nu) });
+    const ic = settings().inviteCredit; if (ic > 0) addCredit(iv, ic, '친구 초대');
+    adminPush(iv, { by: 'invite', delta: r, invites: iv.invites, friend: disp(nu), creditUp: ic > 0 ? ic : 0 }); store.saveUser(iv);
   }
   store.saveUser(nu);
   for (const o of conns) if (o.waitSid === nu.sid) { o.waitSid = null; send(o, { t: 'approved', sid: nu.sid }); }
@@ -367,7 +371,7 @@ function login(c, payload) {
   c.admin = !!payload.admin; c.sid = payload.sid || null;
   if (c.admin) { send(c, usersMsg()); send(c, { t: 'mail', list: mailList() }); send(c, { t: 'chats', chats: chatsForAdmin() }); send(c, { t: 'settings', settings: settings() }); send(c, noticesMsg()); }
   else if (c.sid && DB.users[c.sid]) {
-    const lu = DB.users[c.sid]; send(c, { t: 'notice', list: unreadNotices(lu) });
+    const lu = DB.users[c.sid]; send(c, { t: 'notice', list: unreadNotices(lu), all: allNotices() });
     if (lu.inbox && lu.inbox.length) { const l = lu.inbox; lu.inbox = []; store.saveUser(lu); l.forEach((x, i) => setTimeout(() => pushBal(lu.sid, x), 900 + i * 3800)); }
   }
   send(c, rankData(c.admin));
@@ -414,7 +418,7 @@ wss.on('connection', ws => {
       case 'login': {
         if (c.fails >= 10) return send(c, { t: 'autherr', where: 'login', msg: '시도 횟수를 넘었습니다. 페이지를 새로 고친 뒤 다시 시도하세요.' });
         const id = String(m.id || '').trim(), pw = String(m.pw || '');
-        if (eqStr(id, MANAGER_ID) && eqStr(pw, MANAGER_PW)) {
+        if (eqStr(id, MANAGER_ID) && adminPwOk(pw)) {
           const token = issueToken({ admin: true });
           send(c, { t: 'authok', token, admin: true, me: null });
           login(c, { admin: true }); return;
@@ -425,6 +429,12 @@ wss.on('connection', ws => {
         const token = issueToken({ sid: id });
         send(c, { t: 'authok', token, admin: false, me: publicUser(tu), mymail: myMail(id) });
         login(c, { sid: id });
+        break;
+      }
+      case 'typing': {
+        if (!u) break; const ch = chatOf(u.sid); if (!ch || !ch.open) break;
+        if (Date.now() - (c.typedAt || 0) < 800) break; c.typedAt = Date.now();
+        for (const o of admins()) send(o, { t: 'typing', sid: u.sid });
         break;
       }
       case 'noticeack': {
@@ -581,6 +591,7 @@ wss.on('connection', ws => {
           if ('startBal' in m) { const sb = Math.floor(+m.startBal); if (!(sb >= 0 && sb <= 1e9)) return ack(false, '가입 지급 포인트를 확인하세요.'); set.startBal = sb; msg = '이제 새로 가입하는 학생은 ' + sb.toLocaleString() + 'P로 시작합니다.'; }
           if ('inviteReward' in m) { const ir = Math.floor(+m.inviteReward); if (!(ir >= 0 && ir <= 1e9)) return ack(false, '초대 보상을 확인하세요.'); set.inviteReward = ir; msg = '친구 초대 보상은 이제 ' + ir.toLocaleString() + 'P입니다.'; for (const o of authed()) if (o.sid) send(o, { t: 'invinfo', inviteReward: ir }); }
           if ('garnish' in m) { const gp = Math.floor(+m.garnish); if (!(gp >= 0 && gp <= 100)) return ack(false, '자동 상환 비율은 0~100%입니다.'); set.garnish = gp; msg = gp ? '빚이 있는 학생은 이제 딴 돈의 ' + gp + '%가 자동으로 상환됩니다.' : '자동 상환을 껐습니다.'; }
+          if ('inviteCredit' in m) { const ic = Math.floor(+m.inviteCredit); if (!(ic >= 0 && ic <= 50)) return ack(false, '초대 신용 점수는 0~50점입니다.'); set.inviteCredit = ic; msg = ic ? '친구를 초대하면 이제 신용 점수가 ' + ic + '점 오릅니다.' : '친구 초대로는 신용 점수가 오르지 않습니다.'; }
           DB.meta.settings = Object.assign({}, DB.meta.settings || {}, set); store.saveMeta('settings', DB.meta.settings);
           for (const o of admins()) send(o, { t: 'settings', settings: settings() });
           return ack(true, msg || '저장했습니다.');
@@ -605,6 +616,13 @@ wss.on('connection', ws => {
           DB.meta.stable = freshStable(); store.saveMeta('stable', DB.meta.stable);
           pushMail(); for (const o of admins()) send(o, { t: 'chats', chats: chatsForAdmin() });
           scheduleUsers(); scheduleRank(); return ack(true, '학생 ' + sids.length + '명의 계정과 기록을 모두 삭제했습니다.');
+        }
+        if (m.op === 'adminpw') {
+          const np = String(m.pw || '');
+          if (!adminPwOk(String(m.cur || ''))) return ack(false, '지금 비밀번호가 맞지 않습니다.');
+          if (np.length < 6 || np.length > 64) return ack(false, '새 비밀번호는 6자 이상이어야 합니다.');
+          const salt = crypto.randomBytes(16).toString('hex'); DB.meta.adminPw = { salt, hash: hashPw(np, salt), at: Date.now() }; store.saveMeta('adminPw', DB.meta.adminPw);
+          return ack(true, '관리자 비밀번호를 바꿨습니다. 다음 로그인부터 새 비밀번호를 씁니다.');
         }
         if (m.op === 'notice') {
           const text = String(m.text || '').trim().slice(0, 500); if (text.length < 2) return ack(false, '공지 내용을 적으세요.');
@@ -680,6 +698,10 @@ setInterval(() => {
 (async () => {
   DB = await store.load();
   DB.users = DB.users || {}; DB.mail = DB.mail || {}; DB.meta = DB.meta || {};
+  { const cfg = DB.meta.cfg; if (cfg && !cfg.rel) { const base = { coin: 50, oddeven: 50, rps: 33 };
+      const conv = (g, v) => g === 'roulette' ? 0 : g in base ? Math.round((+v || 0) - base[g]) : v;
+      for (const r of cfg.sched || []) { r.a = conv(r.g, r.a); r.b = conv(r.g, r.b); } for (const r of cfg.balr || []) r.v = conv(r.g, r.v);
+      cfg.rel = true; cfg.v = Date.now(); store.saveMeta('cfg', cfg); } }
   if (!DB.meta.stable || !DB.meta.stable.horse) { DB.meta.stable = freshStable(); store.saveMeta('stable', DB.meta.stable); }
   for (const u of Object.values(DB.users)) { if (u.loan) { u.loanBy = Object.assign({}, u.loanBy, { gold: u.loan }); u.loan = null; }
     for (const l of Object.values(u.loanBy || {})) if (l) { if (!l.rate) l.rate = 0.2; if (!l.n) l.n = 1; }
