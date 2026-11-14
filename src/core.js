@@ -144,6 +144,8 @@ function onServer(m){
     case 'reqnew':if(S.admin)reqAlert(m);break;
     case 'notice':NQ=m.list||[];if(m.all)NALL=m.all;noticePump();paintNoticeBtn();break;
     case 'typing':if(S.admin)chatTyping(m.sid);break;
+    case 'rooms':onRooms(m);break;
+    case 'roomerr':toast(m.msg);break;
     case 'notices':if(S.admin){NOTICES=m.list||[];renderNotices();}break;
     case 'autherr':{const el=m.where==='signup'?$('#suErr'):$('#liErr');el.textContent=m.msg;break;}
     case 'kicked':toast('계정이 삭제되었습니다');doLogout(true);break;
@@ -253,7 +255,7 @@ function enterPlayer(me,mymail){
   S.me=me;S.admin=false;S.bal=me.bal;S.stats=me.stats;S.hist=me.hist||[];S.mymail=mymail||[];S.chat=me.chat||null;
   enterShell();paintWho();gateNote('');
   shownBal=S.bal;$('#balNum').textContent=fmt(S.bal);updateBal();renderMyMail();
-  if(!['lobby','rank','stats','mail','game'].includes(view)||view==='game'&&!cur)view='lobby';
+  if(!['lobby','rank','stats','mail','game','rooms'].includes(view)||view==='game'&&!cur)view='lobby';
   show(view==='game'?'game':view);pushPresence();checkReveal();handleChat();
 }
 function paintWho(){const me=S.me;if(!me)return;$('#whoText').innerHTML=`<b>${esc(dispName(me))}</b> · ${esc(clsLabel(me))}`;}
@@ -275,7 +277,7 @@ function show(v){
   if(busy&&v!=='game'){toast('판이 끝난 뒤에 이동할 수 있습니다');return;}
   if(!S.admin&&S.chat&&S.chat.open&&v!=='chat'){toast('관리자와 대화가 끝날 때까지 다른 화면으로 갈 수 없습니다');v='chat';}
   view=v;
-  for(const id of['lobby','game','rank','stats','loan','chat','mail','admin','inbox','chats'])$('#v-'+id).hidden=id!==v;
+  for(const id of['lobby','game','rooms','rank','stats','loan','chat','mail','admin','inbox','chats'])$('#v-'+id).hidden=id!==v;
   document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-current',String(b.dataset.v===v||(v==='game'&&b.dataset.v==='lobby'))));
   if(v==='stats')renderStats();
   if(v==='rank'){if(!RANK)svSend({t:'rank'});renderRank();}
@@ -285,6 +287,7 @@ function show(v){
   if(v==='loan')renderLoan();
   if(v==='chat')renderChat();
   if(v==='chats')renderChats();
+  if(v==='rooms')renderRooms(true);
   pushPresence();window.scrollTo({top:0});
 }
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('button[data-v]');if(b)show(b.dataset.v);});
@@ -388,10 +391,10 @@ function showResult(bet,pay,text){
 }
 function banner(text,cls){const b=document.createElement('div');b.className='banner show '+cls;b.textContent=text;stage.appendChild(b);setTimeout(()=>b.remove(),cls==='win'?2300:1700);if(cls==='win')winFx();}
 // winning: a flash, a ring of light, confetti and coins over the stage
-function winFx(){
+function winFx(host){host=host||stage;
   if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-  const fx=document.createElement('div');fx.className='winfx';fx.innerHTML='<i class="wf-flash"></i><i class="wf-ring"></i><i class="wf-ring r2"></i><i class="wf-rays"></i>';stage.appendChild(fx);
-  const W=stage.clientWidth||600,H=stage.clientHeight||400,cols=['#e9c46a','#f4a261','#e76f51','#74c79a','#8ecae6','#f1e3b0','#d67ab1'];
+  const fx=document.createElement('div');fx.className='winfx';fx.innerHTML='<i class="wf-flash"></i><i class="wf-ring"></i><i class="wf-ring r2"></i><i class="wf-rays"></i>';host.appendChild(fx);
+  const W=host.clientWidth||600,H=host.clientHeight||400,cols=['#e9c46a','#f4a261','#e76f51','#74c79a','#8ecae6','#f1e3b0','#d67ab1'];
   for(let i=0;i<70;i++){const p=document.createElement('i');const coin=i%5===0;p.className=coin?'wf-coin':'wf-bit';if(!coin){p.style.background=cols[i%cols.length];p.style.width=(5+rnd()*6)+'px';p.style.height=(8+rnd()*8)+'px';}
     const side=i%2?1:-1,x0=W/2+side*rnd()*40,y0=H*.55,ang=(-Math.PI/2)+side*(.15+rnd()*1.1),v=180+rnd()*(W*.55),dx=Math.cos(ang)*v,dy=Math.sin(ang)*v;
     p.style.left=x0+'px';p.style.top=y0+'px';fx.appendChild(p);

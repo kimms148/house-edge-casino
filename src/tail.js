@@ -599,6 +599,79 @@ $('#chatPick').addEventListener('change',e=>{if(e.target.value){admChat=e.target
 $('#admChatForm').addEventListener('submit',e=>{e.preventDefault();const v=$('#admChatIn').value.trim();if(!v||!admChat)return;if(svSend({t:'adm',op:'chat',sid:admChat,body:v}))$('#admChatIn').value='';});
 let ccArm=0;$('#admChatClose').onclick=e=>{if(!admChat)return;if(Date.now()-ccArm>3000){ccArm=Date.now();e.target.textContent='한 번 더 누르면 끝내기';return;}e.target.textContent='대화 끝내기';svSend({t:'adm',op:'chatclose',sid:admChat});};
 
+/* ---------------- 함께 경주: rooms between students ---------------- */
+let ROOMLIST=[],roomSkew=0,raceRun=null,raceDone=null,roomsBuilt=false;
+const RICON={horse:'🐎',snail:'🐌'},RNAME={horse:'경마',snail:'달팽이 경주'};
+const myRoom=()=>S.me?ROOMLIST.find(r=>r.players.some(p=>p.sid===S.me.sid))||null:null;
+const srvNow=()=>Date.now()+roomSkew;const secLeft=t=>Math.max(0,Math.ceil((t-srvNow())/1000));
+function onRooms(m){roomSkew=(m.now||Date.now())-Date.now();ROOMLIST=m.list||[];
+  if(S.admin){paintRoomsAdm();return;}if(!S.me)return;
+  const n=ROOMLIST.filter(r=>r.state==='wait').length;$('#pvpN').textContent=n?'열린 방 '+n+'개':'';
+  const r=myRoom();
+  if(r&&r.state==='race'&&(!raceRun||raceRun.id!==r.id)&&(!raceDone||raceDone.id!==r.id))startRoomRace(r);
+  paintVote();if(view==='rooms')renderRooms();}
+function paintRoomsAdm(){const el=$('#roomsAdm');if(!el)return;el.innerHTML=ROOMLIST.length?ROOMLIST.map(r=>`<div style="border:1px solid var(--sline);border-radius:6px;padding:7px 9px"><b>${RICON[r.g]} ${RNAME[r.g]}</b> · ${({wait:'모으는 중',vote:'시작 투표 중',race:'경주 중'})[r.state]} · 판돈 ${fmt(r.pot)} · 최소 ${fmt(r.min)}<div style="color:var(--smute);margin-top:3px">${r.players.map(p=>'<span class="namebtn" data-log="'+esc(p.sid)+'">'+esc(p.name)+'</span> '+fmt(p.bet)+(r.race&&r.race.winner===p.lane?' 🏆':'')).join(' · ')}</div></div>`).join(''):'<span class="hint" style="color:var(--smute)">열린 방이 없습니다.</span>';}
+function paintVote(){const r=myRoom(),vm=$('#voteModal');const need=!!(r&&r.state==='vote'&&S.me&&!r.vote.yes.includes(S.me.sid)&&!r.vote.no.includes(S.me.sid));
+  vm.hidden=!need;if(!need)return;const n=r.players.length;
+  $('#vtLead').textContent=(r.vote.by==='host'?'방장이 지금 시작하자고 요청했습니다. ':'1분이 지났지만 자리가 다 차지 않았습니다. ')+'지금 '+n+'명으로 '+RNAME[r.g]+'를 시작할까요? 과반수('+(Math.floor(n/2)+1)+'명 이상)가 동의하면 바로 시작합니다.';
+  $('#vtCount').textContent='동의 '+r.vote.yes.length+'명 · 거절 '+r.vote.no.length+'명 · 남은 시간 '+secLeft(r.vote.until)+'초 (고르지 않으면 거절로 셉니다)';}
+$('#vtYes').onclick=()=>{svSend({t:'room',op:'vote',yes:true});$('#voteModal').hidden=true;};
+$('#vtNo').onclick=()=>{svSend({t:'room',op:'vote',yes:false});$('#voteModal').hidden=true;};
+function roomPanel(r){const me=S.me.sid,host=r.host===me,n=r.players.length;
+  const st=r.state==='vote'?'시작 투표 중 · 동의 '+r.vote.yes.length+'명 / '+n+'명 · 남은 시간 <span data-until="'+r.vote.until+'">'+secLeft(r.vote.until)+'</span>초'
+    :n<2?'다른 학생이 들어오기를 기다리는 중입니다. 자리가 다 차면 바로 출발합니다.'
+    :'자리가 다 차면 바로 출발합니다. <span data-until="'+r.waitUntil+'">'+secLeft(r.waitUntil)+'</span>초 뒤에도 다 차지 않으면 지금 인원으로 시작할지 묻습니다.';
+  return `<div class="room-box"><div class="eyebrow">${RICON[r.g]} ${RNAME[r.g]} · ${n} / ${r.cap}명 · 최소 베팅금 ${fmt(r.min)}</div>
+    <div><div class="hint">판돈 (이긴 한 명이 모두 가져감)</div><div class="loan-big">${fmt(r.pot)}</div></div>
+    <div class="room-players">${r.players.map(p=>`<div class="rp ${p.sid===me?'me':''}"><span>${RICON[r.g]} ${p.lane+1}번</span><b>${esc(p.name)}${p.sid===r.host?' <span class="tag on">방장</span>':''}${p.sid===me?' <span class="tag on">나</span>':''}</b><span class="num">${fmt(p.bet)}</span><span>이길 확률 ${p.pct}%</span></div>`).join('')}</div>
+    <div class="hint">${st}</div>${r.note?'<div class="hint" style="color:#e08a80">'+esc(r.note)+'</div>':''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${host&&r.state==='wait'?`<button class="btn primary" type="button" data-ro="start" ${n<2?'disabled':''}>지금 시작 요청</button>`:''}${r.state!=='race'?'<button class="btn" type="button" data-ro="leave">나가기 (건 돈 돌려받기)</button>':''}</div>
+    <div class="hint">이길 확률은 건 돈에 비례합니다. 하우스가 떼는 돈은 없고, 진 사람의 돈은 모두 이긴 사람에게 갑니다.</div></div>`;}
+function renderRooms(force){const el=$('#roomsBody');if(!el||!S.me)return;
+  if(raceRun||raceDone)return;
+  const r=myRoom();
+  if(r){roomsBuilt=false;el.innerHTML=roomPanel(r);return;}
+  if(!roomsBuilt||force||!$('#rmMin')){roomsBuilt=true;
+    el.innerHTML=`<div class="room-box"><div class="eyebrow">방 만들기</div>
+      <div class="room-form"><label>게임<select id="rmG"><option value="horse">🐎 경마 (최대 6명)</option><option value="snail">🐌 달팽이 경주 (최대 4명)</option></select></label>
+      <label>최소 베팅금<span class="loan-in"><input type="number" id="rmMin" min="100" step="100" value="${Math.max(100,Math.min(1000,Math.floor(S.bal)))}">P</span></label>
+      <label>내 베팅금<span class="loan-in"><input type="number" id="rmBet" min="100" step="100" value="${Math.max(100,Math.min(1000,Math.floor(S.bal)))}">P</span></label></div>
+      <button class="btn primary" type="button" id="rmMake">방 만들기</button>
+      <div class="hint">방장이 최소 베팅금을 정합니다 (내 보유 포인트까지). 참가자는 그 이상을 겁니다. 더 많이 걸수록 이길 확률이 높아지고, 이긴 한 명이 판돈을 모두 가져갑니다. 자리가 다 차면 바로 출발하고, 1분 안에 다 차지 않으면 지금 인원으로 시작할지 투표합니다.</div></div>
+      <h3 style="margin:16px 0 8px;font-size:15px">열린 방</h3><div id="rmList" style="display:grid;gap:8px"></div>`;
+    $('#rmMin').addEventListener('change',()=>{if(+$('#rmBet').value<+$('#rmMin').value)$('#rmBet').value=$('#rmMin').value;});
+    $('#rmMake').onclick=()=>svSend({t:'room',op:'create',g:$('#rmG').value,min:Math.floor(+$('#rmMin').value||0),bet:Math.floor(+$('#rmBet').value||0)});}
+  const ls=$('#rmList');if(ls.contains(document.activeElement)&&document.activeElement.tagName==='INPUT')return;
+  ls.innerHTML=ROOMLIST.length?ROOMLIST.map(x=>{const h=x.players.find(p=>p.sid===x.host)||x.players[0]||{name:'?'};const open=x.state==='wait'&&x.players.length<x.cap;
+    return `<div class="room-row"><span><b>${RICON[x.g]} ${RNAME[x.g]}</b> · 방장 ${esc(h.name)} · ${x.players.length} / ${x.cap}명<small>최소 ${fmt(x.min)} · 판돈 ${fmt(x.pot)}${open?'':' · '+({wait:'가득 참',vote:'시작 투표 중',race:'경주 중'})[x.state]}</small></span>${open?`<span class="loan-in"><input type="number" min="${x.min}" step="100" value="${x.min}" data-jb="${x.id}" aria-label="내 베팅금">P <button class="btn primary" type="button" data-join="${x.id}">참가</button></span>`:''}</div>`;}).join(''):'<div class="hint">열린 방이 없습니다. 방을 만들어 보세요.</div>';}
+$('#roomsBody').addEventListener('click',e=>{const j=e.target.closest('[data-join]'),o=e.target.closest('[data-ro]');
+  if(j){const i=$('#roomsBody').querySelector('[data-jb="'+j.dataset.join+'"]');svSend({t:'room',op:'join',id:j.dataset.join,bet:Math.floor(+i.value||0)});}
+  else if(o)svSend({t:'room',op:o.dataset.ro});});
+$('#pvpBtn').onclick=()=>show('rooms');$('#roomsBack').onclick=()=>show('lobby');
+setInterval(()=>{if(S.admin||!S.me)return;if(!$('#voteModal').hidden)paintVote();if(view==='rooms')document.querySelectorAll('#roomsBody [data-until]').forEach(s=>{s.textContent=secLeft(+s.dataset.until);});},500);
+// the race itself: the winner was fixed by the server; every screen draws the same finish
+function startRoomRace(r){raceRun={id:r.id};$('#voteModal').hidden=true;
+  const me=S.me.sid,mine=r.players.find(p=>p.sid===me),win=r.players[r.race.winner],iWon=win.sid===me,end=r.race.startAt+r.race.dur;
+  const finish=()=>{raceRun=null;raceDone={id:r.id,r,iWon,mine,win};if(view==='rooms')paintRaceEnd();else{toast('함께 경주: '+(iWon?'이겼습니다! +'+fmt(r.pot-mine.bet):win.name+' 님이 이겼습니다. −'+fmt(mine.bet)));raceDone=null;}};
+  if(!busy&&view!=='rooms')show('rooms');
+  if(view!=='rooms'){setTimeout(finish,Math.max(0,end-srvNow()));return;}
+  let seed=0;for(const ch of r.id)seed=(seed*31+ch.charCodeAt(0))>>>0;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+  const T=r.players.map((p,i)=>r.race.dur*(i===r.race.winner?.8+rand()*.04:.9+rand()*.1)),K=r.players.map(()=>2+Math.floor(rand()*3)),PH=r.players.map(()=>rand()*6.28);
+  $('#roomsBody').innerHTML=`<div class="room-box"><div class="eyebrow">${RICON[r.g]} ${RNAME[r.g]} · 판돈 ${fmt(r.pot)}</div><div class="race-track">${r.players.map(p=>`<div class="rc-lane ${p.sid===me?'me':''}"><span class="rc-name">${p.lane+1}. ${esc(p.name)}</span><div class="rc-road"><span class="rc-run" data-l="${p.lane}">${RICON[r.g]}</span></div></div>`).join('')}</div><div class="hint" id="rcMsg" style="text-align:center;font-size:15px">곧 출발합니다…</div></div>`;
+  const runs=[...document.querySelectorAll('#roomsBody .rc-run')];
+  const iv=setInterval(()=>{const t=srvNow()-r.race.startAt;const msg=$('#rcMsg');
+    if(t<0){if(msg)msg.textContent='출발 '+Math.ceil(-t/1000)+'초 전';return;}
+    if(msg&&msg.textContent!=='달리는 중!')msg.textContent='달리는 중!';
+    runs.forEach((el,i)=>{const u=Math.min(1,t/T[i]);const pos=Math.max(0,Math.min(1,u+.07*Math.sin(u*Math.PI*K[i]+PH[i])*(1-u)*Math.min(1,u*6)));el.style.left='calc('+(pos*100).toFixed(2)+'% - '+(pos*34).toFixed(1)+'px)';if(u>=1)el.classList.add('fin');});
+    if(t>=r.race.dur){clearInterval(iv);finish();}},50);}
+function paintRaceEnd(){const d=raceDone;if(!d)return;const r=d.r;
+  $('#roomsBody').innerHTML=`<div class="room-box" id="rcEnd"><div class="eyebrow">${RICON[r.g]} ${RNAME[r.g]} 결과</div><div class="loan-big" style="color:${d.iWon?'var(--brass2)':'#e08a80'}">${d.iWon?'승리! +'+fmt(r.pot-d.mine.bet):'패배 −'+fmt(d.mine.bet)}</div>
+    <p style="font-size:14px">🏆 <b>${esc(d.win.name)}</b> 님이 판돈 ${fmt(r.pot)}를 모두 가져갔습니다.</p>
+    <div class="room-players">${r.players.map(p=>`<div class="rp ${p.sid===S.me.sid?'me':''}"><span>${p.lane===r.race.winner?'🏆':RICON[r.g]} ${p.lane+1}번</span><b>${esc(p.name)}</b><span class="num">${fmt(p.bet)}</span><span class="${p.lane===r.race.winner?'pos':'neg'}">${p.lane===r.race.winner?'+'+fmt(r.pot-p.bet):'−'+fmt(p.bet)}</span></div>`).join('')}</div>
+    <button class="btn primary" type="button" id="rcOk">확인</button></div>`;
+  if(d.iWon)winFx($('#rcEnd'));
+  $('#rcOk').onclick=()=>{raceDone=null;roomsBuilt=false;renderRooms(true);};}
+
 /* ---------------- app install (PWA) ---------------- */
 (function(){
   if(!location.protocol.startsWith('http'))return;

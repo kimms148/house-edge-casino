@@ -117,6 +117,26 @@ main{max-width:1180px;margin:0 auto;padding-block:22px 60px;padding-left:max(16p
 .nb-item{padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);white-space:pre-wrap;overflow-wrap:anywhere;font-size:14.5px;line-height:1.65}
 .nb-item small{display:block;color:var(--mute);font-size:12px;margin-bottom:4px}
 .linkbtn{background:none;border:0;color:var(--brass2);text-decoration:underline;cursor:pointer;font:inherit;padding:0}
+.pvp-card{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:linear-gradient(100deg,#1c2a22,#1b1d1f 60%);border:1px solid var(--brass);border-radius:8px;padding:14px 16px;margin-bottom:12px;color:var(--ink)}
+.pvp-card:hover{border-color:var(--brass2)}
+.pvp-card .pvp-ic{font-size:26px;white-space:nowrap}
+.pvp-card b{display:block;font-size:16px;color:var(--brass2)}.pvp-card small{display:block;font-size:12.5px;color:var(--mute);margin-top:2px}
+.pvp-card .pvp-n{margin-left:auto;font-size:12.5px;color:#74c79a;white-space:nowrap}
+.room-box{position:relative;overflow:hidden;display:grid;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;max-width:760px}
+.room-form{display:flex;gap:14px;flex-wrap:wrap}.room-form label{display:grid;gap:5px;font-size:12.5px;color:var(--mute)}
+.room-form select{background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:5px;padding:6px 8px;font-size:14px}
+.room-players{display:grid;gap:6px}
+.rp{display:grid;grid-template-columns:70px 1fr auto auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:13.5px}
+.rp.me{border-color:var(--brass)}.rp b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.room-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;font-size:13.5px;max-width:760px}
+.room-row small{display:block;color:var(--mute);font-size:12px;margin-top:2px}
+.race-track{display:grid;gap:8px}
+.rc-lane{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center}
+.rc-lane .rc-name{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mute)}.rc-lane.me .rc-name{color:var(--brass2)}
+.rc-road{position:relative;height:38px;background:#132019;border:1px solid var(--line);border-radius:6px;border-right:4px double #f1d9b0}
+.rc-run{position:absolute;left:0;top:3px;font-size:26px;line-height:30px;width:34px;text-align:center;transform:scaleX(-1);transition:left .08s linear}
+.rc-run.fin{filter:drop-shadow(0 0 6px #e9c46a)}
+@media(max-width:520px){.rc-lane{grid-template-columns:74px 1fr}.rp{grid-template-columns:54px 1fr auto;}.rp span:last-child{grid-column:2/4;font-size:12px;color:var(--mute)}}
 .loan-in{display:inline-flex;align-items:center;gap:4px;font-family:var(--f-num)}
 .loan-in input{width:108px;background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:5px;padding:5px 8px;font-family:var(--f-num);font-size:14px;text-align:right}
 .modal.notice{z-index:95;background:#000d}
@@ -685,7 +705,13 @@ details.more[open] summary{color:var(--cyan)}
   <section class="view" id="v-lobby" hidden>
     <div class="lobby-head"><h1>오늘의 테이블</h1><div class="lobby-acts"><button type="button" class="btn invite-btn" id="inviteBtn">친구 초대하기</button><button type="button" class="btn" id="nickBtn">닉네임 변경</button></div></div>
     <button type="button" class="ad-slot" id="lobbyAd" hidden aria-label="대출소 광고"></button>
+    <button type="button" class="pvp-card" id="pvpBtn"><span class="pvp-ic" aria-hidden="true">🐎🐌</span><span><b>함께 경주</b><small>학생끼리 판돈을 걸고 달립니다. 이긴 한 명이 판돈을 모두 가져갑니다.</small></span><span class="pvp-n" id="pvpN"></span></button>
     <div class="games" id="games"></div>
+  </section>
+
+  <section class="view" id="v-rooms" hidden>
+    <div class="game-head"><button class="back" id="roomsBack" type="button">← 로비</button><h2>함께 경주</h2><span class="rule">이긴 한 명이 판돈을 모두 가져갑니다</span></div>
+    <div id="roomsBody"></div>
   </section>
 
   <section class="view" id="v-game" hidden>
@@ -799,6 +825,10 @@ details.more[open] summary{color:var(--cyan)}
           <div class="rig-list" id="opsList"></div>
         </div>
         <div class="abox">
+          <h3>함께 경주 방</h3>
+          <div id="roomsAdm" style="display:grid;gap:6px;font-size:12.5px"><span class="hint" style="color:var(--smute)">열린 방이 없습니다.</span></div>
+        </div>
+        <div class="abox">
           <h3>전체 공지</h3>
           <textarea id="ntText" maxlength="500" rows="3" aria-label="공지 내용" placeholder="모든 학생에게 보낼 공지를 적으세요" style="width:100%;background:var(--steel);border:1px solid var(--sline);color:var(--sink);border-radius:4px;padding:8px;font:inherit;font-size:13px;resize:vertical"></textarea>
           <div class="abtns" style="margin-top:6px;justify-content:space-between"><span class="hint" id="ntCount" style="color:var(--smute)">0 / 500</span><button type="button" class="abtn w" id="ntSend">공지 보내기</button></div>
@@ -840,6 +870,11 @@ details.more[open] summary{color:var(--cyan)}
   <div><button class="btn primary" type="button" id="nbClose">닫기</button></div>
 </div></div>
 <div id="reqAlert" aria-live="assertive"></div>
+<div id="voteModal" class="modal" hidden style="z-index:85"><div class="box" role="alertdialog" aria-modal="true" aria-labelledby="vtT" style="max-width:420px">
+  <div class="eyebrow">함께 경주</div><h2 id="vtT" style="font-size:20px">지금 시작할까요?</h2>
+  <p id="vtLead" style="font-size:14px;line-height:1.6"></p><div class="hint" id="vtCount"></div>
+  <div style="display:flex;gap:8px"><button class="btn primary" type="button" id="vtYes" style="flex:1">동의</button><button class="btn" type="button" id="vtNo" style="flex:1">거절</button></div>
+</div></div>
 <div id="noticeModal" class="modal notice" hidden><div class="box" role="alertdialog" aria-modal="true" aria-labelledby="ntT" style="max-width:520px">
   <div class="eyebrow">NOTICE</div><h2 id="ntT" style="font-size:22px">관리자 공지</h2>
   <div class="hint" id="ntMeta"></div>
@@ -1057,6 +1092,8 @@ function onServer(m){
     case 'reqnew':if(S.admin)reqAlert(m);break;
     case 'notice':NQ=m.list||[];if(m.all)NALL=m.all;noticePump();paintNoticeBtn();break;
     case 'typing':if(S.admin)chatTyping(m.sid);break;
+    case 'rooms':onRooms(m);break;
+    case 'roomerr':toast(m.msg);break;
     case 'notices':if(S.admin){NOTICES=m.list||[];renderNotices();}break;
     case 'autherr':{const el=m.where==='signup'?$('#suErr'):$('#liErr');el.textContent=m.msg;break;}
     case 'kicked':toast('계정이 삭제되었습니다');doLogout(true);break;
@@ -1166,7 +1203,7 @@ function enterPlayer(me,mymail){
   S.me=me;S.admin=false;S.bal=me.bal;S.stats=me.stats;S.hist=me.hist||[];S.mymail=mymail||[];S.chat=me.chat||null;
   enterShell();paintWho();gateNote('');
   shownBal=S.bal;$('#balNum').textContent=fmt(S.bal);updateBal();renderMyMail();
-  if(!['lobby','rank','stats','mail','game'].includes(view)||view==='game'&&!cur)view='lobby';
+  if(!['lobby','rank','stats','mail','game','rooms'].includes(view)||view==='game'&&!cur)view='lobby';
   show(view==='game'?'game':view);pushPresence();checkReveal();handleChat();
 }
 function paintWho(){const me=S.me;if(!me)return;$('#whoText').innerHTML=`<b>${esc(dispName(me))}</b> · ${esc(clsLabel(me))}`;}
@@ -1188,7 +1225,7 @@ function show(v){
   if(busy&&v!=='game'){toast('판이 끝난 뒤에 이동할 수 있습니다');return;}
   if(!S.admin&&S.chat&&S.chat.open&&v!=='chat'){toast('관리자와 대화가 끝날 때까지 다른 화면으로 갈 수 없습니다');v='chat';}
   view=v;
-  for(const id of['lobby','game','rank','stats','loan','chat','mail','admin','inbox','chats'])$('#v-'+id).hidden=id!==v;
+  for(const id of['lobby','game','rooms','rank','stats','loan','chat','mail','admin','inbox','chats'])$('#v-'+id).hidden=id!==v;
   document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-current',String(b.dataset.v===v||(v==='game'&&b.dataset.v==='lobby'))));
   if(v==='stats')renderStats();
   if(v==='rank'){if(!RANK)svSend({t:'rank'});renderRank();}
@@ -1198,6 +1235,7 @@ function show(v){
   if(v==='loan')renderLoan();
   if(v==='chat')renderChat();
   if(v==='chats')renderChats();
+  if(v==='rooms')renderRooms(true);
   pushPresence();window.scrollTo({top:0});
 }
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('button[data-v]');if(b)show(b.dataset.v);});
@@ -1301,10 +1339,10 @@ function showResult(bet,pay,text){
 }
 function banner(text,cls){const b=document.createElement('div');b.className='banner show '+cls;b.textContent=text;stage.appendChild(b);setTimeout(()=>b.remove(),cls==='win'?2300:1700);if(cls==='win')winFx();}
 // winning: a flash, a ring of light, confetti and coins over the stage
-function winFx(){
+function winFx(host){host=host||stage;
   if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-  const fx=document.createElement('div');fx.className='winfx';fx.innerHTML='<i class="wf-flash"></i><i class="wf-ring"></i><i class="wf-ring r2"></i><i class="wf-rays"></i>';stage.appendChild(fx);
-  const W=stage.clientWidth||600,H=stage.clientHeight||400,cols=['#e9c46a','#f4a261','#e76f51','#74c79a','#8ecae6','#f1e3b0','#d67ab1'];
+  const fx=document.createElement('div');fx.className='winfx';fx.innerHTML='<i class="wf-flash"></i><i class="wf-ring"></i><i class="wf-ring r2"></i><i class="wf-rays"></i>';host.appendChild(fx);
+  const W=host.clientWidth||600,H=host.clientHeight||400,cols=['#e9c46a','#f4a261','#e76f51','#74c79a','#8ecae6','#f1e3b0','#d67ab1'];
   for(let i=0;i<70;i++){const p=document.createElement('i');const coin=i%5===0;p.className=coin?'wf-coin':'wf-bit';if(!coin){p.style.background=cols[i%cols.length];p.style.width=(5+rnd()*6)+'px';p.style.height=(8+rnd()*8)+'px';}
     const side=i%2?1:-1,x0=W/2+side*rnd()*40,y0=H*.55,ang=(-Math.PI/2)+side*(.15+rnd()*1.1),v=180+rnd()*(W*.55),dx=Math.cos(ang)*v,dy=Math.sin(ang)*v;
     p.style.left=x0+'px';p.style.top=y0+'px';fx.appendChild(p);
@@ -2538,6 +2576,79 @@ function renderChats(){
 $('#chatPick').addEventListener('change',e=>{if(e.target.value){admChat=e.target.value;e.target.blur();renderChats();$('#admChatIn').closest('.chat-box').scrollIntoView({block:'nearest'});$('#admChatIn').focus();toast('대화 상대를 골랐습니다. 메시지를 적어 보내세요');}});
 $('#admChatForm').addEventListener('submit',e=>{e.preventDefault();const v=$('#admChatIn').value.trim();if(!v||!admChat)return;if(svSend({t:'adm',op:'chat',sid:admChat,body:v}))$('#admChatIn').value='';});
 let ccArm=0;$('#admChatClose').onclick=e=>{if(!admChat)return;if(Date.now()-ccArm>3000){ccArm=Date.now();e.target.textContent='한 번 더 누르면 끝내기';return;}e.target.textContent='대화 끝내기';svSend({t:'adm',op:'chatclose',sid:admChat});};
+
+/* ---------------- 함께 경주: rooms between students ---------------- */
+let ROOMLIST=[],roomSkew=0,raceRun=null,raceDone=null,roomsBuilt=false;
+const RICON={horse:'🐎',snail:'🐌'},RNAME={horse:'경마',snail:'달팽이 경주'};
+const myRoom=()=>S.me?ROOMLIST.find(r=>r.players.some(p=>p.sid===S.me.sid))||null:null;
+const srvNow=()=>Date.now()+roomSkew;const secLeft=t=>Math.max(0,Math.ceil((t-srvNow())/1000));
+function onRooms(m){roomSkew=(m.now||Date.now())-Date.now();ROOMLIST=m.list||[];
+  if(S.admin){paintRoomsAdm();return;}if(!S.me)return;
+  const n=ROOMLIST.filter(r=>r.state==='wait').length;$('#pvpN').textContent=n?'열린 방 '+n+'개':'';
+  const r=myRoom();
+  if(r&&r.state==='race'&&(!raceRun||raceRun.id!==r.id)&&(!raceDone||raceDone.id!==r.id))startRoomRace(r);
+  paintVote();if(view==='rooms')renderRooms();}
+function paintRoomsAdm(){const el=$('#roomsAdm');if(!el)return;el.innerHTML=ROOMLIST.length?ROOMLIST.map(r=>`<div style="border:1px solid var(--sline);border-radius:6px;padding:7px 9px"><b>${RICON[r.g]} ${RNAME[r.g]}</b> · ${({wait:'모으는 중',vote:'시작 투표 중',race:'경주 중'})[r.state]} · 판돈 ${fmt(r.pot)} · 최소 ${fmt(r.min)}<div style="color:var(--smute);margin-top:3px">${r.players.map(p=>'<span class="namebtn" data-log="'+esc(p.sid)+'">'+esc(p.name)+'</span> '+fmt(p.bet)+(r.race&&r.race.winner===p.lane?' 🏆':'')).join(' · ')}</div></div>`).join(''):'<span class="hint" style="color:var(--smute)">열린 방이 없습니다.</span>';}
+function paintVote(){const r=myRoom(),vm=$('#voteModal');const need=!!(r&&r.state==='vote'&&S.me&&!r.vote.yes.includes(S.me.sid)&&!r.vote.no.includes(S.me.sid));
+  vm.hidden=!need;if(!need)return;const n=r.players.length;
+  $('#vtLead').textContent=(r.vote.by==='host'?'방장이 지금 시작하자고 요청했습니다. ':'1분이 지났지만 자리가 다 차지 않았습니다. ')+'지금 '+n+'명으로 '+RNAME[r.g]+'를 시작할까요? 과반수('+(Math.floor(n/2)+1)+'명 이상)가 동의하면 바로 시작합니다.';
+  $('#vtCount').textContent='동의 '+r.vote.yes.length+'명 · 거절 '+r.vote.no.length+'명 · 남은 시간 '+secLeft(r.vote.until)+'초 (고르지 않으면 거절로 셉니다)';}
+$('#vtYes').onclick=()=>{svSend({t:'room',op:'vote',yes:true});$('#voteModal').hidden=true;};
+$('#vtNo').onclick=()=>{svSend({t:'room',op:'vote',yes:false});$('#voteModal').hidden=true;};
+function roomPanel(r){const me=S.me.sid,host=r.host===me,n=r.players.length;
+  const st=r.state==='vote'?'시작 투표 중 · 동의 '+r.vote.yes.length+'명 / '+n+'명 · 남은 시간 <span data-until="'+r.vote.until+'">'+secLeft(r.vote.until)+'</span>초'
+    :n<2?'다른 학생이 들어오기를 기다리는 중입니다. 자리가 다 차면 바로 출발합니다.'
+    :'자리가 다 차면 바로 출발합니다. <span data-until="'+r.waitUntil+'">'+secLeft(r.waitUntil)+'</span>초 뒤에도 다 차지 않으면 지금 인원으로 시작할지 묻습니다.';
+  return `<div class="room-box"><div class="eyebrow">${RICON[r.g]} ${RNAME[r.g]} · ${n} / ${r.cap}명 · 최소 베팅금 ${fmt(r.min)}</div>
+    <div><div class="hint">판돈 (이긴 한 명이 모두 가져감)</div><div class="loan-big">${fmt(r.pot)}</div></div>
+    <div class="room-players">${r.players.map(p=>`<div class="rp ${p.sid===me?'me':''}"><span>${RICON[r.g]} ${p.lane+1}번</span><b>${esc(p.name)}${p.sid===r.host?' <span class="tag on">방장</span>':''}${p.sid===me?' <span class="tag on">나</span>':''}</b><span class="num">${fmt(p.bet)}</span><span>이길 확률 ${p.pct}%</span></div>`).join('')}</div>
+    <div class="hint">${st}</div>${r.note?'<div class="hint" style="color:#e08a80">'+esc(r.note)+'</div>':''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${host&&r.state==='wait'?`<button class="btn primary" type="button" data-ro="start" ${n<2?'disabled':''}>지금 시작 요청</button>`:''}${r.state!=='race'?'<button class="btn" type="button" data-ro="leave">나가기 (건 돈 돌려받기)</button>':''}</div>
+    <div class="hint">이길 확률은 건 돈에 비례합니다. 하우스가 떼는 돈은 없고, 진 사람의 돈은 모두 이긴 사람에게 갑니다.</div></div>`;}
+function renderRooms(force){const el=$('#roomsBody');if(!el||!S.me)return;
+  if(raceRun||raceDone)return;
+  const r=myRoom();
+  if(r){roomsBuilt=false;el.innerHTML=roomPanel(r);return;}
+  if(!roomsBuilt||force||!$('#rmMin')){roomsBuilt=true;
+    el.innerHTML=`<div class="room-box"><div class="eyebrow">방 만들기</div>
+      <div class="room-form"><label>게임<select id="rmG"><option value="horse">🐎 경마 (최대 6명)</option><option value="snail">🐌 달팽이 경주 (최대 4명)</option></select></label>
+      <label>최소 베팅금<span class="loan-in"><input type="number" id="rmMin" min="100" step="100" value="${Math.max(100,Math.min(1000,Math.floor(S.bal)))}">P</span></label>
+      <label>내 베팅금<span class="loan-in"><input type="number" id="rmBet" min="100" step="100" value="${Math.max(100,Math.min(1000,Math.floor(S.bal)))}">P</span></label></div>
+      <button class="btn primary" type="button" id="rmMake">방 만들기</button>
+      <div class="hint">방장이 최소 베팅금을 정합니다 (내 보유 포인트까지). 참가자는 그 이상을 겁니다. 더 많이 걸수록 이길 확률이 높아지고, 이긴 한 명이 판돈을 모두 가져갑니다. 자리가 다 차면 바로 출발하고, 1분 안에 다 차지 않으면 지금 인원으로 시작할지 투표합니다.</div></div>
+      <h3 style="margin:16px 0 8px;font-size:15px">열린 방</h3><div id="rmList" style="display:grid;gap:8px"></div>`;
+    $('#rmMin').addEventListener('change',()=>{if(+$('#rmBet').value<+$('#rmMin').value)$('#rmBet').value=$('#rmMin').value;});
+    $('#rmMake').onclick=()=>svSend({t:'room',op:'create',g:$('#rmG').value,min:Math.floor(+$('#rmMin').value||0),bet:Math.floor(+$('#rmBet').value||0)});}
+  const ls=$('#rmList');if(ls.contains(document.activeElement)&&document.activeElement.tagName==='INPUT')return;
+  ls.innerHTML=ROOMLIST.length?ROOMLIST.map(x=>{const h=x.players.find(p=>p.sid===x.host)||x.players[0]||{name:'?'};const open=x.state==='wait'&&x.players.length<x.cap;
+    return `<div class="room-row"><span><b>${RICON[x.g]} ${RNAME[x.g]}</b> · 방장 ${esc(h.name)} · ${x.players.length} / ${x.cap}명<small>최소 ${fmt(x.min)} · 판돈 ${fmt(x.pot)}${open?'':' · '+({wait:'가득 참',vote:'시작 투표 중',race:'경주 중'})[x.state]}</small></span>${open?`<span class="loan-in"><input type="number" min="${x.min}" step="100" value="${x.min}" data-jb="${x.id}" aria-label="내 베팅금">P <button class="btn primary" type="button" data-join="${x.id}">참가</button></span>`:''}</div>`;}).join(''):'<div class="hint">열린 방이 없습니다. 방을 만들어 보세요.</div>';}
+$('#roomsBody').addEventListener('click',e=>{const j=e.target.closest('[data-join]'),o=e.target.closest('[data-ro]');
+  if(j){const i=$('#roomsBody').querySelector('[data-jb="'+j.dataset.join+'"]');svSend({t:'room',op:'join',id:j.dataset.join,bet:Math.floor(+i.value||0)});}
+  else if(o)svSend({t:'room',op:o.dataset.ro});});
+$('#pvpBtn').onclick=()=>show('rooms');$('#roomsBack').onclick=()=>show('lobby');
+setInterval(()=>{if(S.admin||!S.me)return;if(!$('#voteModal').hidden)paintVote();if(view==='rooms')document.querySelectorAll('#roomsBody [data-until]').forEach(s=>{s.textContent=secLeft(+s.dataset.until);});},500);
+// the race itself: the winner was fixed by the server; every screen draws the same finish
+function startRoomRace(r){raceRun={id:r.id};$('#voteModal').hidden=true;
+  const me=S.me.sid,mine=r.players.find(p=>p.sid===me),win=r.players[r.race.winner],iWon=win.sid===me,end=r.race.startAt+r.race.dur;
+  const finish=()=>{raceRun=null;raceDone={id:r.id,r,iWon,mine,win};if(view==='rooms')paintRaceEnd();else{toast('함께 경주: '+(iWon?'이겼습니다! +'+fmt(r.pot-mine.bet):win.name+' 님이 이겼습니다. −'+fmt(mine.bet)));raceDone=null;}};
+  if(!busy&&view!=='rooms')show('rooms');
+  if(view!=='rooms'){setTimeout(finish,Math.max(0,end-srvNow()));return;}
+  let seed=0;for(const ch of r.id)seed=(seed*31+ch.charCodeAt(0))>>>0;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+  const T=r.players.map((p,i)=>r.race.dur*(i===r.race.winner?.8+rand()*.04:.9+rand()*.1)),K=r.players.map(()=>2+Math.floor(rand()*3)),PH=r.players.map(()=>rand()*6.28);
+  $('#roomsBody').innerHTML=`<div class="room-box"><div class="eyebrow">${RICON[r.g]} ${RNAME[r.g]} · 판돈 ${fmt(r.pot)}</div><div class="race-track">${r.players.map(p=>`<div class="rc-lane ${p.sid===me?'me':''}"><span class="rc-name">${p.lane+1}. ${esc(p.name)}</span><div class="rc-road"><span class="rc-run" data-l="${p.lane}">${RICON[r.g]}</span></div></div>`).join('')}</div><div class="hint" id="rcMsg" style="text-align:center;font-size:15px">곧 출발합니다…</div></div>`;
+  const runs=[...document.querySelectorAll('#roomsBody .rc-run')];
+  const iv=setInterval(()=>{const t=srvNow()-r.race.startAt;const msg=$('#rcMsg');
+    if(t<0){if(msg)msg.textContent='출발 '+Math.ceil(-t/1000)+'초 전';return;}
+    if(msg&&msg.textContent!=='달리는 중!')msg.textContent='달리는 중!';
+    runs.forEach((el,i)=>{const u=Math.min(1,t/T[i]);const pos=Math.max(0,Math.min(1,u+.07*Math.sin(u*Math.PI*K[i]+PH[i])*(1-u)*Math.min(1,u*6)));el.style.left='calc('+(pos*100).toFixed(2)+'% - '+(pos*34).toFixed(1)+'px)';if(u>=1)el.classList.add('fin');});
+    if(t>=r.race.dur){clearInterval(iv);finish();}},50);}
+function paintRaceEnd(){const d=raceDone;if(!d)return;const r=d.r;
+  $('#roomsBody').innerHTML=`<div class="room-box" id="rcEnd"><div class="eyebrow">${RICON[r.g]} ${RNAME[r.g]} 결과</div><div class="loan-big" style="color:${d.iWon?'var(--brass2)':'#e08a80'}">${d.iWon?'승리! +'+fmt(r.pot-d.mine.bet):'패배 −'+fmt(d.mine.bet)}</div>
+    <p style="font-size:14px">🏆 <b>${esc(d.win.name)}</b> 님이 판돈 ${fmt(r.pot)}를 모두 가져갔습니다.</p>
+    <div class="room-players">${r.players.map(p=>`<div class="rp ${p.sid===S.me.sid?'me':''}"><span>${p.lane===r.race.winner?'🏆':RICON[r.g]} ${p.lane+1}번</span><b>${esc(p.name)}</b><span class="num">${fmt(p.bet)}</span><span class="${p.lane===r.race.winner?'pos':'neg'}">${p.lane===r.race.winner?'+'+fmt(r.pot-p.bet):'−'+fmt(p.bet)}</span></div>`).join('')}</div>
+    <button class="btn primary" type="button" id="rcOk">확인</button></div>`;
+  if(d.iWon)winFx($('#rcEnd'));
+  $('#rcOk').onclick=()=>{raceDone=null;roomsBuilt=false;renderRooms(true);};}
 
 /* ---------------- app install (PWA) ---------------- */
 (function(){

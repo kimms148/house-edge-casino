@@ -113,6 +113,26 @@ main{max-width:1180px;margin:0 auto;padding-block:22px 60px;padding-left:max(16p
 .nb-item{padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);white-space:pre-wrap;overflow-wrap:anywhere;font-size:14.5px;line-height:1.65}
 .nb-item small{display:block;color:var(--mute);font-size:12px;margin-bottom:4px}
 .linkbtn{background:none;border:0;color:var(--brass2);text-decoration:underline;cursor:pointer;font:inherit;padding:0}
+.pvp-card{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:linear-gradient(100deg,#1c2a22,#1b1d1f 60%);border:1px solid var(--brass);border-radius:8px;padding:14px 16px;margin-bottom:12px;color:var(--ink)}
+.pvp-card:hover{border-color:var(--brass2)}
+.pvp-card .pvp-ic{font-size:26px;white-space:nowrap}
+.pvp-card b{display:block;font-size:16px;color:var(--brass2)}.pvp-card small{display:block;font-size:12.5px;color:var(--mute);margin-top:2px}
+.pvp-card .pvp-n{margin-left:auto;font-size:12.5px;color:#74c79a;white-space:nowrap}
+.room-box{position:relative;overflow:hidden;display:grid;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;max-width:760px}
+.room-form{display:flex;gap:14px;flex-wrap:wrap}.room-form label{display:grid;gap:5px;font-size:12.5px;color:var(--mute)}
+.room-form select{background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:5px;padding:6px 8px;font-size:14px}
+.room-players{display:grid;gap:6px}
+.rp{display:grid;grid-template-columns:70px 1fr auto auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:13.5px}
+.rp.me{border-color:var(--brass)}.rp b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.room-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;font-size:13.5px;max-width:760px}
+.room-row small{display:block;color:var(--mute);font-size:12px;margin-top:2px}
+.race-track{display:grid;gap:8px}
+.rc-lane{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center}
+.rc-lane .rc-name{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mute)}.rc-lane.me .rc-name{color:var(--brass2)}
+.rc-road{position:relative;height:38px;background:#132019;border:1px solid var(--line);border-radius:6px;border-right:4px double #f1d9b0}
+.rc-run{position:absolute;left:0;top:3px;font-size:26px;line-height:30px;width:34px;text-align:center;transform:scaleX(-1);transition:left .08s linear}
+.rc-run.fin{filter:drop-shadow(0 0 6px #e9c46a)}
+@media(max-width:520px){.rc-lane{grid-template-columns:74px 1fr}.rp{grid-template-columns:54px 1fr auto;}.rp span:last-child{grid-column:2/4;font-size:12px;color:var(--mute)}}
 .loan-in{display:inline-flex;align-items:center;gap:4px;font-family:var(--f-num)}
 .loan-in input{width:108px;background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:5px;padding:5px 8px;font-family:var(--f-num);font-size:14px;text-align:right}
 .modal.notice{z-index:95;background:#000d}

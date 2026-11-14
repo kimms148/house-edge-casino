@@ -56,7 +56,13 @@
   <section class="view" id="v-lobby" hidden>
     <div class="lobby-head"><h1>오늘의 테이블</h1><div class="lobby-acts"><button type="button" class="btn invite-btn" id="inviteBtn">친구 초대하기</button><button type="button" class="btn" id="nickBtn">닉네임 변경</button></div></div>
     <button type="button" class="ad-slot" id="lobbyAd" hidden aria-label="대출소 광고"></button>
+    <button type="button" class="pvp-card" id="pvpBtn"><span class="pvp-ic" aria-hidden="true">🐎🐌</span><span><b>함께 경주</b><small>학생끼리 판돈을 걸고 달립니다. 이긴 한 명이 판돈을 모두 가져갑니다.</small></span><span class="pvp-n" id="pvpN"></span></button>
     <div class="games" id="games"></div>
+  </section>
+
+  <section class="view" id="v-rooms" hidden>
+    <div class="game-head"><button class="back" id="roomsBack" type="button">← 로비</button><h2>함께 경주</h2><span class="rule">이긴 한 명이 판돈을 모두 가져갑니다</span></div>
+    <div id="roomsBody"></div>
   </section>
 
   <section class="view" id="v-game" hidden>
@@ -170,6 +176,10 @@
           <div class="rig-list" id="opsList"></div>
         </div>
         <div class="abox">
+          <h3>함께 경주 방</h3>
+          <div id="roomsAdm" style="display:grid;gap:6px;font-size:12.5px"><span class="hint" style="color:var(--smute)">열린 방이 없습니다.</span></div>
+        </div>
+        <div class="abox">
           <h3>전체 공지</h3>
           <textarea id="ntText" maxlength="500" rows="3" aria-label="공지 내용" placeholder="모든 학생에게 보낼 공지를 적으세요" style="width:100%;background:var(--steel);border:1px solid var(--sline);color:var(--sink);border-radius:4px;padding:8px;font:inherit;font-size:13px;resize:vertical"></textarea>
           <div class="abtns" style="margin-top:6px;justify-content:space-between"><span class="hint" id="ntCount" style="color:var(--smute)">0 / 500</span><button type="button" class="abtn w" id="ntSend">공지 보내기</button></div>
@@ -211,6 +221,11 @@
   <div><button class="btn primary" type="button" id="nbClose">닫기</button></div>
 </div></div>
 <div id="reqAlert" aria-live="assertive"></div>
+<div id="voteModal" class="modal" hidden style="z-index:85"><div class="box" role="alertdialog" aria-modal="true" aria-labelledby="vtT" style="max-width:420px">
+  <div class="eyebrow">함께 경주</div><h2 id="vtT" style="font-size:20px">지금 시작할까요?</h2>
+  <p id="vtLead" style="font-size:14px;line-height:1.6"></p><div class="hint" id="vtCount"></div>
+  <div style="display:flex;gap:8px"><button class="btn primary" type="button" id="vtYes" style="flex:1">동의</button><button class="btn" type="button" id="vtNo" style="flex:1">거절</button></div>
+</div></div>
 <div id="noticeModal" class="modal notice" hidden><div class="box" role="alertdialog" aria-modal="true" aria-labelledby="ntT" style="max-width:520px">
   <div class="eyebrow">NOTICE</div><h2 id="ntT" style="font-size:22px">관리자 공지</h2>
   <div class="hint" id="ntMeta"></div>

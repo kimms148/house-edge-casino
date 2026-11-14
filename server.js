@@ -367,6 +367,60 @@ function abandonRound(u) {
   store.saveUser(u); pushBal(u.sid, {}); pushLog(u.sid); scheduleUsers(); scheduleRank();
 }
 
+/* ---------------- 함께 경주: 학생끼리 판돈을 걸고, 이긴 한 명이 모두 가진다 (하우스 몫 없음) ---------------- */
+const ROOMS = new Map(); let roomSeq = 0;
+const ROOM_CAP = { horse: 6, snail: 4 }, ROOM_WAIT = 60000, VOTE_TIME = 20000, RACE_MS = 12000, ROOM_MIN = 100;
+const roomOf = sid => [...ROOMS.values()].find(r => r.players.some(p => p.sid === sid)) || null;
+function roomView(r) {
+  const pot = r.players.reduce((s, p) => s + p.bet, 0);
+  return { id: r.id, g: r.g, host: r.host, min: r.min, cap: ROOM_CAP[r.g], state: r.state, pot, waitUntil: r.waitUntil, note: r.note || '',
+    players: r.players.map((p, i) => { const u = DB.users[p.sid]; return { sid: p.sid, name: u ? disp(u) : '?', lane: i, bet: p.bet, pct: pot ? Math.round(p.bet / pot * 1000) / 10 : 0 }; }),
+    vote: r.vote ? { until: r.vote.until, by: r.vote.by, yes: r.vote.yes, no: r.vote.no } : null,
+    race: r.race ? { winner: r.race.winner, startAt: r.race.startAt, dur: RACE_MS } : null };
+}
+const roomsMsg = () => ({ t: 'rooms', now: Date.now(), list: [...ROOMS.values()].map(roomView) });
+let roomsTimer = null;
+function pushRooms() { if (roomsTimer) return; roomsTimer = setTimeout(() => { roomsTimer = null; const m = JSON.stringify(roomsMsg()); for (const c of authed()) if (c.ws.readyState === 1) c.ws.send(m); }, 60); }
+function roomArm(r) { clearTimeout(r.timer); const until = r.state === 'vote' ? r.vote.until : r.waitUntil; r.timer = setTimeout(() => roomTick(r), Math.max(50, until - Date.now())); }
+// 1분이 지났는데 다 모이지 않았으면 지금 인원으로 시작할지 묻는다. 혼자면 계속 기다린다.
+function roomTick(r) {
+  if (!ROOMS.has(r.id)) return;
+  if (r.state === 'vote') return voteEnd(r, r.vote.yes.length > r.players.length / 2);
+  if (r.state !== 'wait') return;
+  if (r.players.length >= 2) return voteStart(r, 'time');
+  r.waitUntil = Date.now() + ROOM_WAIT; roomArm(r); pushRooms();
+}
+function voteStart(r, by) { r.state = 'vote'; r.note = ''; r.vote = { until: Date.now() + VOTE_TIME, by, yes: by === 'host' ? [r.host] : [], no: [] }; roomArm(r); pushRooms(); voteCheck(r); }
+// 과반수(절반 초과)가 동의하면 바로 시작, 과반수가 될 수 없게 되면 바로 부결
+function voteCheck(r) { const n = r.players.length, v = r.vote; if (v.yes.length > n / 2) return voteEnd(r, true); if (n - v.no.length <= n / 2) return voteEnd(r, false); }
+function voteEnd(r, ok) {
+  if (ok && r.players.length >= 2) return raceStart(r);
+  r.state = 'wait'; r.vote = null; r.note = '과반수가 동의하지 않아 더 기다립니다.'; r.waitUntil = Date.now() + ROOM_WAIT; roomArm(r); pushRooms();
+}
+function roomLeave(u) {
+  const r = roomOf(u.sid); if (!r || r.state === 'race') return false;
+  const p = r.players.find(x => x.sid === u.sid); r.players = r.players.filter(x => x.sid !== u.sid);
+  u.bal += p.bet; u.roomStake = 0; store.saveUser(u); pushBal(u.sid, {});
+  if (!r.players.length) { clearTimeout(r.timer); ROOMS.delete(r.id); }
+  else { if (r.host === u.sid) r.host = r.players[0].sid;
+    if (r.state === 'vote') { r.state = 'wait'; r.vote = null; r.note = '참가자가 나가서 투표를 취소했습니다.'; r.waitUntil = Date.now() + ROOM_WAIT; roomArm(r); } }
+  pushRooms(); scheduleUsers(); scheduleRank(); return true;
+}
+// 이길 확률은 건 돈에 비례한다. 결과는 출발할 때 정해지고, 돈도 그때 정산한다(화면에는 경주가 끝난 뒤 알린다).
+function raceStart(r) {
+  clearTimeout(r.timer); r.state = 'race'; r.vote = null; r.note = '';
+  r.players = r.players.filter(p => DB.users[p.sid]);
+  const pot = r.players.reduce((s, p) => s + p.bet, 0); let x = Math.random() * pot, w = r.players.length - 1;
+  for (let i = 0; i < r.players.length; i++) { x -= r.players[i].bet; if (x < 0) { w = i; break; } }
+  r.race = { winner: w, startAt: Date.now() + 2500 };
+  const done = [];
+  r.players.forEach((p, i) => { const u = DB.users[p.sid]; const pay = i === w ? pot : 0; u.roomStake = 0; u.bal += pay;
+    const h = record(u, r.g, p.bet, pay, false, 0); checkLate(u); const garn = pay ? garnish(u, pay - p.bet) : null; store.saveUser(u); done.push({ u, h, garn }); });
+  pushRooms();
+  setTimeout(() => { for (const d of done) { pushBal(d.u.sid, d.garn ? { h: d.h, garn: d.garn } : { h: d.h }); feedEvent(d.u, d.h); pushLog(d.u.sid); }
+    ROOMS.delete(r.id); pushRooms(); scheduleUsers(); scheduleRank(); }, RACE_MS + 2500);
+}
+
 function login(c, payload) {
   c.admin = !!payload.admin; c.sid = payload.sid || null;
   if (c.admin) { send(c, usersMsg()); send(c, { t: 'mail', list: mailList() }); send(c, { t: 'chats', chats: chatsForAdmin() }); send(c, { t: 'settings', settings: settings() }); send(c, noticesMsg()); }
@@ -374,7 +428,7 @@ function login(c, payload) {
     const lu = DB.users[c.sid]; send(c, { t: 'notice', list: unreadNotices(lu), all: allNotices() });
     if (lu.inbox && lu.inbox.length) { const l = lu.inbox; lu.inbox = []; store.saveUser(lu); l.forEach((x, i) => setTimeout(() => pushBal(lu.sid, x), 900 + i * 3800)); }
   }
-  send(c, rankData(c.admin));
+  send(c, rankData(c.admin)); send(c, roomsMsg());
   scheduleUsers();
 }
 
@@ -506,6 +560,40 @@ wss.on('connection', ws => {
         break;
       }
       case 'rank': send(c, rankData(c.admin)); break;
+      case 'room': {
+        if (!u) break; const op = String(m.op || ''); const err = msg => send(c, { t: 'roomerr', msg });
+        const guard = g => {
+          if (chatOf(u.sid) && chatOf(u.sid).open) return '관리자와 대화 중에는 참가할 수 없습니다.';
+          const pz = (DB.meta.cfg && DB.meta.cfg.paused) || {}; if (pz.all || (pz.games && pz.games[g])) return '지금은 관리자가 이 게임을 멈춰 두었습니다.';
+          if (loanExpired(u)) return '대출 사용 기간(24시간)이 끝났습니다. 대출 탭에서 갚아야 게임을 할 수 있습니다.';
+          if (roomOf(u.sid)) return '이미 참가 중인 방이 있습니다.';
+          return '';
+        };
+        if (op === 'create') {
+          const g = m.g === 'snail' ? 'snail' : 'horse', min = Math.floor(+m.min), bet = Math.floor(+m.bet); const e = guard(g); if (e) return err(e);
+          if (!(min >= ROOM_MIN)) return err('최소 베팅금은 ' + ROOM_MIN + 'P 이상이어야 합니다.');
+          if (min > u.bal) return err('최소 베팅금은 내 보유 포인트(' + u.bal.toLocaleString() + 'P)까지만 정할 수 있습니다.');
+          if (!(bet >= min)) return err('내 베팅금은 최소 베팅금 이상이어야 합니다.');
+          if (bet > u.bal) return err('보유 포인트가 부족합니다.');
+          u.bal -= bet; u.roomStake = bet; store.saveUser(u);
+          const r = { id: 'r' + (++roomSeq) + Date.now().toString(36), g, host: u.sid, min, players: [{ sid: u.sid, bet }], state: 'wait', waitUntil: Date.now() + ROOM_WAIT };
+          ROOMS.set(r.id, r); roomArm(r); pushBal(u.sid, {}); pushRooms(); scheduleUsers(); break;
+        }
+        if (op === 'join') {
+          const r = ROOMS.get(String(m.id)); if (!r || r.state !== 'wait') return err('이미 시작했거나 없어진 방입니다.');
+          const e = guard(r.g); if (e) return err(e);
+          if (r.players.length >= ROOM_CAP[r.g]) return err('방이 가득 찼습니다.');
+          const bet = Math.floor(+m.bet); if (!(bet >= r.min)) return err('이 방의 최소 베팅금은 ' + r.min.toLocaleString() + 'P입니다.');
+          if (bet > u.bal) return err('보유 포인트가 부족합니다.');
+          u.bal -= bet; u.roomStake = bet; store.saveUser(u); r.players.push({ sid: u.sid, bet }); r.note = ''; pushBal(u.sid, {});
+          if (r.players.length >= ROOM_CAP[r.g]) raceStart(r); else pushRooms(); scheduleUsers(); break;
+        }
+        const r = roomOf(u.sid); if (!r) return err('참가 중인 방이 없습니다.');
+        if (op === 'leave') { if (r.state === 'race') return err('경주가 시작되어 나갈 수 없습니다.'); roomLeave(u); break; }
+        if (op === 'start') { if (r.host !== u.sid) return err('방장만 시작을 요청할 수 있습니다.'); if (r.state !== 'wait') break; if (r.players.length < 2) return err('두 명 이상 모여야 시작할 수 있습니다.'); voteStart(r, 'host'); break; }
+        if (op === 'vote') { if (r.state !== 'vote') break; const v = r.vote; v.yes = v.yes.filter(x => x !== u.sid); v.no = v.no.filter(x => x !== u.sid); (m.yes ? v.yes : v.no).push(u.sid); pushRooms(); voteCheck(r); break; }
+        break;
+      }
       case 'nick': {
         if (!u) return;
         const nick = String(m.nick || '').trim();
@@ -686,6 +774,8 @@ wss.on('connection', ws => {
     // 진행 중이던 판의 창을 닫으면: 결과가 이미 정해진 판은 그 결과대로, 아니면 베팅을 돌려준다
     const u = c.sid && DB.users[c.sid];
     if (u && u.pending && u.pending.conn === c.id) abandonRound(u);
+    // 모든 창을 닫고 나가면 기다리던 방에서 빠지고 건 돈을 돌려받는다 (경주가 시작된 뒤에는 그대로 진행)
+    if (u && !userConns(u.sid).length) roomLeave(u);
     scheduleUsers();
   });
 });
@@ -705,7 +795,8 @@ setInterval(() => {
   if (!DB.meta.stable || !DB.meta.stable.horse) { DB.meta.stable = freshStable(); store.saveMeta('stable', DB.meta.stable); }
   for (const u of Object.values(DB.users)) { if (u.loan) { u.loanBy = Object.assign({}, u.loanBy, { gold: u.loan }); u.loan = null; }
     for (const l of Object.values(u.loanBy || {})) if (l) { if (!l.rate) l.rate = 0.2; if (!l.n) l.n = 1; }
-    u.stats = Object.assign(newStats(), u.stats || {}); u.hist = u.hist || []; if (u.pending) abandonRound(u); }
+    u.stats = Object.assign(newStats(), u.stats || {}); u.hist = u.hist || []; if (u.pending) abandonRound(u);
+    if (u.roomStake > 0) { u.bal += u.roomStake; u.roomStake = 0; store.saveUser(u); } }
   server.listen(PORT, () => console.log(`house-edge listening on :${PORT} (storage: ${store.kind}, users: ${Object.keys(DB.users).length})`));
 })().catch(e => { console.error(e); process.exit(1); });
 
