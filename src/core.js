@@ -8,7 +8,7 @@ const sfmt=n=>(n>0?'+':n<0?'−':'')+Math.abs(Math.floor(n)).toLocaleString('ko-
 const pfmt=v=>(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(1)+'%';
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const START=10000;
-const clsLabel=u=>`${u.grade}학년 ${u.cls}반 ${u.num}번`;
+const clsLabel=u=>u.practice?"연습 계정":`${u.grade}학년 ${u.cls}반 ${u.num}번`;
 function parseSid(sid){if(!/^\d{5}$/.test(sid))return null;const grade=+sid[0],cls=+sid.slice(1,3),num=+sid.slice(3,5);if(grade<1||grade>3||cls<1||cls>7||num<1||num>19)return null;return{grade,cls,num};}
 const dispName=u=>u.nick||u.name;
 // invite code from a friend's link (?inv=...) is kept until signup
@@ -82,7 +82,7 @@ function resolve(g,bet,gen,payOf){
 }
 // tell the server the result as soon as it is fixed, so leaving mid-round settles this result instead of losing the bet
 function commitRound(pay,manip,fairPay,winner){pay=Math.max(0,Math.floor(pay||0));svSend({t:'commit',pay,manip:!!manip,d:manip?pay-Math.floor(fairPay||0):0,winner:Number.isInteger(winner)?winner:undefined});}
-const isPaused=g=>{const p=CFG.paused||{};return !!(p.all||(p.games&&p.games[g]));};
+const isPaused=g=>{if(S.me&&S.me.practice)return false;const p=CFG.paused||{};return !!(p.all||(p.games&&p.games[g]));};
 function applyCfg(d){
   if(!d||typeof d!=='object')return;
   if((+d.v||0)<(+CFG.v||0))return;

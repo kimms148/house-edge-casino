@@ -103,7 +103,7 @@ const byInv = code => Object.values(DB.users).find(x => x.inv && x.inv === code 
 function newStats() { const g = {}; for (const k of GAMES) g[k] = { n: 0, w: 0, net: 0, wag: 0 }; return { rounds: 0, wins: 0, net: 0, wag: 0, manip: 0, md: 0, games: g }; }
 function publicUser(u) {
   const ch = chatOf(u.sid);
-  return { sid: u.sid, name: u.name, nick: u.nick || '', inv: invOf(u), invites: u.invites || 0, inviteReward: settings().inviteReward, nickCost: NICK_COST, credit: creditInfo(u), garnish: settings().garnish, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: loanSummary(u), lenders: lenderState(u), stats: u.stats, hist: u.hist.slice(-300), chat: ch && ch.open ? { open: true, msgs: ch.msgs } : null };
+  return { sid: u.sid, name: u.name, practice: !!u.practice, nick: u.nick || '', inv: invOf(u), invites: u.invites || 0, inviteReward: settings().inviteReward, nickCost: NICK_COST, credit: creditInfo(u), garnish: settings().garnish, grade: u.grade, cls: u.cls, num: u.num, bal: u.bal, start: userStart(u), loan: loanSummary(u), lenders: lenderState(u), stats: u.stats, hist: u.hist.slice(-300), chat: ch && ch.open ? { open: true, msgs: ch.msgs } : null };
 }
 function issueToken(payload) {
   const t = crypto.randomBytes(24).toString('base64url');
@@ -293,7 +293,7 @@ function usersMsg() {
     loanStats: (u.loansArchived || []).concat(u.loans || []).reduce((a, l) => { a.n++; a.lent += l.principal; if (l.repaidAt) { a.repaid += l.principal; a.interest += (l.paid || l.principal) - l.principal; } if (l.forgivenAt) a.forgiven += l.principal; return a; }, { n: 0, lent: 0, repaid: 0, interest: 0, forgiven: 0 }),
   })).sort((a, b) => b.online - a.online || a.cls - b.cls || a.num - b.num);
   const reqs = Object.values(DB.users).filter(u => !isApproved(u)).sort((a, b) => a.created - b.created)
-    .map(u => { const iv = u.ref && DB.users[u.ref]; return { sid: u.sid, name: u.name, nick: u.nick || '', grade: u.grade, cls: u.cls, num: u.num, created: u.created, ref: iv ? iv.name + ' (' + iv.sid + ')' : '' }; });
+    .map(u => { const iv = u.ref && DB.users[u.ref]; return { sid: u.sid, name: u.name, practice: !!u.practice, nick: u.nick || '', grade: u.grade, cls: u.cls, num: u.num, created: u.created, ref: iv ? iv.name + ' (' + iv.sid + ')' : '' }; });
   return { t: 'users', users, reqs };
 }
 let usersTimer = null;
@@ -421,6 +421,14 @@ function raceStart(r) {
     ROOMS.delete(r.id); pushRooms(); scheduleUsers(); scheduleRank(); }, RACE_MS + 2500);
 }
 
+// 연습 계정: 아이디 practice. 관리자가 게임을 멈춰도 플레이할 수 있고, 랭킹에는 나오지 않는다. 없으면 만든다.
+function ensurePractice() {
+  if (DB.users.practice) { DB.users.practice.practice = true; return; }
+  const salt = crypto.randomBytes(16).toString('hex'), sb = settings().startBal;
+  const u = { sid: 'practice', name: '연습', grade: 0, cls: 0, num: 0, salt, hash: hashPw('1111', salt), bal: sb, start: sb, stats: newStats(), hist: [], sessions: [], created: Date.now(), approved: true, practice: true };
+  DB.users.practice = u; store.saveUser(u);
+}
+
 function login(c, payload) {
   c.admin = !!payload.admin; c.sid = payload.sid || null;
   if (c.admin) { send(c, usersMsg()); send(c, { t: 'mail', list: mailList() }); send(c, { t: 'chats', chats: chatsForAdmin() }); send(c, { t: 'settings', settings: settings() }); send(c, noticesMsg()); }
@@ -517,7 +525,7 @@ wss.on('connection', ws => {
         if (u.pending) return send(c, { t: 'betno', msg: '다른 창에서 진행 중인 판이 있습니다.' });
         if (chatOf(u.sid) && chatOf(u.sid).open) return send(c, { t: 'betno', msg: '관리자와 대화 중에는 게임을 할 수 없습니다.' });
         const pz = (DB.meta.cfg && DB.meta.cfg.paused) || {};
-        if (pz.all || (pz.games && pz.games[g])) return send(c, { t: 'betno', msg: pz.all ? '지금은 관리자가 모든 게임을 멈춰 두었습니다.' : '지금은 관리자가 이 게임을 멈춰 두었습니다.' });
+        if (!u.practice && (pz.all || (pz.games && pz.games[g]))) return send(c, { t: 'betno', msg: pz.all ? '지금은 관리자가 모든 게임을 멈춰 두었습니다.' : '지금은 관리자가 이 게임을 멈춰 두었습니다.' });
         if (loanExpired(u)) return send(c, { t: 'betno', msg: '대출 사용 기간(24시간)이 끝났습니다. 대출 탭에서 갚아야 게임을 할 수 있습니다.', loan: true });
         if (bet > u.bal) return send(c, { t: 'betno', msg: '보유 포인트가 부족합니다.', bal: u.bal });
         u.bal -= bet; u.pending = { g, bet, conn: c.id, t: Date.now() };
@@ -564,7 +572,7 @@ wss.on('connection', ws => {
         if (!u) break; const op = String(m.op || ''); const err = msg => send(c, { t: 'roomerr', msg });
         const guard = g => {
           if (chatOf(u.sid) && chatOf(u.sid).open) return '관리자와 대화 중에는 참가할 수 없습니다.';
-          const pz = (DB.meta.cfg && DB.meta.cfg.paused) || {}; if (pz.all || (pz.games && pz.games[g])) return '지금은 관리자가 이 게임을 멈춰 두었습니다.';
+          const pz = (DB.meta.cfg && DB.meta.cfg.paused) || {}; if (!u.practice && (pz.all || (pz.games && pz.games[g]))) return '지금은 관리자가 이 게임을 멈춰 두었습니다.';
           if (loanExpired(u)) return '대출 사용 기간(24시간)이 끝났습니다. 대출 탭에서 갚아야 게임을 할 수 있습니다.';
           if (roomOf(u.sid)) return '이미 참가 중인 방이 있습니다.';
           return '';
@@ -703,7 +711,7 @@ wss.on('connection', ws => {
           for (const o of conns) if (o.sid) { send(o, { t: 'kicked' }); o.sid = null; }
           DB.meta.stable = freshStable(); store.saveMeta('stable', DB.meta.stable);
           pushMail(); for (const o of admins()) send(o, { t: 'chats', chats: chatsForAdmin() });
-          scheduleUsers(); scheduleRank(); return ack(true, '학생 ' + sids.length + '명의 계정과 기록을 모두 삭제했습니다.');
+          ensurePractice(); scheduleUsers(); scheduleRank(); return ack(true, '학생 ' + sids.length + '명의 계정과 기록을 모두 삭제했습니다.');
         }
         if (m.op === 'adminpw') {
           const np = String(m.pw || '');
@@ -797,6 +805,7 @@ setInterval(() => {
     for (const l of Object.values(u.loanBy || {})) if (l) { if (!l.rate) l.rate = 0.2; if (!l.n) l.n = 1; }
     u.stats = Object.assign(newStats(), u.stats || {}); u.hist = u.hist || []; if (u.pending) abandonRound(u);
     if (u.roomStake > 0) { u.bal += u.roomStake; u.roomStake = 0; store.saveUser(u); } }
+  ensurePractice();
   server.listen(PORT, () => console.log(`house-edge listening on :${PORT} (storage: ${store.kind}, users: ${Object.keys(DB.users).length})`));
 })().catch(e => { console.error(e); process.exit(1); });
 
